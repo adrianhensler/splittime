@@ -55,10 +55,11 @@ checkpoint says what its milestone still owes.
 
 ## Completion and next finish lines
 
-Assessment dated 2026-10-12, against application code at `f68d70a` and the
-live review record in [PR #10](https://github.com/adrianhensler/splittime/pull/10).
-This supplements the merged-only table above; fetch the PR before treating
-this dated checkpoint as current.
+Assessment dated 2026-10-12, including the integrated POC in
+[PR #10](https://github.com/adrianhensler/splittime/pull/10) and the prefix slice
+in [PR #13](https://github.com/adrianhensler/splittime/pull/13), merged at
+`d096489`. This is an evidence snapshot; Git history and the PR list remain
+the source for subsequent changes.
 
 The local capture-to-comparison POC runs. The original two-friend v1 is not
 complete: deployment and field validation remain, and some promised features
@@ -67,9 +68,9 @@ completion percentage.
 
 | Packet | Implemented and evidenced | Still needed for its full acceptance |
 |---|---|---|
-| WP-001 / baseline | Imported, independently reviewed and merged | Docker runtime is not established by the import checks |
-| WP-002 / two drivers | Two listeners, isolated trackers, migration and attribution; repaired configuration/source handling independently re-checked | Integration merge; two real drivers and internet delivery validation in WP-003; inherited reordered UDP can duplicate laps |
-| WP-003 / deploy and captures | One owner-confirmed local Rivals capture; exact game time and capture-derived start repair | Whole-app prefix/WebSocket and Docker checks; access-controlled deployment; second driver; event matrix, internet timing and free-roam/storage measurements |
+| WP-001 / baseline | Imported, independently reviewed and merged; Docker recording smoke self-checked by Opus in PR #13 | Container smoke is not independent deployment verification |
+| WP-002 / two drivers | Integrated two listeners, isolated trackers, migration and attribution; repaired configuration/source handling independently re-checked | Two real drivers and internet delivery validation in WP-003; inherited reordered UDP can duplicate laps |
+| WP-003 / deploy and captures | One owner-confirmed local Rivals capture; exact game time and start repair; prefix URLs and app-side HTTP/WebSocket routing independently checked; Docker/browser smoke self-checked | Real proxy upgrade/authentication; access-controlled deployment; second driver; event matrix, internet timing and free-roam/storage measurements; remove upstream browser update check |
 | WP-004 / rivalry | Recorded route/class attempts, driver/car/PI labels, candidate bests and exploratory comparison | Quality/timing provenance propagated into rivalry records; event-mode/equivalence evidence; ranked rules, scoring and dated record history |
 | WP-005 / corners | API wired into the app; measurements, trace links and comparison warnings; synthetic checks and one real trace | Persist a stable reference/numbering; verify direction and sensible boundaries; two real laps/cross-car alignment; forward clock discontinuities |
 | WP-006 / summary | Comparison page with overlays and largest corner differences | Complete route summary and selected-lap analysis links; per-driver/total storage display; deployed prefix validation |
@@ -79,13 +80,12 @@ completion percentage.
 This is a smaller proposed finish line within v1, not a claim that the
 remaining v1 criteria have been removed.
 
-1. **Integrate the reviewed POC.** Opus approved application checkpoint
-   `f68d70a`, including `175bffe` (first-start repair) and `f09c3ec` (UI),
-   with no blocking findings. Review any later code/process changes;
-   green checks; final durable packet records; reviewed merge of PR #10.
-   Retain source PRs until that succeeds.
+1. **Integrated POC and prefix slice: merged.** PR #10 supplied the runnable
+   build and first-start repair. PR #13 adds relative URLs with independent
+   app routing checks and green CI. Their remaining field/deployment limits
+   stay in the packet; integration is no longer an outstanding step.
 2. **Make the private installation work normally.** All pages/APIs/WebSockets
-   under the configured prefix, Docker smoke, gateway/access and management
+   through the real proxy prefix, gateway/access and management
    isolation checks, correct driver labels, and clear separation of seeded
    examples from game recordings. Application/configuration work may proceed
    in the repo; host/gateway/firewall changes require their existing authority.
@@ -123,7 +123,7 @@ progress on two humans' availability.
 | R4 | A game update changes the packet. | Wrong-size counter visible on a status page | M1 |
 | R5 | Upstream moves on and our copy drifts. | Keep edits to upstream files small; record syncs in UPSTREAM.md | Ongoing |
 | R6 | Corner boundaries differ between cars or lines, so numbering is unstable. | Derive corners once per route from a reference lap, not per lap | M4 |
-| R7 | Serving under a URL prefix touches many upstream frontend files, which works against R5. | Route every request through one helper; measure the diff size | M2 |
+| R7 | Serving under a URL prefix touches upstream frontend files, which works against R5. | Keep URLs relative; PR #13 adds a regression guard; review later upstream diffs | M2 |
 | R8 | Inside a container the app may see Docker's bridge address instead of the driver's IP. | Check the logged source address on the first real packets | M2 |
 
 ## Deferred

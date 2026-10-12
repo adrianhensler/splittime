@@ -54,8 +54,10 @@ Driver B  FH6 Data Out ──UDP :10000─┘        (size check, parse)        
 - HTTP is reachable only by the web server in front, which terminates TLS and
   restricts access. The app's API has no authentication of its own and exposes
   delete, edit and reprocess endpoints, so it must never be reachable directly.
-- The app can be served under a URL prefix such as `/splittime/`, set by
-  configuration, with no prefix as the default.
+- The app can be served at the root or under a URL prefix such as
+  `/splittime/`. Pages use relative URLs; no application prefix setting is
+  needed. The proxy strips the prefix for HTTP and WebSocket requests and
+  redirects the bare prefix `/splittime` to `/splittime/`.
 - Nothing in the software refers to a particular host or site. What travels
   where is set out in [DATA_FLOW.md](DATA_FLOW.md).
 - The base is LapScope, which already provides parsing, session tracking, lap

@@ -199,8 +199,15 @@ Pitfalls:
 
 - The app rejects requests whose `Host` it does not recognise. Add the public
   hostname to its allowed-hosts setting (`LS_ALLOWED_HOSTS` upstream).
-- **Serving under a path** such as `/splittime/` needs the URL-prefix support
-  planned for WP-003. Until then use a hostname of its own.
+- **Serving under a path** such as `/splittime/` works with relative page,
+  asset, API and WebSocket URLs; there is no application prefix setting.
+  Strip `/splittime` before forwarding requests, including
+  `/splittime/ws/live` to `/ws/live`. Redirect the bare `/splittime` URL to
+  `/splittime/` so the browser resolves relative URLs inside the prefix.
+  Apply the same authentication gate and allowed-host setting as for root
+  hosting. App routing was independently checked at root and under single
+  and nested prefixes in [PR #13](https://github.com/adrianhensler/splittime/pull/13);
+  the real proxy's authentication and WebSocket upgrade still need checking.
 - The upgrade headers are needed for the WebSocket.
 - On SELinux systems nginx needs `setsebool -P httpd_can_network_connect 1`.
 - Confirm `curl http://<server-ip>:8000/` from outside fails.
