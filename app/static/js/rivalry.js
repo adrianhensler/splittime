@@ -9,6 +9,8 @@
   return Math.floor(ms/60000)+":"+String(Math.floor((ms%60000)/1000)).padStart(2,"0")+
    "."+String(ms%1000).padStart(3,"0");
  };
+ // the game never says what kind of event a lap came from; the server guesses
+ const event=lap=>({rivals:"probably Rivals",race:"race (other cars ahead)"}[lap.event_mode]||"unknown");
  let data=null;
  function render(){
   const groups=Array.isArray(data?.categories)?data.categories:[];
@@ -42,7 +44,8 @@
     const css=state==="candidate"?"ok":"warn";
     return '<tr><td>'+esc(lap.driver_name||lap.driver_id)+'</td><td>'+
      fmt(lap.time_s)+'</td><td class="'+css+'">'+esc(state)+'</td><td>'+
-     esc(lap.started_at_utc||"unknown")+'</td><td>'+esc(lap.car_pi??"?")+'</td></tr>';
+     esc(lap.started_at_utc||"unknown")+'</td><td>'+esc(lap.car_pi??"?")+'</td><td>'+
+     esc(event(lap))+'</td></tr>';
    }).join("");
    const uncertainty=(Array.isArray(group.uncertainty)?group.uncertainty:[])
     .map(s=>esc(String(s).replaceAll("_"," "))).join("; ");
@@ -56,7 +59,7 @@
     ' attempts</p></div><span class="pill">Unverified · no winner</span></div>'+
     '<div class="cards">'+cards+'</div>'+comparison+'<details><summary>Inspect attempts and missing evidence ('+
     laps.length+')</summary><p class="muted">'+uncertainty+'</p><div class="table"><table><thead><tr>'+
-    '<th>Driver</th><th>Lap time</th><th>Status</th><th>Started (UTC)</th><th>PI</th>'+
+    '<th>Driver</th><th>Lap time</th><th>Status</th><th>Started (UTC)</th><th>PI</th><th>Event (guess)</th>'+
     '</tr></thead><tbody>'+rows+'</tbody></table></div></details></article>';
   }).join("")||'<div class="empty">No routes match this filter.</div>';
  }
