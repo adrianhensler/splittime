@@ -54,11 +54,11 @@ and remains the default.
 
 ## Claims
 
-See the pull request named under Checkpoint.
+See PR #22.
 
 ## Evidence
 
-See the pull request named under Checkpoint.
+See PR #22.
 
 ## Known, unknown, unproven
 
@@ -78,7 +78,7 @@ See the pull request named under Checkpoint.
 ## Checkpoint
 
 Checkpoint owner: Claude Opus 5.5. Repository `adrianhensler/splittime`, branch
-`feat/collector-split`, draft pull request pending number. Pushed; not merged;
+`feat/collector-split`, draft [PR #22](https://github.com/adrianhensler/splittime/pull/22). Pushed; not merged;
 not deployed. Last check: worker's own lint, full pytest and a two-process
 simulator run, 2026-10-12. Unresolved criteria: 7. Next action: independent
 review of the draft pull request; then the owner decides on cutover using the
