@@ -161,3 +161,61 @@ def test_websocket_host_gate_rejects_rebinding_name():
     from app.main import host_allowed, origin_allowed
     assert origin_allowed("https://attacker.invalid", "attacker.invalid")
     assert not host_allowed("attacker.invalid")
+
+
+def test_real_loopback_udp_sockets_share_sender_but_keep_driver_separate(tmp_path):
+    """Exercise two actual asyncio UDP sockets, not only direct callbacks."""
+    import asyncio
+    import socket
+    from app.telemetry.hub import Hub
+    from app.telemetry.listener import TelemetryProtocol
+
+    store = Store(str(tmp_path / "socket.db"))
+    store.register_drivers(specs())
+    hubs = {d.id: Hub() for d in specs()}
+    trackers = {d.id: SessionTracker(DriverScopedStore(store, d.id)) for d in specs()}
+
+    async def exercise():
+        loop = asyncio.get_running_loop()
+        transports = {}
+        sender = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        try:
+            for ident in ("alpha", "beta"):
+                transport, _ = await loop.create_datagram_endpoint(
+                    lambda ident=ident: TelemetryProtocol(
+                        hubs[ident], trackers[ident], ident),
+                    local_addr=("127.0.0.1", 0),
+                )
+                transports[ident] = transport
+            packet = empty_fields()
+            packet.update(is_race_on=1, car_ordinal=123, car_class=3,
+                          car_pi=800, drivetrain_type=2, race_position=1)
+            raw = pack(packet)
+            # One sender socket (same IP *and source UDP port*) targets two
+            # distinct local listener ports: destination decides identity.
+            for ident in ("alpha", "beta"):
+                sender.sendto(raw, transports[ident].get_extra_info("sockname"))
+            await asyncio.sleep(0.1)
+            assert hubs["alpha"].packets_total == 1
+            assert hubs["beta"].packets_total == 1
+            sessions = {row["driver_id"]: row for row in store.list_sessions()}
+            assert set(sessions) == {"alpha", "beta"}
+            assert sessions["alpha"]["source_addr"] == sessions["beta"]["source_addr"]
+
+            # One feed may stop without stopping the other stream.
+            transports["alpha"].close()
+            sender.sendto(raw, transports["beta"].get_extra_info("sockname"))
+            await asyncio.sleep(0.1)
+            assert hubs["alpha"].packets_total == 1
+            assert hubs["beta"].packets_total == 2
+        finally:
+            sender.close()
+            for transport in transports.values():
+                transport.close()
+
+    try:
+        asyncio.run(exercise())
+    finally:
+        for tracker in trackers.values():
+            tracker.shutdown(999.0)
+        store.close()
