@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | partial; reviewed module wired into PR #10, stable reference and real two-lap accuracy criteria incomplete |
+| Status | partial; reviewed module merged in PR #10, stable reference and real two-lap accuracy criteria incomplete |
 | Parent | WP-000 |
 | Children | none |
 | Worker | Codex (integration checkpoint owner); original module by Opus 5.5 |
@@ -148,10 +148,11 @@ the user's judgment. Test extended in `test_reference_lap_prefers_clean_over_fas
 
 ## Checkpoint
 
-Source PR #5 remains open for history. Opus merged `c29fdcc` into PR #10 at
+Historical source review: Opus merged `c29fdcc` into PR #10 at
 `7c81323`; both API safeguards and driver attribution are retained in code
 head `f68d70a`. `app/main.py` includes the router and the rivalry page links
-to `compare.html`. See PR #10 for live integration/capture evidence.
+to `compare.html`. PR #10 merged at `0015f01`; source PR #5 closed as
+superseded. See WP-003 for later deployment evidence.
 
 Next: obtain a second real lap, verify a labelled known turn, check boundaries
 and alignment, and persist a deliberate route reference before calling corner
@@ -168,5 +169,5 @@ behaviour, not real direction/accuracy or completion of the full packet.
 
 ## Acceptance
 
-Pending reviewed integration merge. Stable references and real two-lap
+Reviewed corner POC admitted by PR #10's merge at `0015f01`. Stable references and real two-lap
 acceptance checks remain open.

@@ -89,7 +89,8 @@ certificates and port 443. The app binds HTTP on loopback only.
 
 Access control is done there too, because the app's API has no authentication
 and includes delete, edit and reprocess. On the owner's system this is the
-existing gateway's login gate (ADR 17).
+existing gateway's login gate (ADR 17). ADR 23 records the later distinction
+between public viewing and protected management in the reference deployment.
 
 ## 7. Record events only
 
@@ -311,3 +312,22 @@ This does not change what v1 is for. The product is still the after-race
 comparison, and nothing about the Live page is an acceptance criterion.
 
 *Rests on:* 16. *Work:* WP-006 (optional Live view).
+
+## 23. Record public viewing separately from protected management
+
+**Proposed, 2026-10-12** (documentation reconciliation after PR #16 review).
+
+The checked reference deployment already makes GET/HEAD and browser WebSocket
+viewing public, following the owner's public projects-page request. Every other
+HTTP method requires the expected Origin, gateway login and `splittime` service
+grant. The original private-site wording in DESIGN and ADR 6 omitted this split.
+
+The public read scope includes CSV exports and packet-field telemetry, not just
+page summaries. This entry documents the deployed scope; it does not grant new
+publication authority or claim the owner separately approved every export
+endpoint. Restricting export access would require a separate gateway change.
+The app itself remains unauthenticated behind the gateway; no access rule is
+changed by this documentation repair. Host-specific evidence stays in the
+[hosting record](hosting/test-hensler-work.md).
+
+*Rests on:* 6, 17, 22. *Revisit if* the intended public data scope changes.

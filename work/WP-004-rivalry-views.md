@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | partial; repaired exploratory API/page in PR #10, ranked rivalry/history not implemented |
+| Status | partial; reviewed exploratory API/page merged in PR #10, ranked rivalry/history not implemented |
 | Parent | WP-000 |
 | Children | none |
 | Worker | Codex (checkpoint owner); original implementation by GPT-6 |
@@ -105,7 +105,8 @@ provenance, use a shared car-name resolver and round displayed times to millisec
 Re-run `python -m pytest -q tests/test_rivalry.py tests/test_rivalry_review.py`.
 The repaired base and both source fixes are included at `f68d70a` in PR #10.
 Opus independently re-checked source repairs and later UI changes at `f68d70a`.
-Next: integrate; then propagate verified timing and
+PR #10 merged the reviewed exploratory slice at `0015f01`; source PRs #7 and
+#9 closed as superseded. Next: propagate verified timing and
 capture quality into the rivalry projection. It still emits quality/timing
 and event-mode unknowns. Ranked rules/equivalence and history remain open.
 
@@ -119,13 +120,13 @@ checks at `f68d70a`. Full real-game comparison remains unverified.
 
 ## Acceptance
 
-Pending reviewed integration merge; the full scoring/history and real-route
-criteria remain incomplete even after the current POC merges.
+Reviewed exploratory POC admitted by PR #10's merge at `0015f01`; the full
+scoring/history and real-route criteria remain incomplete.
 
 ## Integration checkpoint, 2026-10-12
 
 PR #7 repair `fe27989` and repaired backend merge `8684f17` are included in
-the PR #10 branch. The page remains in PR #9 and is also in PR #10. Fetch and
-check both PRs before editing; original API/page commits `5d09fd1` / `6ad4b57`
-are historical baselines. Review the combined fixes before merging; competitive
-scoring, real captures and deployment are still unverified.
+the PR #10 branch, subsequently merged at `0015f01`. Source PRs #7 and #9
+closed as superseded; original API/page commits `5d09fd1` / `6ad4b57` are
+historical baselines. Competitive scoring and real two-driver route equivalence
+remain unverified; later deployment evidence is in WP-003.

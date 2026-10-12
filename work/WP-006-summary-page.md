@@ -143,6 +143,14 @@ No full route-summary/storage acceptance is implied by optional Live viewing.
 
 ## Verification
 
+PR #17 accessibility follow-up (Codex, 2026-10-12): card accessible names now
+include the displayed lap times and current speed, plus state and selection
+action. A paused feed removes speed from its accessible name. The new
+regression in `tests/ui/liveview.test.cjs` passes; the focused suite has 13
+passing tests. This is a self-check, not an independent screen-reader test.
+Independent review and merge of this cleanup remain pending; no deployment
+is claimed by these edits.
+
 Historical integration self-checks at `f68d70a`: 223 Python and
 12 Node UI tests, Ruff, packet round trip and browser rendering passed. Opus
 independently reviewed the earlier integration and source page; later UI

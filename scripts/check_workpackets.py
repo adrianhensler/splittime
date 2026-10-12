@@ -60,7 +60,15 @@ def evidence_rows(text: str, prefix: str, columns: int) -> bool:
 def check(changed: list[str], body: str, draft: bool, root: Path) -> list[str]:
     if not any(product_file(path) for path in changed):
         return []
-    declaration = re.search(r"^Workpackets:\s*(.+)$", body, re.MULTILINE)
+    declaration = re.search(r"^Workpackets:[ \t]*(.*?)\r?$", body, re.MULTILINE)
+    scope = declaration[1].strip() if declaration else ""
+    if re.match(r"none\b", scope, re.IGNORECASE):
+        # Trivial changes need no packet; the reviewer judges the reason.
+        if (re.fullmatch(r"none\s*[—-]\s*\S.*", scope, re.IGNORECASE)
+                and not re.search(r"WP-\d{3}", scope)):
+            return []
+        return ["Use Workpackets: none — <reason> for a trivial change; "
+                "do not combine an exemption with packet IDs."]
     declared = set(re.findall(r"WP-\d{3}", declaration[1])) if declaration else set()
     required = {packet for packet, patterns in SCOPES.items()
                 if any(fnmatch(path, pattern) for path in changed for pattern in patterns)}

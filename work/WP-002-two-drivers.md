@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | implemented and repaired in PR #10; integration admission pending |
+| Status | reviewed two-driver POC merged in PR #10; real two-driver field validation remains in WP-003 |
 | Parent | WP-000 |
 | Children | none |
 | Worker | Codex (checkpoint owner); original implementation by GPT-6 |
@@ -74,13 +74,14 @@ Final application snapshot at `f68d70a`; live discussion is in PR #10.
 
 ## Unresolved
 
-Real-game and deployment checks remain unverified. Review also reported an
+Real two-driver field checks remain unverified; the shared deployment is
+recorded in WP-003. Review also reported an
 inherited detector issue: out-of-order UDP near a lap boundary can duplicate
 laps. Detector changes require a capture and remain separate from these fixes.
 
 ## Checkpoint
 
-Baseline is merged at `ad4551b`. Branch `feat/gpt6-two-driver-backend`,
+Historical source checkpoint: baseline was merged at `ad4551b`. Branch `feat/gpt6-two-driver-backend`,
 [PR #6](https://github.com/adrianhensler/splittime/pull/6), holds implementation
 and the live review record. Repairs cover atomic port changes, driver-scoped
 grouping and bounded source tracking. Reproducer regressions are
@@ -89,9 +90,11 @@ six Python cases failed before the fix. Re-run
 `python -m pytest -q tests/test_driver_review.py tests/test_multi_driver.py`
 and `node --test tests/ui/driver-groups.test.cjs`.
 These repairs are included in integration code head `f68d70a`; propagation
-through PR #7 and final application review are done. Next: fetch PR #10,
-check later changes, integrate after green checks, then perform WP-003's
-shared-use checks. Main is still `ad4551b`; no shared deployment is claimed.
+through PR #7 and final application review are done. PR #10 subsequently merged
+at `0015f01`; source PR #6 closed as superseded. The reviewed integration is
+admitted under ADR 20. Shared deployment evidence is in WP-003.
+Next: validate fresh real captures from both drivers and the remaining field
+matrix in WP-003; the historical integration step is complete.
 
 ## Verification
 
@@ -101,12 +104,13 @@ on `7c81323`; his combined 19 adverse tests passed 18, with only inherited UDP
 reordering failing. His final `f68d70a` review checked the first-start predicate:
 eight of nine new tests pass; a hypothetical reset one frame after crossing
 still falsely marks a clean lap suspect. Do not widen without capture evidence.
-No integration admission or shared deployment is claimed.
+These are historical source-review results. Integration admission is the
+reviewed PR #10 merge; later deployment verification is recorded in WP-003.
 
 ## Acceptance
 
-Pending reviewed integration merge. Source repairs have been re-reviewed;
-full real-use criteria remain separate open checks.
+Reviewed two-driver POC and source repairs admitted by PR #10's merge at
+`0015f01`. Full real-use criteria remain separate open checks in WP-003.
 
 ## Integration checkpoint, 2026-10-12
 
@@ -119,8 +123,8 @@ contact and the exact lap time. Live data is untouched; no raw capture is in Git
 Capture-derived validation is limited to this one run, not cross-driver fairness.
 
 Repair commit `8ab5ee2` from PR #6 is now included in the PR #10 branch through
-the repaired PR #7 merge `8684f17`. Fetch current refs and inspect
-[PR #10](https://github.com/adrianhensler/splittime/pull/10) before continuing;
-the earlier `3ed8f6c` checkpoint predates these review fixes. Main and deployment
-remain unchanged. Prior recovery-only results are preserved in the Workpacket
+the repaired PR #7 merge `8684f17`, then merged to main in
+[PR #10](https://github.com/adrianhensler/splittime/pull/10) at `0015f01`.
+The earlier `3ed8f6c` checkpoint predates these review fixes. Later deployment
+is recorded in WP-003. Prior recovery-only results are preserved in the Workpacket
 takeaways and the PR history.

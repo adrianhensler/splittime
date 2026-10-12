@@ -77,3 +77,24 @@ def test_empty_evidence_cells_do_not_count_as_final(tmp_path):
 
 def test_docs_only_change_does_not_require_a_product_packet(tmp_path):
     assert guard.check(["docs/WORKPACKETS.md"], "", False, tmp_path) == []
+
+
+@pytest.mark.parametrize("declaration", [
+    "Workpackets: none — Correct one label typo.",
+    "Workpackets: none - Correct one label typo.\r\nValidation: UI tests.",
+])
+def test_explicit_trivial_change_exemption_needs_no_packet(tmp_path, declaration):
+    assert guard.check(["app/static/index.html"], declaration, False, tmp_path) == []
+
+
+@pytest.mark.parametrize("declaration", [
+    "Workpackets: none", "Workpackets: none —   ",
+    "Workpackets: none\nReason: Correct one label typo.",
+    "Workpackets: none — Correct label; WP-002",
+])
+def test_exemption_requires_a_reason_on_the_same_line_without_packet_ids(tmp_path, declaration):
+    assert guard.check(["app/telemetry/listener.py"], declaration, False, tmp_path)
+
+
+def test_empty_declaration_cannot_borrow_packet_ids_from_the_next_line(tmp_path):
+    assert run(tmp_path, body="Workpackets:\nUnrelated: WP-002")
