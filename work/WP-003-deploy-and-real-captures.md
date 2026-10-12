@@ -177,18 +177,47 @@ clock restarts. The recorder stored both stretches as incomplete laps, the
 first flagged `contact`.
 
 [PR #19](https://github.com/adrianhensler/splittime/pull/19) adds
-`_drop_parked_lap` in `app/recorder/laps.py`: an untimed lap that follows a
-timed one is deleted when it moved under 25 odometer units **and** never
-reached 5 m/s. Observed in the holds: movement 1.5 to 5.8, top speed 1.6 to
-3.0 m/s with throttle at 255. No existing threshold changed.
+`_drop_parked_lap` in `app/recorder/laps.py`. As first pushed (`aefc1ba`,
+`560aa52`) it deleted any untimed lap after a timed one that moved under 25
+odometer units and never reached 5 m/s. Independent review showed that this
+also deletes a real attempt abandoned slowly at the line (2 s at 1.0, 4.0 or
+4.99 m/s). Repaired on top of `560aa52`: movement and speed are now necessary
+but never sufficient. A lap is deleted only when it is one of:
+
+- **The hold:** opened by a `LapNumber` increment that posted a lap time,
+  **and** a ground-plane spike of at least `IMPACT_PEAK` (98 m/s², upstream's
+  existing constant; 196 observed) landed in it, **and** it never moved 25
+  units or reached 5 m/s.
+- **The wait at the start:** the lap a recognized hold handed over to, when
+  `LapNumber` fell and the odometer hard-reset in the same frame (upstream's
+  existing `POINT_FINISH_DIST` / `WTA_DIST_COLLAPSE` test), it stayed within
+  the same 25 units / 5 m/s, and the race clock has not restarted.
+
+Everything else after a timed lap is kept as an incomplete attempt: slow,
+short or stationary without the halt spike, however it ends (telemetry end,
+game reset, race-clock restart). The stretch after such an attempt is kept
+too. No upstream threshold changed; timed laps and raw frames are untouched.
 
 | Evidence | Re-run |
 |---|---|
-| 8 tests, including the reviewer's short driven attempts (10, 24, 26 units) being kept | `.venv/bin/pytest -q tests/test_rivals_finish.py` |
-| Replay of a read-only copy of sessions 5, 8, 11, 14: 11 laps become 4; times 150.808 / 74.654 / 68.712 / 51.308 and the Highway lap's `contact` unchanged; 43,283 frames untouched | `reprocess_session` on a copy, never the live directory |
+| 24 tests: the captured hold and reset signature; the reviewer's short (10, 24, 26 units) and slow (0, 1.0, 4.0, 4.99 m/s) attempts kept at telemetry end, game reset and clock restart; a line crossing that carries on; frame count unchanged by a drop. 11 of them fail on `560aa52` | `pytest -q tests/test_rivals_finish.py` |
+| At `560aa52`, before the repair, by the first author: replay of a read-only copy of sessions 5, 8, 11, 14 gave 11 laps → 4; times 150.808 / 74.654 / 68.712 / 51.308 and the Highway lap's `contact` unchanged; 43,283 frames untouched | `reprocess_session` on a copy, never the live directory |
 
-Unknown: whether a second Rivals lap can run on without the hold; a driven lap
-is kept and would carry the spike's `contact` flag. A real attempt abandoned
-below 5 m/s within 25 units of the line would be dropped. Stored live sessions
-are not changed by the merge; reprocessing them is a separate, owner-authorised
-step that renumbers their lap ids.
+**Not re-run after the repair:** the replay above. The repair was made
+without access to the captures, from the scalar signature recorded here. It
+deletes a subset of what `560aa52` deleted, so it cannot remove more from
+those sessions; whether it still removes all seven extra laps depends on
+every real hold carrying a spike of 98 m/s² or more inside the hold lap and
+on the counter and odometer resetting in the same frame. If either differs,
+the extra laps stay (visible, untimed) rather than a real attempt being lost.
+Replay a copy before relying on the 11 → 4 figure.
+
+Other limits. One test's input changed: the creep-speed hold test now sends
+the 196 m/s² halt spike that every captured hold had; the same creep without
+the spike is a new test and is kept. A hold lap whose halt spike was missed
+or under 98 m/s² is kept as an untimed, possibly `contact`-flagged lap.
+Unknown: whether a second Rivals lap can run on without the hold; a driven
+lap is kept and would carry the spike's `contact` flag. Four captures from
+one driver on one day are not the event matrix. Stored live sessions are not
+changed by the merge; reprocessing them is a separate, owner-authorised step
+that renumbers their lap ids.

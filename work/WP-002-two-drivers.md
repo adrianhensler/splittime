@@ -135,3 +135,6 @@ header, offers a Driver filter, and matches it in the search box. Evidence:
 `curl localhost:8100/api/sessions` against a copy of the live database returned
 `driver_name` on all four sessions and no `source_addr`. Not checked: the header
 badge and filter menu were not clicked in a real browser.
+The review repair on top of `560aa52` touches only the recorder and its test
+(see [WP-003](WP-003-deploy-and-real-captures.md)); `node --test tests/ui/*.test.cjs`
+re-run there: 49 passed. The `curl` check was not repeated.

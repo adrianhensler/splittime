@@ -140,3 +140,6 @@ Evidence: `node --test tests/ui/rivalry.test.cjs`. The lap-detection change in
 the same pull request is outside this packet's authority and is recorded in
 [WP-003](WP-003-deploy-and-real-captures.md); driver labels are in
 [WP-002](WP-002-two-drivers.md). Ranking is unchanged: still exploratory, no winner.
+The review repair on top of `560aa52` changes no page or rivalry code;
+`node --test tests/ui/*.test.cjs` re-run there: 49 passed. Incomplete attempts
+the recorder now keeps are untimed, so they add no comparison link.
