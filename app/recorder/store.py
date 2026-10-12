@@ -18,6 +18,11 @@ from pathlib import Path
 log = logging.getLogger("lapscope.store")
 
 SCHEMA = """
+CREATE TABLE IF NOT EXISTS drivers (
+    id       TEXT PRIMARY KEY,
+    name     TEXT NOT NULL,
+    udp_port INTEGER UNIQUE
+);
 CREATE TABLE IF NOT EXISTS sessions (
     id              INTEGER PRIMARY KEY,
     started_at      REAL NOT NULL,
@@ -88,7 +93,7 @@ CREATE INDEX IF NOT EXISTS idx_edits_session ON edits(session_id);
 # costs nothing today and is the only way a future migration can tell a v1.0
 # database from a v0.8 one; every DB written before this existed reads 0.
 # Bump it when a change can't be expressed as an idempotent ADD COLUMN.
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 # added after v1; applied to existing databases on startup
 MIGRATIONS = (
@@ -113,6 +118,9 @@ MIGRATIONS = (
     # the catalogue entry that supplied this row's name (app/tracks.py);
     # NULL = named by the user, or not named at all
     "ALTER TABLE routes ADD COLUMN catalog_key TEXT",
+    # SplitTime: attribute sessions independently of the source address.
+    "ALTER TABLE sessions ADD COLUMN driver_id TEXT NOT NULL DEFAULT 'legacy'",
+    "ALTER TABLE sessions ADD COLUMN source_addr TEXT",
 )
 
 # Merged runs. A point-to-point route can only be attempted by restarting the
@@ -303,6 +311,10 @@ class Store:
                     raise
         if was < SCHEMA_VERSION:  # never lower a newer build's stamp
             self.db.execute(f"PRAGMA user_version = {SCHEMA_VERSION:d}")
+        # Old recordings are retained under an explicit legacy identity.
+        self.db.execute(
+            "INSERT OR IGNORE INTO drivers (id, name, udp_port)"
+            " VALUES ('legacy', 'Legacy recording', NULL)")
         self.db.commit()
         self.backfill_route_kinds()
         self.backfill_route_names()
@@ -462,14 +474,32 @@ class Store:
         return {"before_bytes": before, "after_bytes": after,
                 "reclaimed_bytes": max(0, before - after)}
 
-    def create_session(self, started_at: float, frame: dict) -> int:
+    def register_drivers(self, drivers) -> None:
+        """Persist configured identities. Ports identify a driver but do not authenticate."""
+        for d in drivers:
+            self.db.execute(
+                "INSERT INTO drivers(id, name, udp_port) VALUES (?, ?, ?)"
+                " ON CONFLICT(id) DO UPDATE SET name=excluded.name,"
+                " udp_port=excluded.udp_port",
+                (d.id, d.name, d.udp_port))
+        self._commit()
+
+    def record_source(self, session_id: int, source_addr: str) -> None:
+        """Last seen sender is evidence only, never used for driver identity."""
+        self.db.execute(
+            "UPDATE sessions SET source_addr = ? WHERE id = ?",
+            (source_addr, session_id))
+        self._commit()
+
+    def create_session(self, started_at: float, frame: dict,
+                       driver_id: str = "legacy") -> int:
         sid = self._next_session_id
         self._next_session_id += 1
         self.db.execute(
             "INSERT INTO sessions (id, started_at, car_ordinal, car_class, car_pi,"
-            " drivetrain_type) VALUES (?, ?, ?, ?, ?, ?)",
+            " drivetrain_type, driver_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
             (sid, started_at, frame["car_ordinal"], frame["car_class"],
-             frame["car_pi"], frame["drivetrain_type"]),
+             frame["car_pi"], frame["drivetrain_type"], driver_id),
         )
         self._commit()
         return sid
