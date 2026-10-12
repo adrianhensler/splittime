@@ -177,3 +177,13 @@ flush pending provenance and warnings/writes are coalesced. Existing analysis
 group suggestions and API membership/scoring checks are scoped by driver.
 Mixed groups already stored remain intact and are refused for combined scoring.
 No detector thresholds, `laps.py`, or upstream scenario tests were changed.
+
+### Relative URLs in the upstream pages, 2026-10-12
+
+`analysis.js`, `common.js`, `dashboard.js` and `settings.js` called
+`"/api/..."` and `/ws/live` from the site root. Each call is now relative to
+the page (`"api/..."`, and the socket path resolved against the page URL), so
+the app works under a gateway prefix with no configuration (ADR 16). 37 call
+sites, one character each, plus two lines for the socket. On an upstream sync,
+re-run `sed -i -E 's#(["`])/api/#\1api/#g'` over those files;
+`tests/ui/prefix.test.cjs` fails if an absolute URL comes back.

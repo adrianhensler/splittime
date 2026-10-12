@@ -3,7 +3,8 @@
 **This is the owner's personal hosting, not part of SplitTime.** It shows one
 way to run the software behind an existing gateway. For the generic guide see
 [../SETUP.md](../SETUP.md). Nothing here has been applied yet; it is the plan
-for milestone M2.
+for milestone M2. The app side was checked on 2026-10-12 (see "Checked before
+deploying"); the gateway side has not been touched.
 
 ## The gateway
 
@@ -41,8 +42,11 @@ Add to the gateway's `docker-compose.yml`, built from a checkout of this repo:
     environment:
       - DATA_DIR=/app/data
       - LS_ALLOWED_HOSTS=test.hensler.work
-      # driver names and ports: variable names fixed in M1
-      # URL prefix /splittime: variable name fixed in M2
+      - LS_OFFLINE=1          # no catalogue downloads from inside the gateway
+      # one entry per driver; the id is permanent, the name is what pages show
+      - 'SPLITTIME_DRIVERS=[{"id":"driver-a","name":"Driver A","udp_port":9999},{"id":"driver-b","name":"Driver B","udp_port":10000}]'
+      # no prefix variable: the pages use relative URLs, so stripping
+      # /splittime in Caddy is all that is needed
     networks:
       - test-hensler-network
     expose:
@@ -103,11 +107,28 @@ sudo tcpdump -ni any udp port 9999            # then drive, or send a test packe
 curl -s -o /dev/null -w '%{http_code}\n' https://test.hensler.work/splittime/   # expect a redirect to login when signed out
 ```
 
+## Checked before deploying (2026-10-12, Opus 5.5)
+
+On this server, with test ports and simulated drivers only. Nothing in
+`/opt/prod` was changed.
+
+| Check | Result |
+|---|---|
+| Pages under `/splittime/` through a prefix-stripping proxy | Live, Analysis, Rivalry and Compare all load; every request stayed inside `/splittime/` (the browser's own `/favicon.ico` aside). The live page asks for `/splittime/ws/live`. |
+| Container built from this repo's `Dockerfile` | Starts, listens on both driver ports, records both simulated drivers, serves the rivalry API. |
+| `LS_ALLOWED_HOSTS=test.hensler.work` | `Host: test.hensler.work` answered 200, another host 400. |
+| Source address inside the container | Packets sent from the host showed as `172.17.0.1`, the Docker bridge. Expect the evidence field to be unreliable; identity is by port. |
+| Container user | Runs as root and writes the database as root. Not changed here. |
+
+Not checked: the WebSocket through Caddy and Cloudflare, `forward_auth`
+with the real gateway, packets arriving from the internet, the provider
+firewall.
+
 ## Things to confirm during M2
 
 | Item | Why |
 |---|---|
-| The app works under `/splittime/` | Upstream pages call absolute `/api/...` and `/ws/live`, which collide with the gateway's own `/api/*`. The app must be made prefix-aware first (ADR 16). |
+| The app works under `/splittime/` behind the real gateway | Checked with a stand-in proxy only (above). |
 | Source address seen inside the container | Depending on Docker's proxy mode, the app may see the bridge address instead of the driver's real IP. Identity uses the port, so this only affects the evidence field. |
 | WebSocket through Cloudflare and Caddy | Only matters if the live view is kept. |
 | The gateway's `/api/*` rule is matched before or after `/splittime/*` | A request to `/splittime/api/...` must reach SplitTime, not the gateway API. |

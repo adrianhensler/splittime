@@ -92,7 +92,13 @@ Application code is at `f68d70a` in PR #10. Local capture work has started;
 shared deployment has not. The original live recording is untouched. Only new
 recordings use the repaired detector; separate copies supplied replay evidence.
 
-Next: prepare whole-app prefix/WebSocket and Docker checks, then complete
+2026-10-12, Opus 5.5 (`feat/url-prefix`): every page now uses relative URLs,
+checked through a prefix-stripping proxy; the container builds and records two
+simulated drivers on test ports. Results and what was not checked are in
+`docs/hosting/test-hensler-work.md`. The gateway is untouched.
+
+Next: apply the gateway steps on the owner's go-ahead, check WebSocket and
+`forward_auth` there, then complete
 private deployment within its existing authority and obtain the second
 driver's unattended recording. Collect the remaining event/measurement matrix
 incrementally. Do not replay or edit the live data directory.
