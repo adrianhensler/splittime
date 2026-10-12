@@ -10,15 +10,22 @@ One entry per decision. Status is **Accepted** (the owner decided),
 | 2 | LapScope is the base, imported as a snapshot | Proposed |
 | 3 | Corner analysis adapted from Forza-6-telemetry | Proposed |
 | 4 | Driver identity is the destination UDP port | Accepted |
-| 5 | Direct public UDP, no VPN or collector | Proposed |
+| 5 | Direct public UDP, no VPN or collector | Accepted |
 | 6 | Existing web server fronts the app; no TLS or accounts in the app | Accepted |
 | 7 | Record events only; no free-roam storage | Accepted |
 | 8 | CSV import dropped from v1 | Accepted |
 | 9 | Lap times from game fields; alignment by `DistanceTraveled` | Proposed |
 | 10 | Ranking rules | Proposed |
-| 11 | Unprivileged process, no Docker | Proposed |
+| 11 | Unprivileged process, no Docker | Superseded by 15 |
 | 12 | Markdown docs are the source of truth; PDF archived | Accepted |
-| 13 | Implementation by the pi agent as a low-privileged user | Accepted |
+| 13 | Implementation by the pi agent as a low-privileged user | Superseded by 14 |
+| 14 | Agent-agnostic tooling and the Workpacket method | Accepted |
+| 15 | Runs as a container or a plain process; nothing privileged | Accepted |
+| 16 | The app works under a URL prefix; browser update check removed | Accepted |
+| 17 | The owner's deployment is documented separately from the software | Accepted |
+
+Each entry lists what it **rests on**, so that reversing one decision shows
+which others to revisit.
 
 ---
 
@@ -61,11 +68,14 @@ as evidence. Defaults: 9999 and 10000, configurable, never in 5200–5300.
 
 ## 5. Direct public UDP, no VPN or collector
 
-**Proposed, 2026-10-12.**
-A console cannot run a VPN client, and a home-side collector is extra hardware
-and setup for each player. For two friends the risk of forged packets is
-accepted. Mitigations: drop wrong-size packets, log source changes, optional
-firewall rate limit. Revisit if junk data ever appears.
+**Accepted, 2026-10-12** (owner confirmed after the hosting review).
+A home-side collector or VPN is extra setup for each player. For two friends
+the risk of forged packets is accepted. Mitigations: drop wrong-size packets,
+log source changes, optional firewall rate limit. Revisit if junk data ever
+appears.
+
+*Consequence:* a CDN or tunnel in front of the website does not carry UDP, so
+drivers are given the server's own IP address.
 
 ## 6. Existing web server fronts the app
 
@@ -73,10 +83,9 @@ firewall rate limit. Revisit if junk data ever appears.
 The owner will reuse a web server already running on the host. It handles TLS,
 certificates and port 443. The app binds HTTP on loopback only.
 
-*Proposed detail:* access control is also done there (basic auth or an
-allow-list), because the app's API has no authentication and includes delete,
-edit and reprocess. Which web server, and which access method, is an open
-question.
+Access control is done there too, because the app's API has no authentication
+and includes delete, edit and reprocess. On the owner's system this is the
+existing gateway's login gate (ADR 17).
 
 ## 7. Record events only
 
@@ -123,7 +132,9 @@ rankings are computed from stored laps.
 
 ## 11. Unprivileged process, no Docker
 
-**Proposed, 2026-10-12.**
+**Superseded by 15, 2026-10-12.** The owner's gateway runs its services as
+containers. Original text kept for the record:
+
 The app needs no privileged ports. Run it from a virtualenv as a dedicated
 user under a systemd unit. Docker is avoided because membership of the docker
 group is root-equivalent, which defeats the low-privilege agent, and because
@@ -138,7 +149,56 @@ The concept PDF is archived in `docs/archive/` and is not maintained.
 
 ## 13. Implementation by the pi agent as a low-privileged user
 
-**Accepted, 2026-10-12.**
+**Superseded by 14, 2026-10-12.** The owner dropped pi for this iteration.
+Original text kept for the record:
+
 pi has no permission prompts or sandbox of its own, so the Unix account is the
 containment. The agent never uses sudo. Anything that needs root is written up
 for the owner to run.
+
+## 14. Agent-agnostic tooling and the Workpacket method
+
+**Accepted, 2026-10-12.**
+No document or process depends on one coding agent. `AGENTS.md` holds the
+rules; `CLAUDE.md` only points to it. Work is organised as Workpackets, a
+light git-native form of the owner's method, described in
+[WORKPACKETS.md](WORKPACKETS.md): markdown packets in `work/`, with worker,
+verifier and acceptor kept apart and the owner as the only acceptor.
+
+The low-privilege rule from entry 13 stays: whatever agent is used never acts
+as root, and root steps are written up for the owner.
+
+*Rests on:* nothing else. *Consequence:* no signatures or JSON packets; git
+provides history and authorship.
+
+## 15. Runs as a container or a plain process; nothing privileged
+
+**Accepted, 2026-10-12.**
+The software must run either way. Upstream's Dockerfile is kept. It needs no
+privileged ports and no root at run time. The owner's deployment uses a
+container; a coding agent's account still stays out of the docker group.
+
+*Rests on:* 2 (upstream ships a Dockerfile). *Supersedes:* 11.
+
+## 16. The app works under a URL prefix; browser update check removed
+
+**Accepted, 2026-10-12.**
+Upstream pages call absolute `/api/...` and `/ws/live`, which breaks behind a
+gateway that serves the app under a path and has its own `/api`. Make the
+prefix configurable, defaulting to none. This is useful to anyone using a
+reverse proxy, not only the owner. Upstream's browser-side check for new
+LapScope releases is removed: it would point users at the wrong project and
+is an outbound call nobody asked for.
+
+*Rests on:* 2, 6. *Work:* WP-003.
+
+## 17. The owner's deployment is documented separately from the software
+
+**Accepted, 2026-10-12.**
+The owner hosts SplitTime under test.hensler.work, as a container in an
+existing gateway at path `/splittime/`, with telemetry going directly to the
+server's public IP. That is one deployment, described in
+[hosting/test-hensler-work.md](hosting/test-hensler-work.md). No site-specific
+name, path or assumption goes into the code or the generic documents.
+
+*Rests on:* 5, 6, 15, 16.

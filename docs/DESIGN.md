@@ -31,7 +31,7 @@ corner-by-corner differences.
 - Free-roam recording or storage.
 - CSV import.
 - Live dashboard, tuning advice, AI coaching, MCP server, desktop/exe builds.
-- In-app accounts, TLS, certificates (the existing web server handles access).
+- In-app accounts, TLS, certificates (the web server in front handles access).
 - VPN or home-side collector for authenticated transport.
 
 ## 3. Architecture
@@ -45,12 +45,17 @@ Driver B  FH6 Data Out ──UDP :10000─┘        (size check, parse)        
                          (TLS + access control)                     API + static pages
 ```
 
-- One Python process (FastAPI, uvicorn, asyncio), one SQLite database.
-- It runs as an unprivileged user. UDP ports are above 1024 and outside
-  5200–5300 (the game binds its own socket there).
-- HTTP binds to loopback only. The existing web server terminates TLS and
+- One Python process (FastAPI, uvicorn, asyncio), one SQLite database. It runs
+  as a container or a plain process and needs nothing privileged.
+- UDP ports are above 1024 and outside 5200–5300 (the game binds its own
+  socket there).
+- HTTP is reachable only by the web server in front, which terminates TLS and
   restricts access. The app's API has no authentication of its own and exposes
   delete, edit and reprocess endpoints, so it must never be reachable directly.
+- The app can be served under a URL prefix such as `/splittime/`, set by
+  configuration, with no prefix as the default.
+- Nothing in the software refers to a particular host or site. What travels
+  where is set out in [DATA_FLOW.md](DATA_FLOW.md).
 - The base is LapScope, which already provides parsing, session tracking, lap
   and finish detection, route fingerprinting, storage, reprocess, manual edits
   and multi-lap overlay for a single driver. SplitTime adds the driver
@@ -76,7 +81,8 @@ documentation and real captures.
   logged, never parsed.
 
 Storage: 324 bytes × rate. About 70 MB per driving hour at 60/s, about 160 MB at
-140/s. Only event sessions are kept.
+140/s. Both drivers are on PC, so plan on the higher figure. Only event
+sessions are kept.
 
 ## 5. Data model
 
@@ -146,7 +152,10 @@ time.
 - All web access goes through the existing web server. Edit, delete and
   reprocess are available to anyone who gets past it.
 - The app fetches car-name and route-catalogue updates from GitHub about once a
-  day. This can be turned off.
+  day. This can be turned off. Upstream's browser-side update check is removed.
+- Telemetry is unencrypted and goes to the server's own IP address, which the
+  drivers therefore know. A CDN or tunnel in front of the website does not
+  hide it.
 
 ## 9. Acceptance checks
 

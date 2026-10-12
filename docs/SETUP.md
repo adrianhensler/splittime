@@ -1,36 +1,53 @@
-# Host setup
+# Running a SplitTime server
 
-For someone with a running Linux server who knows their way around it. Root is
-needed for parts A to D only. Commands assume Debian or Ubuntu; adjust for
-other distributions. Nothing here has been run yet; correct this file as the
-build proves or disproves each step.
+For someone with a running Linux server who knows their way around it. This is
+the generic guide. A worked example behind an existing gateway is in
+[hosting/test-hensler-work.md](hosting/test-hensler-work.md).
+
+Nothing here has been run yet. Correct this file as the build proves or
+disproves each step. Commands assume Debian or Ubuntu.
+
+Read [DATA_FLOW.md](DATA_FLOW.md) first: you are opening UDP ports on a public
+address and storing other people's recordings.
+
+## What you need
+
+- A server with a **public IPv4 address that does not change**. The game takes
+  an IP address, not a hostname.
+- Two free UDP ports above 1024 and **outside 5200–5300**. Defaults: 9999 and
+  10000.
+- A web server or gateway you already run, to provide HTTPS and a login.
+  SplitTime has neither.
 
 ## A. Accounts (root)
 
-Two accounts keep the coding agent away from live data.
+*Assumed already done on the owner's system.*
 
 ```sh
-# runs the service and owns the recordings
+# runs the service and owns the recordings (not needed if you use a container)
 sudo useradd --system --create-home --home-dir /var/lib/splittime --shell /usr/sbin/nologin splittime
 
-# the coding agent's account
-sudo useradd --create-home --shell /bin/bash pi-agent
-sudo passwd -l pi-agent          # no password login; use `sudo -iu pi-agent`
+# an account for a coding agent, if you use one
+sudo useradd --create-home --shell /bin/bash agent
+sudo passwd -l agent             # no password login; use `sudo -iu agent`
 ```
 
-Checks:
+Checks for the agent account:
 
-- `id pi-agent` shows no `sudo`, `wheel`, `adm` or `docker` group. The docker
+- `id agent` shows no `sudo`, `wheel`, `adm` or `docker` group. The docker
   group is root-equivalent.
+- `sudo -l -U agent` reports that it may not run sudo.
 - Other home directories are not world-readable: `chmod 750 /home/<you>`.
-- `sudo -l -U pi-agent` reports that it may not run sudo.
-- On a development machine one account can do both jobs. Never do that on the
-  server holding real recordings.
+- It has its own model API key and either no git push credentials or a token
+  limited to this one repository.
+- It tests on spare ports (HTTP 8100, UDP 19999 and 20000), never the live ones.
+
+Many coding agents have no permission system of their own. The Unix account is
+then the only containment, which is why these checks matter.
 
 ## B. Firewall (root)
 
-Open the two UDP ports. Nothing else is new: the web app is reached through
-the existing web server.
+Open the two UDP ports and nothing else.
 
 ```sh
 sudo ufw allow 9999/udp
@@ -39,18 +56,19 @@ sudo ufw allow 10000/udp
 
 Pitfalls:
 
-- **Two firewalls.** Most cloud providers have their own (security group,
-  cloud firewall) in front of the host. Open the ports in both.
+- **Two firewalls.** Most hosting providers have their own in front of the
+  server. Open the ports in both.
 - **UDP, not TCP.** A rule that says only `9999` may default to TCP.
-- **IPv4.** Give the game the server's IPv4 address.
-- **Never use ports 5200–5300.** The game binds its own socket there.
-- **Docker ignores ufw.** If Docker runs on this host, its published ports
-  bypass ufw rules. SplitTime does not use Docker.
-- **firewalld hosts:** `firewall-cmd --permanent --add-port=9999/udp`, same for
+- **A CDN or tunnel in front of your site does not carry this.** Cloudflare and
+  similar proxy web traffic only. The game must be given the server's own
+  address, which also reveals it to the drivers.
+- **Docker ignores ufw.** A container's published ports are opened by Docker's
+  own rules whatever ufw says.
+- **firewalld:** `firewall-cmd --permanent --add-port=9999/udp`, the same for
   10000, then `--reload`.
-- Do not open the app's HTTP port (8000). It must stay on loopback.
+- Never expose the app's HTTP port (8000) to the internet.
 
-Verify from outside the server once the service is running:
+Verify from outside once the service is running:
 
 ```sh
 sudo ss -ulnp | grep -E ':(9999|10000)\b'       # is it listening
@@ -59,13 +77,32 @@ sudo tcpdump -ni any udp port 9999              # leave running
 head -c 324 /dev/zero | nc -u -w1 <server-ip> 9999
 ```
 
-A packet seen by tcpdump but not by the app is a host firewall problem. A
-packet not seen by tcpdump is a provider firewall or routing problem.
+Seen by tcpdump but not by the app: host firewall. Not seen by tcpdump:
+provider firewall or routing.
 
-## C. Service (root, once the app exists)
+## C. Run it
 
-Install the checkout and a virtualenv under `/opt/splittime`, owned by root and
-readable by `splittime`. Data lives in `/var/lib/splittime`.
+Either way the app listens for HTTP on port 8000 and UDP on the driver ports.
+Driver names and ports are set by environment variables to be named in WP-002.
+
+### Option 1: container
+
+Upstream ships a `Dockerfile` and `docker-compose.yml`. Publish the two UDP
+ports. Publish HTTP to loopback only, or not at all if your proxy is on the
+same Docker network.
+
+```yaml
+    ports:
+      - "127.0.0.1:8000:8000"
+      - "9999:9999/udp"
+      - "10000:10000/udp"
+    volumes:
+      - ./data:/app/data
+```
+
+### Option 2: plain process
+
+Checkout and virtualenv under `/opt/splittime`, data in `/var/lib/splittime`.
 
 `/etc/systemd/system/splittime.service`:
 
@@ -96,14 +133,14 @@ sudo systemctl daemon-reload && sudo systemctl enable --now splittime
 journalctl -u splittime -f
 ```
 
-Driver names and ports are set by environment variables whose names will be
-fixed in M1; add them here then.
+Needs a recent Python 3 and git (upstream does not pin a version; the tested
+one is recorded here in WP-001). `python3-venv` is a separate package on Debian
+and Ubuntu.
 
 ## D. Web server (root)
 
-Add a site or location to the existing web server that proxies to
-`http://127.0.0.1:8000` and requires a login. The app has no authentication of
-its own and can delete recordings.
+Proxy to the app and require a login. The app can delete recordings and has no
+authentication of its own.
 
 nginx:
 
@@ -133,57 +170,24 @@ splittime.example.com {
 
 Pitfalls:
 
-- The app rejects requests whose `Host` it does not recognise. The public
-  hostname must be added to its allowed-hosts setting (`LS_ALLOWED_HOSTS`
-  upstream; may be renamed).
+- The app rejects requests whose `Host` it does not recognise. Add the public
+  hostname to its allowed-hosts setting (`LS_ALLOWED_HOSTS` upstream).
+- **Serving under a path** such as `/splittime/` needs the URL-prefix support
+  planned for WP-003. Until then use a hostname of its own.
 - The upgrade headers are needed for the WebSocket.
 - On SELinux systems nginx needs `setsebool -P httpd_can_network_connect 1`.
 - Confirm `curl http://<server-ip>:8000/` from outside fails.
 
-## E. Coding agent (as pi-agent)
+## E. Drivers
 
-```sh
-sudo -iu pi-agent
-git clone <repo-url> ~/splittime && cd ~/splittime
-python3 -m venv .venv && .venv/bin/pip install -r requirements.txt -r requirements-dev.txt
-```
+Send each driver [GAME_SETUP.md](GAME_SETUP.md), the server IP address and
+their port.
 
-- Install pi from its own README. The npm package was
-  `@mariozechner/pi-coding-agent` and now appears as
-  `@earendil-works/pi-coding-agent`; check which is current. Install it under
-  the agent's home (`npm config set prefix ~/.local`), not system-wide with
-  sudo.
-- pi reads `AGENTS.md` from the working directory.
-- Put the model API key in the agent's own environment only.
-- Git access: either no push credentials at all (the owner pushes), or a
-  fine-grained token limited to this one repository. Never the owner's main
-  token.
-- The agent runs the app on spare ports for testing, for example HTTP 8100 and
-  UDP 19999 and 20000, so it never collides with the live service.
-- Needs a recent Python 3 and git (upstream does not pin a version; record the tested one at M0). `python3-venv` is a separate package on
-  Debian and Ubuntu and needs root to install.
-
-## F. Game (each driver)
-
-Settings → HUD and Gameplay → Data Out:
-
-- Data Out: On
-- IP address: the server's public IPv4
-- Port: that driver's assigned port
-
-Notes:
-
-- The game sends only while driving, so nothing arrives in menus.
-- The setting takes an IP address. If the server's address changes, both
-  drivers must update it.
-- No router port forwarding is needed at home; the traffic is outbound.
-- Two drivers behind one home connection work, because the ports differ.
-- A recorded event appears on the site about 15 seconds after it ends.
-
-## G. Housekeeping
+## F. Housekeeping
 
 - Keep the clock synchronised (`timedatectl` shows `System clock synchronized:
   yes`).
-- Watch free disk space on `/var/lib/splittime`.
-- Back up `/var/lib/splittime` while the service is stopped, or with
+- Watch free disk space on the data directory. At high PC frame rates an hour
+  of recorded events is about 160 MB.
+- Back up the data directory with the service stopped, or with
   `sqlite3 telemetry.db ".backup"`.

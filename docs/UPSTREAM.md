@@ -39,9 +39,13 @@ detection rules verified against real captures. Read them before touching
 - Access control. It checks the `Host` header only and assumes a home network.
 - Timing that has been tested over the internet. It was built for a LAN.
 
+- Support for being served under a URL path. Its pages call absolute
+  `/api/...` and `/ws/live`.
+
 **Not needed from it:** `desktop/`, the Windows exe spec and release workflow,
-Docker files, the live dashboard. Leave the live dashboard in place unless it
-gets in the way; drop the rest at import.
+the live dashboard, and the browser-side check for new LapScope releases. Drop
+the desktop and exe parts at import. Keep the Dockerfile and compose file.
+Leave the live dashboard in place unless it gets in the way.
 
 ## Forza-6-telemetry: what we take
 
