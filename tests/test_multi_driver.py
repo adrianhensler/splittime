@@ -51,18 +51,22 @@ def test_attributed_sessions_from_independent_trackers(tmp_path):
                      "distance_traveled": float(n + 1)}
             raw = pack(frame)
             tracker.on_frame(n / 60 + 1.0, raw, parse(raw))
-    # Driver Alpha reaches a lap boundary while Beta continues its own clock.
-    boundary = {**base, "lap_number": 1, "last_lap": 6.0,
-                "current_race_time": 6.02, "distance_traveled": 361.0}
-    raw = pack(boundary)
-    trackers["alpha"].on_frame(7.01, raw, parse(raw))
+    # Each driver completes an independent lap, with different times.
+    # Upstream intentionally discards a session with *no* completed lap when
+    # it closes; M1 must not mistake that cleanup for a driver identity bug.
+    for ident, elapsed in (("alpha", 6.0), ("beta", 6.2)):
+        boundary = {**base, "lap_number": 1, "last_lap": elapsed,
+                    "current_race_time": 6.25, "distance_traveled": 361.0}
+        raw = pack(boundary)
+        trackers[ident].on_frame(7.01, raw, parse(raw))
     trackers["alpha"].shutdown(25.0)
     trackers["beta"].shutdown(25.0)
     sessions = {s["driver_id"]: s for s in store.list_sessions()}
     assert set(sessions) == {"alpha", "beta"}
     assert sessions["alpha"]["id"] != sessions["beta"]["id"]
     assert sessions["alpha"]["lap_count"] >= 1
-    assert sessions["beta"]["lap_count"] == 0
+    assert sessions["beta"]["lap_count"] >= 1
+    assert sessions["alpha"]["best_lap"] != sessions["beta"]["best_lap"]
     store.record_source(sessions["alpha"]["id"], "203.0.113.5:41234")
     assert store.get_session(sessions["alpha"]["id"])["source_addr"] == "203.0.113.5:41234"
     assert store.get_session(sessions["beta"]["id"])["source_addr"] is None
