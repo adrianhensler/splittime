@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SplitTime · Rivalry</title>
+<style>
+:root{color-scheme:dark;--bg:#0a1420;--pane:#172536;--border:#344b60;--text:#eaf2f7;--muted:#a9bed0;--teal:#6ce0cb;--amber:#eec081}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+a{color:var(--teal)}a:focus-visible,button:focus-visible,select:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+header,main{max-width:1160px;margin:auto;padding:22px}header{display:flex;flex-wrap:wrap;justify-content:space-between;gap:15px;border-bottom:1px solid var(--border)}
+header strong{font-size:23px;letter-spacing:-1px}header strong span{color:var(--teal)}nav{display:flex;gap:17px;align-items:center}
+nav a{text-decoration:none;color:var(--muted)}nav a[aria-current=page]{color:var(--text);font-weight:700}
+h1{font-size:27px;margin:0}h2{font-size:18px;margin:0}.muted{color:var(--muted)}p{margin:6px 0}
+.intro{display:flex;flex-wrap:wrap;gap:14px;justify-content:space-between;align-items:end;margin:9px 0 23px}
+.warning{border-left:3px solid var(--amber);background:#273341;padding:13px;border-radius:0 8px 8px 0;color:#d6e5ee;font-size:13px}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:20px 0}
+.stat{border-radius:9px;border:1px solid var(--border);padding:15px;background:var(--pane)}
+.stat strong{display:block;font-size:24px;font-variant-numeric:tabular-nums}.stat small{color:var(--muted)}
+.toolbar{margin:15px 0;display:flex;align-items:center;flex-wrap:wrap;gap:10px}.toolbar label{font-weight:600}
+select,button{padding:9px;background:#243a4b;color:var(--text);border:1px solid var(--border);border-radius:7px;font:inherit}
+button{cursor:pointer}select{max-width:min(100%,340px)}
+#message{color:var(--muted);margin:16px 0}#message.error{color:#f8b3a6}
+.catalog{display:grid;gap:15px}.route{border:1px solid var(--border);border-radius:12px;background:var(--pane);padding:17px}
+.routeHead{display:flex;flex-wrap:wrap;align-items:start;justify-content:space-between;gap:12px}
+.pill{display:inline-block;border:1px solid var(--border);border-radius:6px;color:var(--muted);font-size:11px;padding:4px 7px}
+.cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:14px 0}
+.card{border:1px solid var(--border);background:#0e1a29;padding:12px;border-radius:9px}
+.card label{font-size:12px;color:var(--muted)}.card strong{display:block;font-size:24px;font-variant-numeric:tabular-nums}.card div{font-size:12px;color:var(--muted)}
+details{border-top:1px solid var(--border);margin-top:14px;padding-top:12px}summary{cursor:pointer;font-weight:600}
+.table{overflow-x:auto}table{border-collapse:collapse;width:100%;min-width:590px;font-size:12px;text-align:left}
+th,td{padding:9px 7px;border-bottom:1px solid #2b4255;vertical-align:top}th{color:var(--muted)}
+.warn{color:var(--amber);font-weight:600}.ok{color:var(--teal);font-weight:600}
+.empty{border:1px dashed var(--border);border-radius:10px;padding:28px;color:var(--muted)}
+footer{color:var(--muted);font-size:12px;margin:30px 0}
+@media(max-width:660px){header,main{padding:14px}.cards{grid-template-columns:1fr}.stats{grid-template-columns:1fr 1fr}.stats .stat:last-child{grid-column:1/-1}}
+</style></head>
+<body>
+<header><strong>Split<span>//</span>Time</strong><nav aria-label="Site"><a href="index.html">Live</a><a href="analysis.html">Analysis</a><a href="rivalry.html" aria-current="page">Rivalry</a></nav></header>
+<main>
+<div class="intro"><div><h1>Rivalry history</h1><p class="muted">Asynchronous recordings · route and car-class summaries</p></div><span class="pill">Read-only · real recordings only</span></div>
+<div class="warning"><strong>Candidate records, not official winners.</strong> FH6 telemetry does not confirm event mode, official validity, route equivalence or uninterrupted capture. SplitTime makes uncertainty explicit and preserves flagged or incomplete laps for inspection.</div>
+<section class="stats" aria-label="Overview"><div class="stat"><strong id="routeCount">—</strong><small>Route/class groups</small></div><div class="stat"><strong id="attemptCount">—</strong><small>Recorded attempts</small></div><div class="stat"><strong id="driverCount">—</strong><small>Configured drivers</small></div></section>
+<div class="toolbar"><label for="routeSelect">Filter</label><select id="routeSelect"><option value="all">All routes</option></select><button id="refresh" type="button">Refresh recordings</button><a href="analysis.html">Open telemetry analysis</a></div>
+<p id="message" role="status" aria-live="polite">Loading recordings…</p>
+<div class="catalog" id="catalog"></div>
+<footer>Data source: <code>api/rivalry</code> · If no data appears, check the server and its authenticated proxy. The existing <a href="analysis.html">Analysis</a> page provides speed, throttle, brake, racing lines and lap overlays. This page does not generate synthetic or inferred winners.</footer>
+</main>
+<script src="js/rivalry.js"></script>
+</body></html>
