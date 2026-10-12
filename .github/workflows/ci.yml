@@ -2,8 +2,12 @@ name: CI
 
 on:
   pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
   push:
     branches: [main]
+
+permissions:
+  contents: read
 
 jobs:
   test:
@@ -28,3 +32,37 @@ jobs:
 
       - name: Tests (pytest)
         run: pytest -q
+
+  ui:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: JavaScript syntax
+        run: |
+          for file in app/static/js/*.js; do node --check "$file"; done
+
+      - name: UI controller tests
+        run: node --test tests/ui/*.test.cjs
+
+  # Advisory (ADR 21): reports drift between a pull request and its packets,
+  # never blocks a merge. A red mark here is a prompt for the reviewer.
+  records:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Workpacket records (advisory)
+        run: python scripts/check_workpackets.py --event "$GITHUB_EVENT_PATH"

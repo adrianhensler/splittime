@@ -66,7 +66,29 @@ handoff checklists, not a required runtime or serial approval ceremony. Read
   anything in a live data directory. Copy what you need.
 - **The software is not tied to one host.** Site-specific material belongs in
   `docs/hosting/` only.
-- Commit after each working step. Do not push unless the owner has said to.
+- Commit after each working step. Push to your own branch; never push to
+  `main` directly.
+
+## Pull requests and merging
+
+Owner's decision, 2026-10-12 ([ADR 21](docs/ADR.md)):
+
+- **One short-lived pull request per slice, based on `main`.** Never base a
+  pull request on another open pull request. If your work needs someone
+  else's, wait for theirs to merge or agree a contract and build to that.
+- **The reviewer merges.** When a reviewer other than the author finds nothing
+  blocking and CI is green, the reviewer merges. No one waits for the owner.
+  The author does not merge their own code.
+- **Docs-only pull requests need no review.** If a pull request touches only
+  `docs/`, `work/` and other `*.md` files, its author may merge it on green
+  CI. Not covered: `AGENTS.md` and `docs/ADR.md`, which set the rules and are
+  reviewed like code.
+- **One CI workflow.** Add checks as jobs in `.github/workflows/ci.yml`, not
+  as new workflow files.
+- **The packet record check is advisory.** It never blocks a merge. The
+  reviewer reads the packet.
+- A merge is not a deployment. Deploying, and anything needing root or
+  touching the host or gateway, still needs the owner's explicit go-ahead.
 
 ## Keeping the docs current
 

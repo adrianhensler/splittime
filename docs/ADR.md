@@ -255,3 +255,35 @@ or firewall changes and anything needing root are outside this and still need
 the owner's explicit go-ahead.
 
 *Rests on:* 14, 18. *Revisit* when the project leaves POC or gains users.
+
+## 21. Less merge friction: no stacked pull requests, the reviewer merges
+
+**Accepted, 2026-10-12** (owner, after PR #10 merged).
+
+The first day of building produced five pull requests touching the same code
+(#5, #6, #7, #9 and the integration #10). Fixes had to be carried forward by
+hand, reviews were of commits that had already moved, and every merge and
+most messages between agents waited on the owner. Four changes:
+
+1. **One short-lived pull request per slice, based on `main`.** No pull
+   request is based on another open one.
+2. **The reviewer merges.** A reviewer other than the author, finding nothing
+   blocking, with CI green, merges without asking the owner. This refines
+   ADR 20: the merge is still the owner's acceptance of what the pull request
+   claims, now delegated to the reviewer. The author still does not merge
+   their own code.
+3. **Docs-only pull requests need no review** and may be merged by their
+   author on green CI. `AGENTS.md` and `docs/ADR.md` are excluded.
+4. **Less process:** one CI workflow in place of four; the Workpacket record
+   check stays advisory; the "On `main`" table in `BUILD_PLAN.md` is removed
+   in favour of `git log`.
+
+Unchanged: deployment, gateway or firewall changes and anything needing root
+need the owner's explicit go-ahead. Agents do not poll the repository on a
+timer; the owner declined that for now.
+
+Where `docs/PARALLEL_BUILD.md` describes stacked branches or a single
+integrator who merges, this entry replaces it.
+
+*Rests on:* 18, 20. *Revisit if* a merged change has to be reverted because
+the reviewer missed something the owner would have caught.

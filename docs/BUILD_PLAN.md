@@ -25,22 +25,22 @@ corrections and independent acceptance tests.
 
 ## Status
 
-"On `main`" below records only what has merged, and is updated by the pull
-request that merges it. Work in progress and in review is in the
-[pull request list](https://github.com/adrianhensler/splittime/pulls?q=is%3Apr);
-it is not tracked here, because a finer-grained table went stale within an
-hour of parallel work starting. The next slice is the first milestone not on
-`main`, subject to the open pull requests.
+What is on `main` is whatever `git log --first-parent main` and the
+[merged pull requests](https://github.com/adrianhensler/splittime/pulls?q=is%3Apr+is%3Amerged)
+say. It is not tracked in a table here: two versions of one were tried on
+2026-10-12 and both were stale at the first merge that should have updated
+them (ADR 21). Work in review is the open pull request list. Each packet's
+checkpoint says what its milestone still owes.
 
-| Milestone | Packet | On `main` |
-|---|---|---|
-| Planning docs | [WP-000](../work/WP-000-planning.md) | yes |
-| M0 Import baseline | [WP-001](../work/WP-001-import-baseline.md) | yes (PR #4, `ad4551b`) |
-| M1 Two drivers | [WP-002](../work/WP-002-two-drivers.md) | no |
-| M2 Deploy and real captures | [WP-003](../work/WP-003-deploy-and-real-captures.md) | no |
-| M3 Rivalry views | [WP-004](../work/WP-004-rivalry-views.md) | no |
-| M4 Corner comparison | [WP-005](../work/WP-005-corner-comparison.md) | no |
-| M5 Summary page and polish | [WP-006](../work/WP-006-summary-page.md) | no |
+| Milestone | Packet |
+|---|---|
+| Planning docs | [WP-000](../work/WP-000-planning.md) |
+| M0 Import baseline | [WP-001](../work/WP-001-import-baseline.md) |
+| M1 Two drivers | [WP-002](../work/WP-002-two-drivers.md) |
+| M2 Deploy and real captures | [WP-003](../work/WP-003-deploy-and-real-captures.md) |
+| M3 Rivalry views | [WP-004](../work/WP-004-rivalry-views.md) |
+| M4 Corner comparison | [WP-005](../work/WP-005-corner-comparison.md) |
+| M5 Summary page and polish | [WP-006](../work/WP-006-summary-page.md) |
 
 ## Milestones in one line each
 
