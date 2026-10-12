@@ -52,6 +52,54 @@ Status that changes hour to hour (who is on what, what is in review) lives in
 the pull request list. `BUILD_PLAN.md` records only what has merged to `main`,
 which changes once per milestone and is updated in the merging pull request.
 
+## Fixed triggers, ownership and the check
+
+The default branch/code/test/PR loop did not maintain packets in this build.
+Rules alone also failed at integration. These are explicit steps in that
+loop, with the worker responsible for the packet and the integrator responsible
+for the combined record. Name one checkpoint owner in `Worker`; preserve
+original contributors separately. A reviewer checks the packet too.
+
+1. **PR opens:** put `Workpackets: WP-002, WP-004` (the actual scope) on its
+   own line in the PR body. Update those packets' status, owner, PR locator
+   and checkpoint. Claims/Evidence locate the live PR. If stopping part-way,
+   leave the next reproducible action and unresolved criteria in the checkpoint.
+2. **PR becomes ready:** snapshot final claims with their basis, re-runnable
+   commands, unknowns, reviewer coverage and pending admission into the packet.
+   Partial criteria stay partial. Review the snapshot with the code; a passing
+   packet check cannot approve either. Reviewed merge updates the On-main table
+   and records admission scope. Deployment remains a separate fact.
+
+```mermaid
+flowchart LR
+    A[Fetch state and read criteria] --> B[Build and self-check]
+    B --> C[Open PR and update owner/status/locator]
+    C --> D{Record check passes?}
+    D -- No --> C
+    D -- Yes --> E[Work and review against criteria]
+    E --> F[Snapshot evidence before ready]
+    F --> G{Record check and independent review pass?}
+    G -- No --> E
+    G -- Yes --> H[Reviewed merge and admission record]
+    H --> I[Separate deployment and field validation]
+```
+
+`scripts/check_workpackets.py` runs in the **Workpacket records** workflow on
+opening, pushes, PR-body edits and ready/draft transitions. Product changes
+need declared packets; isolated modules have mapped scope; shared files rely
+on the declared scope and reviewer judgment. Declared/mapped packets must be
+touched in the PR, have a worker, and no draft/not-started checkpoint. Ready
+PRs also require nonempty final Claims/Evidence rows and explicit uncertainty,
+verification and acceptance sections. `tests/test_workpacket_guard.py` attempts
+the stale-record failures observed here and several omissions.
+
+This is a structural drift check. It cannot prove evidence truth, detect every
+stale factual sentence or infer the correct milestone for a shared file.
+Marking a partial packet ready for integration does not complete its original
+criteria. For enforced merge blocking, the repository owner must make
+**Workpacket records / records** a required status check in branch rules;
+the workflow alone reports a failing check. No branch rule is changed here.
+
 ## Three roles, kept apart
 
 | Role | Does | May be |

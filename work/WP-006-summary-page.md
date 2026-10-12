@@ -6,7 +6,7 @@
 | Parent | WP-000 |
 | Children | none |
 | Worker | Codex recovery session, 2026-10-12 |
-| Verifier | — |
+| Verifier | Opus 5.5: final application/browser review at `f68d70a` |
 | Acceptor | owner |
 
 ## Intent
@@ -42,13 +42,20 @@ and capture quality, plus a storage display.
 
 ## Claims
 
+Final application snapshot at `f68d70a`; comparison is a partial summary slice.
+
 | # | Claim | Basis |
 |---|---|---|
+| C1 | Comparison page renders overlays, measurements and readable warnings, with configured driver order | E1, E2 |
+| C2 | Full route summary, selected-lap analysis links and storage display are incomplete | E3 |
 
 ## Evidence
 
 | ID | What | Where |
 |---|---|---|
+| E1 | UI regressions | `node --test tests/ui/compare.test.cjs tests/ui/rivalry.test.cjs` |
+| E2 | Independent mobile-width and escaped-name browser checks | [Opus final review](https://github.com/adrianhensler/splittime/pull/10#pullrequestreview-5490170368) |
+| E3 | Present page scope | `app/static/compare.html` and `app/static/js/compare.js` at `f68d70a` |
 
 ## Known, unknown, unproven
 
@@ -64,26 +71,27 @@ reference lap changes. New upstream-branch fixes must be reviewed before merge.
 
 ## Checkpoint
 
-Implementation at `3ed8f6c` on `feat/codex-integrated-poc`
+Application checkpoint `f68d70a` on `feat/codex-integrated-poc`
 ([draft PR #10](https://github.com/adrianhensler/splittime/pull/10)). Uses
 `app/static/compare.html` and the registered corner API; not merged or deployed.
 PR #10 holds the live test record. To reproduce, use
 `python scripts/seed_demo.py <new-directory>` and the environment it prints,
 then serve on 127.0.0.1:8100 and open `rivalry.html`.
 
-Next: fetch and compare `origin/feat/opus-corner-analysis` with this integration.
-The recovery session observed new fix `c29fdcc` (clock resets and route-equivalence
-warnings), not yet included in PR #10. Also inspect pending process-doc PR #8
-before changing shared rules. Then review the integrated POC without expanding
-deployment authority.
+Corner fix `c29fdcc` and process-doc PR #8 are included. UI repair `f09c3ec`
+orders A/B, explains warnings and improves narrow-screen readability.
+UI review is complete at `f68d70a`. Next: integrate the POC, then finish the route
+summary, selected-lap analysis links and storage display. Whole-app deployed
+prefix validation belongs with WP-003; authority has not expanded.
 
 ## Verification
 
-Self-checks: 8 UI controllers, Ruff, browser rendering and corner API requests
-against simulator recordings. Combined Python suite 205 passed before the final
-driver-label addition, then 31 corner and 21 driver/rivalry regressions passed.
-No independent review of this session's newly authored integration yet.
+Combined self-checks at the current application checkpoint: 223 Python and
+12 Node UI tests, Ruff, packet round trip and browser rendering passed. Opus
+independently reviewed the earlier integration and source page; later UI
+repairs passed his `f68d70a` review. These results do not establish shared
+deployment or real two-driver accuracy.
 
 ## Acceptance
 
-—
+Pending reviewed integration merge; full summary/storage criteria incomplete.

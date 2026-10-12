@@ -2,10 +2,10 @@
 
 | | |
 |---|---|
-| Status | complete as an isolated module (self-checked on synthetic data; not independently verified, not accepted, not wired into the app) |
+| Status | partial; reviewed module wired into PR #10, stable reference and real two-lap accuracy criteria incomplete |
 | Parent | WP-000 |
 | Children | none |
-| Worker | Opus 5.5 (Claude Code), 2026-10-12 |
+| Worker | Codex (integration checkpoint owner); original module by Opus 5.5 |
 | Verifier | GPT-6, via pull request review |
 | Acceptor | owner |
 
@@ -43,9 +43,10 @@ a per-corner table of time and driving differences.
 5. Corners can be re-derived for a route without touching recorded data.
 6. Adapted code is listed in `docs/UPSTREAM.md`.
 
-Criterion 1's "stored with the route" and the page for criterion 4 depend on
-GPT-6's schema and frontend work and are not done here. Criterion 3 is met on
-simulated laps only; no real lap exists yet.
+Criterion 1's persisted stable reference/numbering is not implemented.
+The comparison page for criterion 4 is wired into PR #10. Criterion 3 is met
+on simulated pairs only; one real timed trace has been inspected, but there
+is no validated real two-lap pair.
 
 ## Context
 
@@ -67,7 +68,7 @@ simulated laps only; no real lap exists yet.
 | C7 | Unmeasurable values are `null`, not 0 | E1 |
 | C8 | Laps with a dead lap clock (World Time Attack) are timed on the race clock and say so | E1 |
 | C9 | Route position need not be metres: a 2.45× scale gives the same radii, speeds and deltas | E1 |
-| C10 | No upstream file or GPT-6-owned file changed; no new dependency | E4 |
+| C10 | Isolated corner source changed no upstream/GPT-6-owned file and added no dependency | E4 at source `c29fdcc`; integration deliberately changes other modules |
 | C11 | The endpoints work against a database recorded over real UDP from the simulator | E3 |
 | C12 | Direction `R`/`L` matches the real game | `asserted` — from upstream's axis notes, not checked against a capture |
 | C13 | The thresholds find sensible corners for real cars on real routes | `asserted` — untested |
@@ -82,15 +83,16 @@ Ubuntu, Python 3.12.3. Head of `feat/opus-corner-analysis`.
 | E1 | 32 tests in `tests/corners/` pass; full suite "185 passed" | `.venv/bin/pytest -q tests/corners` and `.venv/bin/pytest -q` |
 | E2 | Detected vs true positions on the simulator: entries 603.2 / 1579.6 (true 600 / 1577), exits 973.3 / 1949.1 (true 977 / 1954), radius 120.0 | `test_simulator_circuit_has_its_two_known_corners`; true values from `tools/simulator.py` `STRAIGHT`, `RADIUS` |
 | E3 | Against the database recorded in WP-001 E5: 2 corners, `capture_quality: continuous`, totals dt −0.273 s, lap-time dt −0.283 s, residual −0.010 s; about 150 ms per comparison | record a session as in `AGENTS.md`, then call `app.corners.api.corners_compare` with a stub request as `tests/corners/test_corners_api.py` does |
-| E4 | Empty diff | `git diff --stat origin/main -- app/api app/recorder app/telemetry app/main.py app/static tools prototype requirements.txt` |
+| E4 | Isolated source scope check | `git diff --stat ad4551b c29fdcc -- app/api app/recorder app/telemetry app/main.py app/static tools prototype requirements.txt` |
 | E5 | CI on the pull request | PR #5 checks |
 
 ## Known, unknown, unproven
 
 - **Known:** C1 to C11, as the worker's self-checks on synthetic data.
 - **Unknown:**
-  - Behaviour on any real FH6 lap. Everything here ran on upstream's simulator
-    or on a course generator written for these tests.
+  - Accuracy on real FH6 routes. One corrected copied trace reports 12 corners,
+    zero timed-lap gaps and no clock warning; direction, boundaries and
+    cross-car alignment are still not field-verified.
   - Whether heading from `yaw` is clean enough in the real game for a 30 m
     curvature window, and how drifting (yaw not along the path) affects it.
   - Cost on very long laps. A 29-minute lap of 119k frames is mentioned
@@ -100,17 +102,14 @@ Ubuntu, Python 3.12.3. Head of `feat/opus-corner-analysis`.
 
 ## Unresolved
 
-1. Contract agreed for the isolated module (review round 1 below).
-2. **Not wired in.** `app/corners/api.py` has the router; including it is one
-   line in `app/main.py`, which GPT-6 owns.
-3. **No caching**, by agreement. Corners are recomputed per request from the
+1. **No stable persisted reference**, by agreement for the POC. Corners are recomputed per request from the
    route's fastest clean lap, so numbering can shift if a new fastest lap
    finds a different set.
-4. **Start/finish line.** A corner straddling the line shows as two parts.
-5. **Chicanes.** The reversal blurs: about 5° of heading and a 9 m gap between
+2. **Start/finish line.** A corner straddling the line shows as two parts.
+3. **Chicanes.** The reversal blurs: about 5° of heading and a 9 m gap between
    the two halves go to a short "straight" segment.
-6. **`kind`** uses the reference lap's speed, so it can differ between cars.
-7. Upstream's `_LapScan` is not reused, to avoid importing a private name from
+4. **`kind`** uses the reference lap's speed, so it can differ between cars.
+5. Upstream's `_LapScan` is not reused, to avoid importing a private name from
    a file GPT-6 owns. The rewind rule is reimplemented in `trace.py`; if the
    two ever disagree, charts and corner tables would differ slightly.
 
@@ -141,15 +140,25 @@ Not covered: a clock that jumps *forward* mid-lap is not detected.
 
 ## Checkpoint
 
-Module, tests and contract pushed; PR #5 open. Next for the reviewer: answer
-the contract questions, run `pytest -q tests/corners`, and add an adverse test
-of your own (suggestions in the PR). Next for Opus: respond to review; once
-sessions carry `driver_id` and a real lap exists, re-check C12 to C14 on it.
+Source PR #5 remains open for history. Opus merged `c29fdcc` into PR #10 at
+`7c81323`; both API safeguards and driver attribution are retained in code
+head `f68d70a`. `app/main.py` includes the router and the rivalry page links
+to `compare.html`. See PR #10 for live integration/capture evidence.
+
+Next: obtain a second real lap, verify a labelled known turn, check boundaries
+and alignment, and persist a deliberate route reference before calling corner
+numbering stable. Re-run `python -m pytest -q tests/corners`. No detector
+threshold or live-recording changes follow from this checkpoint.
 
 ## Verification
 
-Self-checks only. No independent verification yet.
+GPT-6/Codex source reviews found arrival-time, equivalence and clock issues;
+the fixes are recorded above. Opus ran 32 corner tests and reviewed the
+integrated endpoint at `7c81323`; his final `f68d70a` review confirmed the
+corner files were unchanged and the application had no blockers. Synthetic checks establish regression
+behaviour, not real direction/accuracy or completion of the full packet.
 
 ## Acceptance
 
-Pending.
+Pending reviewed integration merge. Stable references and real two-lap
+acceptance checks remain open.

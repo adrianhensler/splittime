@@ -2,11 +2,11 @@
 
 | | |
 |---|---|
-| Status | in-progress; implemented, correcting independent review findings in PR #6 |
+| Status | implemented and repaired in PR #10; integration admission pending |
 | Parent | WP-000 |
 | Children | none |
-| Worker | GPT-6; review repairs by Codex on 2026-10-12 |
-| Verifier | — |
+| Worker | Codex (checkpoint owner); original implementation by GPT-6 |
+| Verifier | Opus 5.5: adverse re-check and final application review at `f68d70a` |
 | Acceptor | owner |
 
 ## Intent
@@ -50,19 +50,27 @@ driver on every session, and per-driver bests.
 
 ## Claims
 
+Final application snapshot at `f68d70a`; live discussion is in PR #10.
+
 | # | Claim | Basis |
 |---|---|---|
+| C1 | Config, source tracking and isolation repairs pass independent adverse checks | E1, E3 |
+| C2 | First-start repair keeps game time/contact and removes the observed false rewind on copied replay | E2, E3; Codex inspected private packets and owner supplied ground truth |
 
 ## Evidence
 
 | ID | What | Where |
 |---|---|---|
+| E1 | Driver regressions | `python -m pytest -q tests/test_driver_review.py tests/test_multi_driver.py`; `node --test tests/ui/driver-groups.test.cjs` |
+| E2 | Start regression | `python -m pytest -q tests/test_rivals_start.py`; reset test fails against parent of `175bffe` |
+| E3 | Independent 223 Python/12 UI and 18/19 adverse checks | [Opus final review](https://github.com/adrianhensler/splittime/pull/10#pullrequestreview-5490170368) |
 
 ## Known, unknown, unproven
 
 - **Known:** `SessionTracker` keeps state per instance (WP-000 C3).
-- **Unknown:** whether the store or the hub hold anything that assumes a single
-  tracker (session-best queries, live frame fan-out).
+- **Known on simulated inputs:** driver isolation, migration and repaired
+  configuration/source handling have tests and independent review.
+- **Unknown:** ordinary use by two real drivers over internet delivery.
 
 ## Unresolved
 
@@ -80,18 +88,25 @@ grouping and bounded source tracking. Reproducer regressions are
 six Python cases failed before the fix. Re-run
 `python -m pytest -q tests/test_driver_review.py tests/test_multi_driver.py`
 and `node --test tests/ui/driver-groups.test.cjs`.
-Next: fetch, inspect the PR's newest head/checks, request independent re-review,
-and propagate the fixes through stacked PR #7 and the integration branch.
+These repairs are included in integration code head `f68d70a`; propagation
+through PR #7 and final application review are done. Next: fetch PR #10,
+check later changes, integrate after green checks, then perform WP-003's
+shared-use checks. Main is still `ad4551b`; no shared deployment is claimed.
 
 ## Verification
 
-Own repair checks: 23 focused Python tests and two Node grouping tests passed;
-full-suite results are in PR #6. Prior independent Opus review found the bugs;
-this repair has not yet had independent re-review. No owner acceptance or deployment.
+Own repair checks: 23 focused Python tests and two Node grouping tests passed.
+Opus independently confirmed the configuration, source and isolation repairs
+on `7c81323`; his combined 19 adverse tests passed 18, with only inherited UDP
+reordering failing. His final `f68d70a` review checked the first-start predicate:
+eight of nine new tests pass; a hypothetical reset one frame after crossing
+still falsely marks a clean lap suspect. Do not widen without capture evidence.
+No integration admission or shared deployment is claimed.
 
 ## Acceptance
 
-Pending independent re-review and integration decision.
+Pending reviewed integration merge. Source repairs have been re-reviewed;
+full real-use criteria remain separate open checks.
 
 ## Integration checkpoint, 2026-10-12
 

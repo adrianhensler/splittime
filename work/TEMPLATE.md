@@ -56,7 +56,9 @@ Open items and who can resolve them.
 
 ## Checkpoint
 
-Next action, and anything a replacement worker needs to continue.
+Checkpoint owner; repository/branch/PR; application code revision; pushed,
+merged and deployed state; last check and its scope; unresolved acceptance
+criteria; one next reproducible action. Fetch the live PR on resumption.
 
 ## Verification
 
