@@ -198,7 +198,7 @@ Owner's request (ADR 22). Changes to imported files:
 - `app/static/js/dashboard.js`: the single WebSocket (`connect()`), its
   reconnect constants, the `visibilitychange` re-arm and the overlay half of
   `pollStatus()` are removed. Added: `detailFrame()`, `resetDetail()`,
-  `setDetailStatus()`, `BLANK_FRAME`; `render()` is split into `render()` and
+  `staleDetail()`, `setDetailStatus()`, `BLANK_FRAME`; `render()` is split into `render()` and
   `paint(frame, live)`. `showWriteError()` looks at every driver's recorder.
   The gauge drawing, map and collision code are untouched, and `gauges.js`
   is not changed at all.

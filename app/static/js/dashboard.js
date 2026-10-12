@@ -248,6 +248,20 @@ function resetDetail() {
   lastCanvasLabel = 0;
 }
 
+/* Same driver, but the tab was hidden and nothing was drawn meanwhile: the
+   frame on screen and the rolling histories are from before. Drop them so the
+   gauges are empty until a current frame arrives. The map and the car chip
+   are this driver's own and stay; the map just has a gap in it. */
+function staleDetail() {
+  state.frame = null;
+  state.trail = [];
+  state.strip = [];
+  state.blank = true;
+  liveMap.overImpact = false;
+  liveMap.prevG = null;
+  lastCanvasLabel = 0;
+}
+
 /* The header chip follows the shown driver's feed: racing, paused, waiting... */
 function setDetailStatus(text, cls) {
   setConn(text, cls);

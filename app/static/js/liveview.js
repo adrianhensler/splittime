@@ -10,10 +10,18 @@
 (function () {
   "use strict";
 
+  // retry for the driver list: doubles to the ceiling, like the feeds
+  const LIST_RETRY_MIN = 2000;
+  const LIST_RETRY_MAX = 15000;
+
   const cardsBox = document.getElementById("drivers");
   const note = document.getElementById("live-note");
   const cards = new Map();   // driver id -> {button, state, speed, laps}
   let feeds = null;
+  let present = true;        // false between pagehide and a restoring pageshow
+  let loadSeq = 0;           // only the newest driver-list request may act
+  let retryTimer = null;
+  let retryDelay = LIST_RETRY_MIN;
 
   function el(tag, cls, text) {
     const node = document.createElement(tag);
@@ -56,7 +64,7 @@
   }
 
   function refresh() {
-    if (!feeds) return;
+    if (!feeds || !feeds.running()) return;
     const detail = feeds.detail();
     for (const [id, card] of cards) {
       const st = feeds.status(id);
@@ -66,9 +74,9 @@
       card.button.classList.toggle("chosen", chosen);
       card.state.textContent = st.label;
       card.state.className = `driver-state ${st.cls}`;
-      // a number only while it is current: a paused driver's last speed is
-      // not their speed now
-      card.speed.textContent = st.fresh && s
+      // a number only while it is current: a paused driver's last speed, or
+      // one read before the tab was hidden, is not their speed now
+      card.speed.textContent = st.current && s
         ? `${Math.round(Math.max(0, speedFromMps(s.speed)))} ${speedUnit()}` : "—";
       card.laps.textContent = lapText(s, st.kind === "racing");
       card.button.setAttribute("aria-label",
@@ -81,22 +89,28 @@
     note.hidden = !st.sentence;
   }
 
+  /* {ok: true, drivers} only for an answer the server actually gave. A failed
+     request is not "no drivers configured": saying so would hide the second
+     driver behind a single generic feed for as long as the page stays open. */
   async function configuredDrivers() {
     try {
       const response = await fetch("api/drivers");
-      if (!response.ok) return [];
+      if (!response.ok) return { ok: false };
       const list = await response.json();
-      return (Array.isArray(list) ? list : [])
-        .filter((d) => d && typeof d.id === "string" && d.id)
-        .map((d) => ({ id: d.id, name: String(d.name || d.id) }));
+      if (!Array.isArray(list)) return { ok: false };
+      return {
+        ok: true,
+        drivers: list
+          .filter((d) => d && typeof d.id === "string" && d.id)
+          .map((d) => ({ id: d.id, name: String(d.name || d.id) })),
+      };
     } catch {
-      return [];
+      return { ok: false };
     }
   }
 
-  async function init() {
-    let drivers = await configuredDrivers();
-    // an install with no driver list still has the one legacy feed
+  function startFeeds(drivers) {
+    // a server that answers with no driver list still has its one legacy feed
     if (!drivers.length) drivers = [{ id: null, name: "Driver" }];
     drivers.forEach(buildCard);
     cardsBox.classList.toggle("single", drivers.length === 1);
@@ -112,6 +126,7 @@
       isHidden: () => document.hidden,
       onDetailFrame: detailFrame,
       onDetailReset: resetDetail,
+      onDetailStale: staleDetail,
       onChange: refresh,
     });
     feeds.start();
@@ -119,8 +134,51 @@
     // states such as "paused" are a matter of elapsed time, not of an event
     setVisibleInterval(refresh, 250);
     onSettingsChange(refresh);  // speed unit
-    window.addEventListener("pagehide", () => feeds.stop());
+    // back in view: what is on screen was drawn before the tab was hidden
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden && feeds.running()) { feeds.shown(); refresh(); }
+    });
   }
 
-  init();
+  /* Ask for the driver list until the server answers. Nothing is opened and
+     nothing is guessed while it has not. */
+  async function loadDrivers() {
+    const seq = ++loadSeq;
+    const result = await configuredDrivers();
+    // the page was left, or a newer request took over, while this one waited
+    if (seq !== loadSeq || !present || feeds) return;
+    if (!result.ok) {
+      setDetailStatus("no driver list", "err");
+      note.textContent = "Could not load the list of drivers from the server. Trying again…";
+      note.hidden = false;
+      retryTimer = setTimeout(() => { retryTimer = null; loadDrivers(); }, retryDelay);
+      retryDelay = Math.min(LIST_RETRY_MAX, retryDelay * 2);
+      return;
+    }
+    note.hidden = true;
+    note.textContent = "";
+    startFeeds(result.drivers);
+  }
+
+  /* Leaving the page - including into the browser's back/forward cache, where
+     scripts are frozen but sockets are not kept: close everything and cancel
+     anything pending. */
+  window.addEventListener("pagehide", () => {
+    present = false;
+    loadSeq++;
+    if (retryTimer != null) { clearTimeout(retryTimer); retryTimer = null; }
+    if (feeds) feeds.stop();
+  });
+
+  /* Restored from the back/forward cache (Back, Forward): the page comes back
+     exactly as it was left, closed sockets included. Start again. An ordinary
+     first load also fires pageshow, with persisted false, and needs nothing. */
+  window.addEventListener("pageshow", (event) => {
+    if (!event.persisted || present) return;
+    present = true;
+    if (feeds) { feeds.start(); refresh(); }
+    else { retryDelay = LIST_RETRY_MIN; loadDrivers(); }
+  });
+
+  loadDrivers();
 })();

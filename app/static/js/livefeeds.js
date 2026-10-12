@@ -82,6 +82,8 @@
        isHidden       () => true while the tab is hidden
        onDetailFrame  (frame, driverId) full frames of the detail driver only
        onDetailReset  (driverId) the detail driver changed: drop everything shown
+       onDetailStale  (driverId) same driver, but what is on screen is out of
+                      date (the tab was hidden): drop the frame and histories
        onChange       (driverId) a feed's connection state changed */
   function createLiveFeeds(options) {
     const now = options.now;
@@ -90,6 +92,7 @@
     const noop = () => {};
     const onDetailFrame = options.onDetailFrame || noop;
     const onDetailReset = options.onDetailReset || noop;
+    const onDetailStale = options.onDetailStale || noop;
     const onChange = options.onChange || noop;
 
     const feeds = new Map();
@@ -98,22 +101,38 @@
       feeds.set(d.id, {
         id: d.id, name: d.name, socket: null, timer: null,
         connected: false, everConnected: false,
+        // Two different clocks. lastArrival: when a packet last came in, parsed
+        // or not - it says whether the game is sending. lastParsed: when
+        // `frame` and `summary` were last refreshed - it says how old the
+        // numbers we hold are. A packet arriving does not make old numbers new.
         lastArrival: null, lastParsed: -Infinity,
         frame: null, summary: null, delay: RECONNECT_MIN,
       });
     }
     let detailId = feeds.has(options.detail) ? options.detail
       : (feeds.size ? feeds.keys().next().value : undefined);
-    let started = false;
-    let stopped = false;
+    let running = false;
+    // bumped on every stop: anything scheduled before it (a reconnect timer
+    // that fires anyway) belongs to a finished run and must do nothing
+    let run = 0;
+
+    /* Do the numbers we hold describe the driver right now? They must have
+       been read from a packet no older than the newest one by more than the
+       summary interval, and that packet must itself be recent. */
+    function cacheCurrent(feed, t) {
+      return feed.frame != null && feed.lastArrival != null
+        && t - feed.lastArrival <= STALE_MS
+        && feed.lastArrival - feed.lastParsed <= SUMMARY_MS;
+    }
 
     function open(feed) {
-      if (stopped || feed.socket) return;
+      if (!running || feed.socket) return;
       const ws = options.makeSocket(liveSocketUrl(options.location, feed.id));
       feed.socket = ws;
+      const mine = run;
       // every handler checks it still belongs to the feed's current socket: a
       // callback from a socket that was replaced or shut down must do nothing
-      const current = () => !stopped && feed.socket === ws;
+      const current = () => running && feed.socket === ws;
       ws.onopen = () => {
         if (!current()) return;
         feed.connected = true;
@@ -124,12 +143,13 @@
       ws.onmessage = (ev) => {
         if (!current()) return;
         const t = now();
-        // Recorded for every packet, parsed or not, so "paused" always means
-        // the game stopped sending - never that this tab stopped looking.
         feed.lastArrival = t;
-        // A hidden tab draws nothing: skip the parse, keep the socket.
-        if (isHidden()) return;
-        const detail = feed.id === detailId;
+        // Full rate only for the driver on screen in a visible tab. Everyone
+        // else, and everyone while the tab is hidden, is read at summary
+        // rate: enough to keep state, speed and lap times true without
+        // parsing 60-140 frames a second that nobody sees.
+        const hidden = isHidden();
+        const detail = feed.id === detailId && !hidden;
         if (!detail && t - feed.lastParsed < SUMMARY_MS) return;
         let f;
         try { f = parse(ev.data); } catch (e) { return; }
@@ -137,13 +157,18 @@
         feed.lastParsed = t;
         feed.frame = f;
         feed.summary = summaryOf(f);
+        // a hidden tab draws nothing: no gauge or history work
         if (detail) onDetailFrame(f, feed.id);
       };
       ws.onclose = () => {
         if (!current()) return;
         feed.socket = null;
         feed.connected = false;
-        feed.timer = options.setTimer(() => { feed.timer = null; open(feed); }, feed.delay);
+        feed.timer = options.setTimer(() => {
+          if (mine !== run) return;
+          feed.timer = null;
+          open(feed);
+        }, feed.delay);
         feed.delay = Math.min(RECONNECT_MAX, feed.delay * 2);
         onChange(feed.id);
       };
@@ -153,17 +178,30 @@
       };
     }
 
+    /* Open every feed. Also how a stopped set of feeds comes back (a page
+       restored from the back/forward cache): everything held from before the
+       stop is forgotten first, because it is as old as the absence was long. */
     function start() {
-      if (started || stopped) return;
-      started = true;
+      if (running) return;
+      running = true;
+      for (const feed of feeds.values()) {
+        feed.connected = false;
+        feed.lastArrival = null;
+        feed.lastParsed = -Infinity;
+        feed.frame = null;
+        feed.summary = null;
+        feed.delay = RECONNECT_MIN;
+      }
       if (detailId !== undefined) onDetailReset(detailId);
       for (const feed of feeds.values()) open(feed);
     }
 
-    /* Page exit: no reconnects, no late callbacks, sockets closed. */
+    /* Page exit: no reconnects, no late callbacks, sockets closed. start()
+       may be called again later. */
     function stop() {
-      if (stopped) return;
-      stopped = true;
+      if (!running) return;
+      running = false;
+      run++;
       for (const feed of feeds.values()) {
         if (feed.timer != null) { options.clearTimer(feed.timer); feed.timer = null; }
         const ws = feed.socket;
@@ -180,38 +218,63 @@
       if (!feed.connected) return feed.everConnected ? "reconnecting" : "connecting";
       if (feed.lastArrival == null) return "waiting";
       if (t - feed.lastArrival > STALE_MS) return "paused";
-      if (feed.summary && feed.summary.race_mode) return "racing";
-      if (feed.summary && feed.summary.is_race_on) return "free-roam";
+      // packets are arriving; say what the driver is doing only if the numbers
+      // we hold are from those packets, otherwise just that data is arriving
+      if (!cacheCurrent(feed, t)) return "receiving";
+      if (feed.summary.race_mode) return "racing";
+      if (feed.summary.is_race_on) return "free-roam";
       return "receiving";
     }
 
     function status(id, t) {
       const feed = feeds.get(id);
       if (!feed) return null;
-      const kind = kindOf(feed, t == null ? now() : t);
+      const at = t == null ? now() : t;
+      const kind = kindOf(feed, at);
       return {
         kind, label: LABELS[kind], cls: CLASSES[kind],
+        // packets are arriving now
         fresh: kind === "racing" || kind === "free-roam" || kind === "receiving",
+        // summary(id) describes the driver now; show its numbers only then
+        current: feed.connected && cacheCurrent(feed, at),
         sentence: describe(kind, feed.name),
       };
     }
 
+    /* The detail driver's own latest frame, but only if it is current. */
+    function replayDetail() {
+      const feed = feeds.get(detailId);
+      if (feed && feed.connected && !isHidden() && cacheCurrent(feed, now()))
+        onDetailFrame(feed.frame, feed.id);
+    }
+
     /* Show another driver in detail. Sockets are untouched - every driver is
-       already subscribed - so switching never drops or duplicates a feed. */
+       already subscribed - so switching never drops or duplicates a feed.
+       The gauges start from that driver's latest frame when it is current; a
+       paused driver, or one whose numbers we hold are old, starts blank. */
     function selectDetail(id) {
-      if (stopped || !feeds.has(id) || id === detailId) return false;
+      if (!running || !feeds.has(id) || id === detailId) return false;
       detailId = id;
       onDetailReset(id);
-      const feed = feeds.get(id);
-      // their own most recent frame, if it is current, so the gauges do not
-      // sit empty until the next packet; a paused driver starts blank
-      if (feed.frame && status(id).fresh && !isHidden()) onDetailFrame(feed.frame, id);
+      replayDetail();
       onChange(id);
       return true;
     }
 
+    /* The tab is visible again. Nothing was drawn while it was hidden, so the
+       frame and the histories on screen are from before: drop them, and show
+       the current frame if there is one. Otherwise the gauges stay empty
+       until the next packet - never an old frame presented as now. */
+    function shown() {
+      if (!running || detailId === undefined) return;
+      onDetailStale(detailId);
+      replayDetail();
+      onChange(detailId);
+    }
+
     return {
-      start, stop, status, selectDetail,
+      start, stop, status, selectDetail, shown,
+      running: () => running,
       detail: () => detailId,
       summary: (id) => (feeds.has(id) ? feeds.get(id).summary : null),
       drivers: () => Array.from(feeds.values(), (f) => ({ id: f.id, name: f.name })),

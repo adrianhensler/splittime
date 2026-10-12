@@ -106,8 +106,16 @@ criteria, which are about the after-race summary and remain incomplete.
 | L1 | The Live page shows a card per configured driver (state, speed, lap times) and no address, port or setup text | `tests/ui/liveview.test.cjs` |
 | L2 | Each driver has their own same-origin socket, relative to the page and `wss` under HTTPS; one driver pausing, dropping or reconnecting does not affect the other | `tests/ui/livefeeds.test.cjs` |
 | L3 | Switching the shown driver clears the gauges, histories, map, car chip and held raw values first; a late car-name reply for the previous driver is discarded | `tests/ui/liveview.test.cjs` |
-| L4 | "Waiting" until a first packet; "paused" from packet arrival times, including packets received while the tab was hidden | `tests/ui/livefeeds.test.cjs` |
+| L4 | "Waiting" until a first packet; "paused" from packet arrival times. A speed or mode is shown only when it was read from the newest packets: while the tab is hidden every driver is still read about five times a second, and on return the old gauges are dropped before a current frame, if any, is shown | `tests/ui/livefeeds.test.cjs`, `tests/ui/liveview.test.cjs` |
 | L5 | The server routes two simultaneous sockets to their own drivers | `tests/test_live_two_drivers.py` |
+| L6 | Leaving the page closes every socket and cancels anything pending; a page restored from the back/forward cache reconnects each driver once | both UI test files |
+| L7 | A failed driver-list request is shown and retried (2 s doubling to 15 s). It never becomes a single generic feed. A server that answers with an empty list still gets the one legacy feed | `tests/ui/liveview.test.cjs` |
+
+Review round 1 (Codex, on `ca6e44a`) reproduced three faults, fixed in the
+next commit: a packet arriving while the tab was hidden made a ten-second-old
+frame count as current; `pagehide` stopped the feeds with no way back from the
+back/forward cache; a failed driver-list request silently became one generic
+"Driver" feed. L4, L6 and L7 are the corrected behaviour.
 
 Re-run: `node --test tests/ui/*.test.cjs` and
 `pytest -q tests/test_live_two_drivers.py`.

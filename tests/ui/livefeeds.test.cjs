@@ -34,6 +34,7 @@ function rig(options = {}) {
     isHidden: () => env.hidden,
     onDetailFrame(f, id) { env.detailFrames.push([id, f]); env.log.push("frame:" + id); },
     onDetailReset(id) { env.resets.push(id); env.log.push("reset:" + id); },
+    onDetailStale(id) { env.log.push("stale:" + id); },
     onChange(id) { env.changes.push(id); },
   });
   env.socket = (id) => env.sockets.filter((ws) => ws.url.endsWith("driver=" + id)).at(-1);
@@ -221,6 +222,7 @@ test("stop cancels reconnects, closes sockets and silences late callbacks", () =
   const frames = env.detailFrames.length;
 
   env.feeds.stop();
+  assert.equal(env.feeds.running(), false);
   assert.ok(alphaSocket.closed);
   assert.ok(env.timers.every((timer) => timer.cleared));
   assert.equal(alphaSocket.onmessage, null);
@@ -231,8 +233,145 @@ test("stop cancels reconnects, closes sockets and silences late callbacks", () =
   assert.equal(env.detailFrames.length, frames);
   assert.equal(env.sockets.length, 2);
   assert.equal(env.feeds.selectDetail("beta"), false);
-  env.feeds.start();                                     // and it does not restart
+  env.feeds.stop();                                      // twice is harmless
   assert.equal(env.sockets.length, 2);
+});
+
+test("stopped feeds can be started again with fresh sockets and nothing left over", () => {
+  // a page restored from the back/forward cache: sockets were closed on the way out
+  const env = rig();
+  env.feeds.start();
+  env.open("alpha"); env.open("beta");
+  env.send("alpha", { speed: 61 }); env.send("beta", { speed: 22 });
+  env.socket("beta").onclose();                          // a reconnect is pending at the stop
+  const old = env.sockets.slice();
+  const oldHandlers = old.map((ws) => ws.onmessage);
+  const pending = env.timers[0];
+  env.feeds.stop();
+  env.t += 60000;                                        // away for a minute
+  env.log.length = 0;
+
+  env.feeds.start();
+  assert.equal(env.feeds.running(), true);
+  assert.equal(env.sockets.length, 4);                   // exactly one new socket per driver
+  assert.deepEqual(env.sockets.slice(2).map((ws) => ws.url),
+    ["ws://localhost:8100/ws/live?driver=alpha", "ws://localhost:8100/ws/live?driver=beta"]);
+  assert.deepEqual(env.log, ["reset:alpha"]);            // the gauges are cleared
+  // nothing from before the stop is presented as current
+  assert.equal(env.kind("alpha"), "reconnecting");
+  assert.equal(env.feeds.summary("alpha"), null);
+  assert.equal(env.feeds.status("alpha").current, false);
+  env.open("alpha"); env.open("beta");
+  assert.equal(env.kind("alpha"), "waiting");
+  assert.equal(env.kind("beta"), "waiting");
+
+  // the old run's timer and sockets say something late: no fifth socket, no data
+  pending.fn();
+  oldHandlers.forEach((fn) => fn && fn({ data: frame({ speed: 999 }) }));
+  assert.equal(env.sockets.length, 4);
+  assert.equal(env.feeds.summary("alpha"), null);
+
+  env.send("alpha", { speed: 70 });
+  assert.equal(env.kind("alpha"), "racing");
+  assert.equal(env.detailFrames.at(-1)[1].speed, 70);
+  env.feeds.start();                                     // already running: no duplicates
+  assert.equal(env.sockets.length, 4);
+});
+
+test("a packet that arrives while the tab is hidden does not make an old frame current", () => {
+  // Codex's reproduction: visible frame at t=0 (speed 40, racing); ten seconds
+  // later, tab hidden, the driver is in free roam at speed 95.
+  const env = rig();
+  env.feeds.start();
+  env.open("alpha"); env.open("beta");
+  env.send("alpha", { speed: 40, race_mode: true });
+  env.hidden = true;
+  env.t = 10000;
+  const drawn = env.detailFrames.length;
+  env.send("alpha", { speed: 95, race_mode: false });
+  assert.equal(env.detailFrames.length, drawn);           // hidden: nothing drawn
+  env.t = 10001;
+  env.hidden = false;
+  env.log.length = 0;
+
+  // what the card says is what the newest packet said, not the frame from t=0
+  const st = env.feeds.status("alpha");
+  assert.equal(st.kind, "free-roam");
+  assert.equal(st.current, true);
+  assert.equal(env.feeds.summary("alpha").speed, 95);
+
+  // back in view before any further packet: the old gauges are dropped and
+  // the current frame, read while hidden, is shown
+  env.feeds.shown();
+  assert.deepEqual(env.log, ["stale:alpha", "frame:alpha"]);
+  assert.equal(env.detailFrames.at(-1)[1].speed, 95);
+});
+
+test("selecting a driver after hidden packets shows their current frame, never the old one", () => {
+  const env = rig({ detail: "beta" });
+  env.feeds.start();
+  env.open("alpha"); env.open("beta");
+  env.send("alpha", { speed: 40, race_mode: true });
+  env.hidden = true;
+  env.t = 10000;
+  env.send("alpha", { speed: 95, race_mode: false });
+  env.t = 10001;
+  env.hidden = false;
+  env.log.length = 0;
+  env.feeds.selectDetail("alpha");
+  assert.deepEqual(env.log, ["reset:alpha", "frame:alpha"]);
+  assert.equal(env.detailFrames.at(-1)[1].speed, 95);
+});
+
+test("when the numbers held are older than the newest packet, nothing is replayed or claimed", () => {
+  // the newest packet could not be read, so all we hold is the frame from t=0
+  const env = rig();
+  env.feeds.start();
+  env.open("alpha"); env.open("beta");
+  env.send("alpha", { speed: 40, race_mode: true });
+  env.hidden = true;
+  env.t = 10000;
+  env.socket("alpha").onmessage({ data: "{truncated" });
+  env.t = 10001;
+  env.hidden = false;
+  env.log.length = 0;
+
+  const st = env.feeds.status("alpha");
+  assert.equal(st.kind, "receiving");                     // data is arriving...
+  assert.equal(st.fresh, true);
+  assert.equal(st.current, false);                        // ...but speed 40 / racing is not now
+  env.feeds.shown();
+  assert.deepEqual(env.log, ["stale:alpha"]);             // gauges emptied, old frame not replayed
+  env.feeds.selectDetail("beta");
+  env.log.length = 0;
+  env.feeds.selectDetail("alpha");
+  assert.deepEqual(env.log, ["reset:alpha"]);
+
+  env.t += 5;
+  env.send("alpha", { speed: 96, race_mode: false });     // the next readable packet
+  assert.equal(env.feeds.status("alpha").kind, "free-roam");
+  assert.equal(env.feeds.status("alpha").current, true);
+  assert.equal(env.detailFrames.at(-1)[1].speed, 96);
+});
+
+test("a hidden tab reads even the detail driver at summary rate and draws nothing", () => {
+  const env = { t: 0, sockets: [] };
+  let parses = 0, drawn = 0;
+  const feeds = LiveFeeds.createLiveFeeds({
+    drivers: DRIVERS, location: PAGE,
+    makeSocket(url) { const ws = { url, close() {} }; env.sockets.push(ws); return ws; },
+    now: () => env.t, setTimer: () => ({}), clearTimer() {}, isHidden: () => true,
+    parse(text) { parses++; return JSON.parse(text); },
+    onDetailFrame() { drawn++; },
+  });
+  feeds.start();
+  const alpha = env.sockets[0];
+  alpha.onopen();
+  for (let i = 0; i < 140; i++) { env.t += 1000 / 140; alpha.onmessage({ data: frame({ speed: i }) }); }
+  assert.ok(parses >= 4 && parses <= 6, `one hidden second at 140 Hz parsed ${parses} times`);
+  assert.equal(drawn, 0);
+  assert.ok(feeds.summary("alpha").speed > 100, "the summary kept up with the stream");
+  assert.equal(feeds.status("alpha").current, true);
 });
 
 test("waiting, live, paused and back follow packet arrival, not the tab", () => {
@@ -248,12 +387,13 @@ test("waiting, live, paused and back follow packet arrival, not the tab", () => 
   assert.equal(env.kind("alpha"), "paused");
   assert.equal(env.feeds.status("alpha").fresh, false);
 
-  // hidden tab: frames are not parsed or drawn, but they still count as arriving
+  // hidden tab: frames are not drawn, but they still count as arriving and
+  // the summary is kept up to date
   env.hidden = true;
-  const parsed = env.detailFrames.length;
+  const drawn = env.detailFrames.length;
   env.send("alpha", { speed: 80 });
-  assert.equal(env.detailFrames.length, parsed);
-  assert.equal(env.feeds.summary("alpha").speed, 50);
+  assert.equal(env.detailFrames.length, drawn);
+  assert.equal(env.feeds.summary("alpha").speed, 80);
   assert.equal(env.kind("alpha"), "racing");
 
   // the game pauses while the tab is hidden; coming back must not call the

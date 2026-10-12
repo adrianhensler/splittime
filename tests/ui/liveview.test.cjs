@@ -60,15 +60,18 @@ function liveFrame(over) {
   };
 }
 
+// `drivers`: an array (the server's answer), or a function called once per
+// request for api/drivers that returns a fetch-like response or a promise.
 async function page({ drivers, href = "https://test.example/splittime/index.html" } = {}) {
-  const byId = {}, env = { now: 1000, sockets: [], frames: [], intervals: [], carLookups: [], replaced: [] };
-  const windowHandlers = {};
+  const byId = {}, env = { now: 1000, sockets: [], frames: [], intervals: [], carLookups: [],
+    replaced: [], timeouts: [], listRequests: 0 };
+  const windowHandlers = {}, documentHandlers = {};
   const document = {
     hidden: false, body: fakeElement("body"),
     getElementById: (id) => (byId[id] ||= fakeElement("#" + id)),
     createElement: (tag) => fakeElement(tag),
     querySelectorAll: () => [],
-    addEventListener() {},
+    addEventListener(type, fn) { (documentHandlers[type] ||= []).push(fn); },
   };
   const url = new URL(href);
   const context = vm.createContext({
@@ -77,12 +80,17 @@ async function page({ drivers, href = "https://test.example/splittime/index.html
     history: { replaceState: (_s, _t, to) => env.replaced.push(to) },
     performance: { now: () => env.now },
     requestAnimationFrame: (fn) => { env.frames.push(fn); },
-    setTimeout: () => 1, clearTimeout() {}, setInterval: () => 1,
+    setTimeout(fn, ms) { const timer = { fn, ms, cleared: false }; env.timeouts.push(timer); return timer; },
+    clearTimeout(timer) { if (timer) timer.cleared = true; },
+    setInterval: () => 1,
     addEventListener(type, fn) { (windowHandlers[type] ||= []).push(fn); },
     WebSocket: function (socketUrl) { this.url = socketUrl; this.close = () => { this.closed = true; }; env.sockets.push(this); },
     fetch(resource) {
-      if (resource === "api/drivers")
-        return Promise.resolve({ ok: drivers !== null, json: async () => drivers });
+      if (resource === "api/drivers") {
+        env.listRequests++;
+        if (typeof drivers === "function") return Promise.resolve(drivers(env.listRequests));
+        return Promise.resolve({ ok: true, json: async () => drivers });
+      }
       if (resource === "api/status") return Promise.resolve({ json: async () => ({ drivers: [] }) });
       return new Promise((resolve) => env.carLookups.push({
         resource, answer: (name) => resolve({ json: async () => ({ name, known: true }) }) }));
@@ -110,7 +118,16 @@ async function page({ drivers, href = "https://test.example/splittime/index.html
   env.send = (id, over) => env.socket(id).onmessage({ data: JSON.stringify(liveFrame(over)) });
   env.paint = () => { const fn = env.frames.pop(); env.frames.length = 0; fn(); };
   env.refresh = () => env.intervals.forEach((fn) => fn());
-  env.leave = () => (windowHandlers.pagehide || []).forEach((fn) => fn());
+  env.leave = () => (windowHandlers.pagehide || []).forEach((fn) => fn({ type: "pagehide", persisted: true }));
+  env.comeBack = (persisted = true) =>
+    (windowHandlers.pageshow || []).forEach((fn) => fn({ type: "pageshow", persisted }));
+  env.hide = () => { document.hidden = true; (documentHandlers.visibilitychange || []).forEach((fn) => fn()); };
+  env.show = () => { document.hidden = false; (documentHandlers.visibilitychange || []).forEach((fn) => fn()); };
+  env.runTimeouts = () => {
+    const due = env.timeouts.filter((timer) => !timer.cleared && !timer.ran);
+    due.forEach((timer) => { timer.ran = true; timer.fn(); });
+    return due.map((timer) => timer.ms);
+  };
   env.settle = async () => { for (let i = 0; i < 10; i++) await null; };
   env.text = () => allText(env.$("drivers")).concat(allText(env.$("live-note")),
     allText(env.$("conn")), allText(env.$("car-chip")), allText(document.body)).join("\n");
@@ -231,12 +248,143 @@ test("a paused driver keeps their card but loses the speed, and the other is una
   assert.equal(beta.children[2].textContent, "76 km/h");
 });
 
-test("a single-driver or unconfigured install still gets one usable feed", async () => {
+const failed = () => ({ ok: false, json: async () => ({ detail: "server error" }) });
+const answered = (list) => ({ ok: true, json: async () => list });
+
+test("a failed driver list is shown and retried, never mistaken for a single-driver install", async () => {
+  const outcomes = [
+    () => Promise.reject(new TypeError("network")),          // request failed
+    failed,                                                   // HTTP 500
+    () => answered({ drivers: "not a list" }),                // an answer, but not a list
+    () => answered(TWO),
+  ];
+  const env = await page({ drivers: (n) => outcomes[n - 1]() });
+  assert.equal(env.cards().length, 0);                        // no generic "Driver" card
+  assert.equal(env.sockets.length, 0);                        // and no first-driver socket
+  assert.match(env.$("live-note").textContent, /^Could not load the list of drivers/);
+  assert.equal(env.$("live-note").hidden, false);
+  assert.equal(env.$("conn").querySelector("span").textContent, "no driver list");
+
+  const delays = [];
+  for (let attempt = 0; attempt < 3; attempt++) {
+    delays.push(...env.runTimeouts());
+    await env.settle();
+  }
+  assert.deepEqual(delays, [2000, 4000, 8000]);               // bounded backoff
+  assert.equal(env.listRequests, 4);
+
+  // recovered: both configured drivers, each with their own socket
+  assert.equal(env.cards().length, 2);
+  assert.equal(env.cards()[0].children[0].textContent, "Driver Alpha");
+  assert.deepEqual(env.sockets.map((ws) => ws.url), [
+    "wss://test.example/splittime/ws/live?driver=alpha",
+    "wss://test.example/splittime/ws/live?driver=beta"]);
+  assert.doesNotMatch(env.$("live-note").textContent, /Could not load/);
+  assert.equal(env.runTimeouts().length, 0);                  // nothing left retrying
+  assert.doesNotMatch(env.text(), /9999|10000|127\.0\.0\.1|\bUDP\b/);
+});
+
+test("leaving while the first driver list is still loading opens nothing afterwards", async () => {
+  let release;
+  const first = new Promise((resolve) => { release = resolve; });
+  const env = await page({ drivers: (n) => (n === 1 ? first : answered(TWO)) });
+  assert.equal(env.sockets.length, 0);
+  env.leave();                                                // gone before the answer
+  release(answered(TWO));
+  await env.settle();
+  assert.equal(env.sockets.length, 0);                        // the late answer is ignored
+  assert.equal(env.cards().length, 0);
+
+  env.comeBack();                                             // restored: ask again, once
+  await env.settle();
+  assert.equal(env.listRequests, 2);
+  assert.equal(env.cards().length, 2);
+  assert.equal(env.sockets.length, 2);
+});
+
+test("leaving while a retry is pending cancels it", async () => {
+  const env = await page({ drivers: failed });
+  assert.equal(env.timeouts.filter((timer) => !timer.cleared).length, 1);
+  env.leave();
+  assert.ok(env.timeouts.every((timer) => timer.cleared));
+  env.timeouts.forEach((timer) => timer.fn());                // even if one fired anyway
+  await env.settle();
+  assert.equal(env.sockets.length, 0);
+});
+
+test("a page restored from the back/forward cache reconnects every driver once", async () => {
+  const env = await page({ drivers: TWO });
+  env.sockets.forEach((ws) => ws.onopen());
+  env.send("alpha", { speed: 50 });
+  env.paint();
+  assert.equal(env.$("speed").textContent, 180);
+  env.comeBack(false);                                        // the ordinary first pageshow
+  assert.equal(env.sockets.length, 2);
+
+  const old = env.sockets.slice();
+  env.leave();
+  assert.ok(old.every((ws) => ws.closed && ws.onmessage === null));
+  env.now += 60000;
+
+  env.comeBack();
+  assert.equal(env.sockets.length, 4);                        // one new socket per driver
+  assert.deepEqual(env.sockets.slice(2).map((ws) => ws.url), old.map((ws) => ws.url));
+  assert.equal(env.cards().length, 2);                        // cards are not built twice
+  assert.equal(env.listRequests, 1);
+  env.paint();
+  assert.equal(env.$("speed").textContent, 0);                // a minute-old frame is not shown
+  assert.equal(env.cards()[0].children[2].textContent, "—");
+  env.comeBack();                                             // a second pageshow changes nothing
+  assert.equal(env.sockets.length, 4);
+
+  const fresh = env.sockets.slice(2);
+  fresh.forEach((ws) => ws.onopen());
+  fresh[0].onmessage({ data: JSON.stringify(liveFrame({ speed: 10 })) });
+  fresh[1].onmessage({ data: JSON.stringify(liveFrame({ speed: 20 })) });
+  env.refresh(); env.paint();
+  assert.equal(env.$("speed").textContent, 36);
+  assert.equal(env.cards()[1].children[2].textContent, "72 km/h");
+});
+
+test("returning to a hidden tab never shows the frame from before it was hidden as current", async () => {
+  const env = await page({ drivers: TWO });
+  env.sockets.forEach((ws) => ws.onopen());
+  env.send("alpha", { speed: 40, race_mode: true });
+  env.paint();
+  assert.equal(env.$("speed").textContent, 144);
+
+  env.hide();
+  env.now += 10000;
+  env.send("alpha", { speed: 95, race_mode: false });         // arrives while hidden
+  env.now += 1;
+  env.show();                                                 // back before any further packet
+  env.paint();
+  assert.equal(env.$("speed").textContent, 342);              // 95 m/s, not the old 144
+  assert.equal(env.$("race-flag").textContent, "FREE ROAM");
+  assert.equal(env.cards()[0].children[1].textContent, "free roam");
+  assert.equal(env.cards()[0].children[2].textContent, "342 km/h");
+  assert.equal(env.eval("state.trail.length"), 1);            // history restarted, not ten seconds stale
+
+  // the same, but the hidden packet could not be read: nothing current to show
+  env.hide();
+  env.now += 10000;
+  env.socket("alpha").onmessage({ data: "{truncated" });
+  env.now += 1;
+  env.show();
+  env.paint();
+  assert.equal(env.$("speed").textContent, 0);
+  assert.equal(env.$("race-flag").textContent, "—");
+  assert.equal(env.cards()[0].children[1].textContent, "receiving");
+  assert.equal(env.cards()[0].children[2].textContent, "—");
+});
+
+test("a configured single driver, or a server with an empty driver list, gets one usable feed", async () => {
   const one = await page({ drivers: [{ id: "solo", name: "Solo", udp_port: 9999 }], href: "http://localhost:8100/" });
   assert.equal(one.cards().length, 1);
   assert.deepEqual(one.sockets.map((ws) => ws.url), ["ws://localhost:8100/ws/live?driver=solo"]);
 
-  const none = await page({ drivers: null, href: "http://localhost:8100/index.html" });
+  // the server answered, and its answer was "no list": the one legacy feed
+  const none = await page({ drivers: [], href: "http://localhost:8100/index.html" });
   assert.equal(none.cards().length, 1);
   assert.deepEqual(none.sockets.map((ws) => ws.url), ["ws://localhost:8100/ws/live"]);
   none.sockets[0].onopen();
