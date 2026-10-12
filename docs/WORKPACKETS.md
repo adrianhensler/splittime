@@ -49,8 +49,8 @@ packet must stand without the pull request, because the repository is the
 handoff and a pull request may not be readable by the next worker.
 
 Status that changes hour to hour (who is on what, what is in review) lives in
-the pull request list. `BUILD_PLAN.md` records only what has merged to `main`,
-which changes once per milestone and is updated in the merging pull request.
+the pull request list. What has merged is in `git log` and the merged pull
+request list; no document keeps a copy (ADR 21).
 
 ## Fixed triggers, ownership and the check
 
@@ -67,8 +67,8 @@ original contributors separately. A reviewer checks the packet too.
 2. **PR becomes ready:** snapshot final claims with their basis, re-runnable
    commands, unknowns, reviewer coverage and pending admission into the packet.
    Partial criteria stay partial. Review the snapshot with the code; a passing
-   packet check cannot approve either. Reviewed merge updates the On-main table
-   and records admission scope. Deployment remains a separate fact.
+   packet check cannot approve either. The reviewer merges (ADR 21); the merge
+   is the admission record. Deployment remains a separate fact.
 
 ```mermaid
 flowchart LR
@@ -84,8 +84,8 @@ flowchart LR
     H --> I[Separate deployment and field validation]
 ```
 
-`scripts/check_workpackets.py` runs in the **Workpacket records** workflow on
-opening, pushes, PR-body edits and ready/draft transitions. Product changes
+`scripts/check_workpackets.py` runs as the `records` job in CI when a pull
+request opens, is pushed to, or is marked ready. Product changes
 need declared packets; isolated modules have mapped scope; shared files rely
 on the declared scope and reviewer judgment. Declared/mapped packets must be
 touched in the PR, have a worker, and no draft/not-started checkpoint. Ready
@@ -96,9 +96,11 @@ the stale-record failures observed here and several omissions.
 This is a structural drift check. It cannot prove evidence truth, detect every
 stale factual sentence or infer the correct milestone for a shared file.
 Marking a partial packet ready for integration does not complete its original
-criteria. For enforced merge blocking, the repository owner must make
-**Workpacket records / records** a required status check in branch rules;
-the workflow alone reports a failing check. No branch rule is changed here.
+criteria. **The check is advisory** (owner's decision, ADR 21): it runs as the
+`records` job in CI, shows red when it finds drift, and never blocks a merge.
+An independent test on 2026-10-12 got 25 of 26 stale or wrong records past
+it, and it rejects one-line fixes that need no packet, so it is a prompt for
+the reviewer and not a gate.
 
 ## Three roles, kept apart
 
@@ -125,7 +127,9 @@ mandatory pause before the next authorized POC implementation step.
 - **admitted**: the owner accepted it. Later work may rely on it.
   **In this project a merge to `main` counts as admission** (owner's decision,
   2026-10-12, ADR 20). The pull request must have been reviewed by someone
-  other than its author, and the author does not merge it. Admission covers
+  other than its author, and that reviewer merges it once nothing blocking
+  remains and CI is green (ADR 21). Docs-only pull requests are the
+  exception and admit nothing by merging. Admission covers
   what the pull request states and no more: anything it lists as untested,
   unknown or asserted stays that way. Deployment and anything needing root
   still need the owner's explicit say.
