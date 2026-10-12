@@ -6,7 +6,7 @@
 | Parent | WP-000 |
 | Children | none |
 | Worker | Codex recovery session, 2026-10-12 |
-| Verifier | Opus 5.5: final application/browser review at `f68d70a` |
+| Verifier | Opus 5.5: application/browser review at `f68d70a`; later legend presentation fix self-checked |
 | Acceptor | owner |
 
 ## Intent
@@ -48,6 +48,7 @@ Final application snapshot at `f68d70a`; comparison is a partial summary slice.
 |---|---|---|
 | C1 | Comparison page renders overlays, measurements and readable warnings, with configured driver order | E1, E2 |
 | C2 | Full route summary, selected-lap analysis links and storage display are incomplete | E3 |
+| C3 | Analysis chart legends use line samples with the series colour and solid/dashed style | E4; browser self-check, no telemetry/timing change |
 
 ## Evidence
 
@@ -56,6 +57,7 @@ Final application snapshot at `f68d70a`; comparison is a partial summary slice.
 | E1 | UI regressions | `node --test tests/ui/compare.test.cjs tests/ui/rivalry.test.cjs` |
 | E2 | Independent mobile-width and escaped-name browser checks | [Opus final review](https://github.com/adrianhensler/splittime/pull/10#pullrequestreview-5490170368) |
 | E3 | Present page scope | `app/static/compare.html` and `app/static/js/compare.js` at `f68d70a` |
+| E4 | Legend presentation follow-up to `c3ac78a` | `node --check app/static/js/analysis.js`; browser inspection of all four single-lap charts and dashed brake samples with two selected laps; `app/static/css/style.css` and shared `makeChart` legend options |
 
 ## Known, unknown, unproven
 
@@ -83,6 +85,13 @@ orders A/B, explains warnings and improves narrow-screen readability.
 UI review is complete at `f68d70a`. Next: integrate the POC, then finish the route
 summary, selected-lap analysis links and storage display. Whole-app deployed
 prefix validation belongs with WP-003; authority has not expanded.
+
+Later user-reported legend presentation fix: hollow square colour keys were
+the chart library default, confirmed from DOM/computed styles. They now render
+as line samples; dashed brake series have dashed samples. Browser checks
+confirmed colours and line styles; JS syntax and diff checks passed. This new
+presentation-only slice needs review in PR #10's newest head. Data and detector
+code are unchanged. Refresh the page to load updated static assets.
 
 ## Verification
 

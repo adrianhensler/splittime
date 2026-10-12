@@ -1543,6 +1543,15 @@ select {
 .charts { display: flex; flex-direction: column; gap: 10px; }
 .uplot { background: transparent; }
 .uplot .u-legend { color: var(--muted); font-size: 0.8rem; }
+.uplot .u-legend .u-marker {
+  width: 22px;
+  height: 0;
+  margin-right: 6px;
+  /* Keep uPlot's inline colour and stroke style; show a line, not a box. */
+  border-left-width: 0 !important;
+  border-right-width: 0 !important;
+  border-bottom-width: 0 !important;
+}
 .uplot .u-title { color: var(--muted); font-family: var(--display); font-weight: 600; letter-spacing: 0.08em; font-size: 0.85rem; }
 .empty-hint { color: var(--muted); padding: 30px; text-align: center; }
 

@@ -2305,6 +2305,9 @@ function makeChart(el, title, xVals, seriesDefs, height = 150) {
   const opts = {
     title, width: el.clientWidth, height,
     cursor: { sync: { key: "fc" } },
+    legend: {
+      markers: { dash: (u, i) => u.series[i].dash?.length ? "dashed" : "solid" },
+    },
     // hovering any chart marks the matching spot on the track map (the
     // charts all share lap A's x-array, so the cursor idx maps 1:1)
     hooks: {
