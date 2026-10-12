@@ -124,7 +124,43 @@ async def status(request: Request):
         # stored. frames_dropped counts what the capped buffer had to shed.
         "write_error": tracker.write_error,
         "frames_dropped": tracker.frames_dropped,
+        "drivers": [
+            {
+                "id": d.id, "name": d.name, "udp_port": d.udp_port,
+                "udp_error": getattr(request.app.state, "udp_errors", {}).get(d.id),
+                "packets_total": request.app.state.hubs[d.id].packets_total,
+                "bad_packets": request.app.state.hubs[d.id].bad_packets,
+                "session_id": request.app.state.trackers[d.id].session_id,
+                "write_error": request.app.state.trackers[d.id].write_error,
+                "frames_dropped": request.app.state.trackers[d.id].frames_dropped,
+            }
+            for d in getattr(request.app.state, "drivers", [])
+        ],
     }
+
+
+def _any_session_active(request: Request) -> bool:
+    trackers = getattr(request.app.state, "trackers", None)
+    if trackers is not None:
+        return any(t.session_id is not None for t in trackers.values())
+    tracker = getattr(request.app.state, "tracker", None)
+    return tracker is not None and tracker.session_id is not None
+
+
+def _session_active(request: Request, session_id: int) -> bool:
+    trackers = getattr(request.app.state, "trackers", None)
+    if trackers is not None:
+        return any(t.session_id == session_id for t in trackers.values())
+    tracker = getattr(request.app.state, "tracker", None)
+    return tracker is not None and tracker.session_id == session_id
+
+
+@router.get("/drivers")
+def drivers(request: Request):
+    return [
+        {"id": d.id, "name": d.name, "udp_port": d.udp_port}
+        for d in getattr(request.app.state, "drivers", [])
+    ]
 
 
 def _require_online() -> None:
@@ -168,7 +204,7 @@ async def compact_storage(request: Request):
     Store's event-loop connection and holds an exclusive lock the whole time,
     so - like reprocess and import - it must not run while a session is
     recording, or live telemetry stalls behind it."""
-    if request.app.state.tracker.session_id is not None:
+    if _any_session_active(request):
         raise HTTPException(409, "a session is recording; retry after it ends")
     try:
         return {"ok": True, **request.app.state.store.vacuum()}
@@ -181,8 +217,11 @@ async def compact_storage(request: Request):
 
 
 @router.get("/sessions")
-def sessions(request: Request):
-    return [_session_out(s) for s in request.app.state.store.list_sessions()]
+def sessions(request: Request, driver_id: str | None = None):
+    rows = request.app.state.store.list_sessions()
+    if driver_id is not None:
+        rows = [s for s in rows if s["driver_id"] == driver_id]
+    return [_session_out(s) for s in rows]
 
 
 class SessionPatch(BaseModel):
@@ -221,7 +260,7 @@ async def reprocess(session_id: int, request: Request):
     store = request.app.state.store
     if store.get_session(session_id) is None:
         raise HTTPException(404, "session not found")
-    if request.app.state.tracker.session_id is not None:
+    if _any_session_active(request):
         raise HTTPException(409, "a session is recording; retry after it ends")
     try:
         return {"ok": True, "laps": reprocess_session(store, session_id)}
@@ -238,7 +277,7 @@ def delete_session(session_id: int, request: Request):
     store = request.app.state.store
     if store.get_session(session_id) is None:
         raise HTTPException(404, "session not found")
-    if request.app.state.tracker.session_id == session_id:
+    if _session_active(request, session_id):
         raise HTTPException(409, "session is currently recording")
     store.delete_session(session_id)
     return {"ok": True}
@@ -1243,7 +1282,7 @@ async def import_csv(request: Request, name: str = Query("", max_length=120)):
     and car/route metadata is unknown (the session shows "Unknown car").
     The raw body IS the file (text/csv) - no multipart, no new dependency."""
     store = request.app.state.store
-    if request.app.state.tracker.session_id is not None:
+    if _any_session_active(request):
         raise HTTPException(409, "a session is recording; retry after it ends")
     body = await _read_import_body(request)
     # off the loop: parsing and synthesizing a large file used to run right

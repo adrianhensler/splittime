@@ -13,11 +13,14 @@ log = logging.getLogger("lapscope.udp")
 
 
 class TelemetryProtocol(asyncio.DatagramProtocol):
-    def __init__(self, hub, tracker) -> None:
+    def __init__(self, hub, tracker, driver_id: str = "legacy") -> None:
         self.hub = hub
         self.tracker = tracker
+        self.driver_id = driver_id
         self._size_warned = False
         self._source_logged = False
+        self._source_session_id = None
+        self._last_source = None
 
     def datagram_received(self, data: bytes, addr) -> None:
         now = time.time()
@@ -49,7 +52,23 @@ class TelemetryProtocol(asyncio.DatagramProtocol):
             # keep the documented frame shape (ARCHITECTURE.md, WS contract)
             extras = {"session_id": None, "delta": None, "session_best": None,
                       "lap_elapsed": None, "race_mode": False}
+        sid = extras.get("session_id")
+        if sid is not None:
+            addr_text = f"[{addr[0]}]:{addr[1]}" if ":" in addr[0] else f"{addr[0]}:{addr[1]}"
+            if sid != self._source_session_id or addr_text != self._last_source:
+                if sid == self._source_session_id and self._last_source is not None:
+                    log.warning("Driver %s session %d: UDP source changed from %s to %s",
+                                self.driver_id, sid, self._last_source, addr_text)
+                store = getattr(self.tracker, "store", None)
+                if store is not None and hasattr(store, "record_source"):
+                    try:
+                        store.record_source(sid, addr_text)
+                    except Exception:
+                        log.exception("Could not record UDP source for session %s", sid)
+                self._source_session_id = sid
+                self._last_source = addr_text
         frame.update(extras)
+        frame["driver_id"] = self.driver_id
         frame["_t"] = now
         hub.publish(frame)
 
