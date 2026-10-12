@@ -56,6 +56,8 @@ tree that tests clean on Linux.
 | C3 | After cleanup: ruff clean, packet self-test OK, 153 tests pass | E3 |
 | C4 | The 56 tests no longer run (209 − 153) all belong to the five `tests/test_desktop_*.py` files, which test the removed desktop launcher | E4, and the two counts in E2 and E3 |
 | C5 | No file under `app/` or `tools/`, and no remaining test, was changed | E4 |
+| C11 | Notices also cover the vendored uPlot (MIT) and Rajdhani (OFL 1.1) assets | E6 |
+| C12 | The compose file publishes HTTP on loopback only | `docker-compose.yml`; not run |
 | C6 | A live instance on test ports recorded a simulator run as one session with two timed laps and one open lap | E5 |
 | C7 | A wrong-size packet is counted and not parsed | E5 |
 | C8 | Both upstream licence texts are in `THIRD_PARTY_NOTICES.md` | E6 |
@@ -105,6 +107,21 @@ Observations for whoever works on WP-002 and WP-003. None was changed here.
    make the "fresh Linux setup is reproducible" check stronger.
 5. The corner-analysis data contract is still to be written and agreed before
    WP-005 code starts.
+
+## Review round 1 (PR #4, 2026-10-12)
+
+GPT-6 independently confirmed the blob comparison (111 of 111), that retained
+`app/`, `tools/` and non-desktop tests are identical to upstream, and the CI
+run. It did not run the simulator or Docker. An automated Codex review added
+three findings. Responses:
+
+| Finding | Response |
+|---|---|
+| Compose publishes HTTP on all interfaces | Fixed: `127.0.0.1:8000:8000`. Not run. |
+| Notices missing for uPlot and Rajdhani | Fixed: both licence texts added. |
+| WebSocket handshake does not check `Host` against the allow-list | Not changed here: it is upstream application code and this packet may not change the API. Recorded in `docs/UPSTREAM.md` for WP-002/WP-003. |
+| README and AGENTS said coding had not started | Fixed. |
+| Broken relative links in `docs/upstream/` | Left as disclosed. |
 
 ## Checkpoint
 

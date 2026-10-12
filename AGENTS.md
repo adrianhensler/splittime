@@ -6,7 +6,7 @@ tool.
 
 ## Current phase
 
-**Planning is done; coding has not started.** The owner's priority is a nearly
+**Building.** The LapScope baseline is imported. The owner's priority is a nearly
 complete, runnable WIP/POC as quickly as practical, not a Workpacket framework.
 When implementation is assigned, begin with
 [WP-001](work/WP-001-import-baseline.md) and work through the smallest useful

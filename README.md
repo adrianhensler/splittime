@@ -4,8 +4,9 @@ Private, self-hosted Forza Horizon 6 telemetry site for two drivers who play at
 different times. Each driver's game streams Data Out UDP to the server; the site
 records events automatically and lets both compare laps afterwards.
 
-**Status: planning complete, no code yet.** Next:
-[work/WP-001-import-baseline.md](work/WP-001-import-baseline.md).
+**Status: building.** The LapScope baseline is imported
+([WP-001](work/WP-001-import-baseline.md)); see
+[docs/PARALLEL_BUILD.md](docs/PARALLEL_BUILD.md) for who is doing what.
 
 ## Documents
 

@@ -98,6 +98,18 @@ the release and wiki workflows, funding file, issue and PR templates,
 
 Syncs from upstream since import: none.
 
+Changes to upstream files since import:
+
+| File | Change | Why |
+|---|---|---|
+| `docker-compose.yml` | HTTP port published on `127.0.0.1` only | Upstream published it on all interfaces; the API is unauthenticated (PR #4 review) |
+
+Known upstream issues not yet fixed here:
+
+| Where | Issue | Owner |
+|---|---|---|
+| `app/main.py` `origin_allowed` / `ws_live` | The WebSocket handshake compares `Origin` with `Host` but never checks `Host` against the allow-list, and the HTTP `check_host` middleware does not run for WebSockets. A DNS-rebinding page can therefore subscribe to `/ws/live`. Found by automated review on PR #4; read and judged plausible, not reproduced. | Whoever next changes `app/main.py` (WP-002 or WP-003) |
+
 ## Import method
 
 A GitHub fork of a public repository cannot be made private, so LapScope is
