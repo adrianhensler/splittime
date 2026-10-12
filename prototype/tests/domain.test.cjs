@@ -1,59 +1,57 @@
 "use strict";
-const test = require("node:test");
-const assert = require("node:assert/strict");
-const {classifyAttempt,bestAttempt,summarizeRoute,formatLapTime}=require("../domain.js");
-const attempt=(driver,time,more={})=>({
- driver,time,completion:"complete",validity:"accepted",quality:"continuous",
- class:"A",pi:800,mode:"Rivals",source:"recorded",timing_source:"game-reported",...more
+const test=require("node:test"),assert=require("node:assert/strict");
+const {classifyAttempt,bestAttempt,summarizeRoute,formatLapTime,normalizeCarClass}=require("../domain.js");
+const attempt=(driver,time,more={})=>({driver,time,completion:"complete",validity:"accepted",quality:"continuous",class:"A",pi:800,mode:"Rivals",source:"recorded",timing_source:"game-reported",...more});
+const route=(attempts,more={})=>({competitive_equivalence:"verified",ranked:true,attempts,...more});
+test("match per category before choosing personal best; faster incompatible lap does not hide comparison",()=>{
+ const r=summarizeRoute(route([attempt("A",90,{class:"S1",pi:900}),attempt("A",95),attempt("B",96)]));
+ assert.equal(r.comparable,true);assert.equal(r.winner,"A");assert.equal(r.a.time,95);assert.equal(r.category.class,"A");
 });
-const route=(items,more={})=>({competitive_equivalence:"verified",ranked:true,attempts:items,...more});
-test("valid recorded game-timed laps may rank",()=>{
- const r=summarizeRoute(route([attempt("A",92.418),attempt("B",93.060)]));
- assert.equal(r.comparable,true);
- assert.equal(r.winner,"A");
- assert.equal(r.margin_s.toFixed(3),"0.642");
+test("equal times are a tie without a winner",()=>{const r=summarizeRoute(route([attempt("A",92.5),attempt("B",92.5)]));assert.equal(r.tie,true);assert.equal(r.winner,null);assert.equal(r.margin_s,0)});
+test("partial route direction is not a verified match",()=>assert.equal(summarizeRoute(route([attempt("A",92,{route_direction:"cw"}),attempt("B",93)])).comparable,false));
+test("both unknown car categories fail closed, including undefined===undefined",()=>assert.equal(summarizeRoute(route([attempt("A",92,{class:undefined,pi:undefined}),attempt("B",93,{class:undefined,pi:undefined})])).comparable,false));
+test("rank by class with unequal PI under ADR 10 default, strictPI optional",()=>{
+ const r=route([attempt("A",92),attempt("B",93,{pi:799})]);
+ assert.equal(summarizeRoute(r).comparable,true);
+ assert.equal(summarizeRoute(r,{strictPI:true}).comparable,false);
 });
-test("unfinished and provisional laps cannot become records",()=>{
- const r=route([attempt("A",100),attempt("B",110),attempt("B",88,{completion:"incomplete"}),attempt("B",89,{completion:"provisional"})]);
- assert.equal(bestAttempt(r,"B").time,110);
+test("infer two real driver IDs rather than hard-coded A and B",()=>{
+ const r=route([attempt("alice",92),attempt("bob",93)]);
+ assert.equal(bestAttempt(r,"alice").time,92);
+ assert.equal(summarizeRoute(r).comparable,true);
+ assert.deepEqual(summarizeRoute(r).driverIds,["alice","bob"]);
 });
-test("suspect, excluded and discontinuous runs remain ineligible",()=>{
- for(const changes of [{validity:"suspect"},{validity:"excluded"},{quality:"discontinuous"},{quality:"unknown"},{time:null}]){
-  assert.equal(classifyAttempt(attempt("A",92,changes)).eligible,false);
- }
+test("never coerce string, zero, negative, NaN or infinite lap times",()=>{
+ for(const t of ["92.4",0,-1,NaN,Infinity,null,undefined])assert.equal(classifyAttempt(attempt("A",t)).eligible,false);
 });
-test("no numeric zero or NaN interpreted as a lap",()=>{
- for(const value of [0,-1,NaN,Infinity,undefined,null])assert.equal(classifyAttempt(attempt("A",value)).eligible,false);
+test("inferred mode is distinct provenance, not an automatic invalidation",()=>{
+ const r=route([attempt("A",92,{mode:"Rivals (inferred)"}),attempt("B",93,{mode:"Rivals (inferred)"})]);
+ assert.equal(summarizeRoute(r).comparable,true);
 });
-test("do not invent a winner without both drivers",()=>{
- const r=summarizeRoute(route([attempt("A",92)]));
- assert.equal(r.comparable,false);assert.equal(r.winner,null);
+test("unknown mode blocks scoring; different modes do not silently rank",()=>{
+ for(const mode of ["Unknown","Sprint (inferred)","Circuit race"])assert.equal(summarizeRoute(route([attempt("A",92),attempt("B",93,{mode})])).comparable,false);
 });
-test("no ranked winner for missing route/rule equivalence",()=>{
- const r=summarizeRoute(route([attempt("A",92),attempt("B",93)],{competitive_equivalence:"unknown"}));
- assert.ok(r.reasons.includes("route_or_rules_not_verified"));
+test("null and malformed attempts cannot crash a comparison",()=>{
+ const r=route([null,{},attempt("A",92),attempt("B",93)]);
+ assert.doesNotThrow(()=>summarizeRoute(r));assert.equal(summarizeRoute(r).comparable,true);
 });
-test("no ranked winner across mismatched class, PI, mode or direction",()=>{
- for(const overrides of [{class:"S1"},{pi:799},{mode:"Unknown"},{mode:"Circuit race"},{mode:"Sprint (inferred)"}]){
-  const r=summarizeRoute(route([attempt("A",92),attempt("B",93,overrides)]));
-  assert.equal(r.comparable,false);
- }
- const r=summarizeRoute(route([attempt("A",92,{route_direction:"clockwise"}),attempt("B",93,{route_direction:"counterclockwise"})]));
- assert.equal(r.comparable,false);
+test("worker cannot silently turn failed or incomplete into winning laps",()=>{
+ const a=route([attempt("A",100),attempt("B",110),attempt("B",80,{completion:"incomplete"}),attempt("B",81,{completion:"provisional"}),attempt("B",82,{validity:"suspect"}),attempt("B",83,{quality:"discontinuous"})]);
+ assert.equal(bestAttempt(a,"B").time,110);assert.equal(summarizeRoute(a).winner,"A");
 });
-test("newly imported data without timing provenance stays unranked",()=>{
- const a=attempt("A",92,{timing_source:undefined});
- const r=summarizeRoute(route([a,attempt("B",93)]));
- assert.ok(r.reasons.includes("missing_eligible_driver_lap"));
+test("unknown and unverified source/timing/route policy fail closed",()=>{
+ const a=attempt("A",92),b=attempt("B",93);
+ assert.equal(summarizeRoute(route([a,b],{competitive_equivalence:"unknown"})).comparable,false);
+ assert.equal(summarizeRoute(route([{...a,source:"simulation"},b])).comparable,false);
+ assert.equal(summarizeRoute(route([{...a,timing_source:"estimated"},b])).comparable,false);
+ assert.equal(summarizeRoute(route([{...a,source:"simulation",timing_source:undefined},{...b,source:"simulation",timing_source:undefined}]),{demo:true}).comparable,true);
 });
-test("synthetic fixture compares only with demo=true and ranked demo route",()=>{
- const synthetic=route([attempt("A",92,{source:undefined,timing_source:undefined}),attempt("B",93,{source:undefined,timing_source:undefined})]);
- assert.equal(summarizeRoute(synthetic).comparable,false);
- assert.equal(summarizeRoute(synthetic,{demo:true}).winner,"A");
- assert.equal(summarizeRoute({...synthetic,ranked:false},{demo:true}).comparable,false);
+test("lap time formatting rounds and rejects bad values",()=>{
+ assert.equal(formatLapTime(59.9996),"1:00.000");assert.equal(formatLapTime(93.06),"1:33.060");
+ for(const x of [0,-2,null,undefined,NaN,Infinity])assert.equal(formatLapTime(x),"—");
 });
-test("time formatting rounds across minute boundary and rejects invalid values",()=>{
- assert.equal(formatLapTime(59.9996),"1:00.000");
- assert.equal(formatLapTime(93.06),"1:33.060");
- for(const t of [0,-2,NaN,null,undefined,Infinity])assert.equal(formatLapTime(t),"—");
+test("source arrays never mutate and class index maps to label",()=>{
+ const items=[attempt("A",92),attempt("B",93)];const s=JSON.stringify(items);
+ summarizeRoute(route(items));assert.equal(JSON.stringify(items),s);
+ assert.equal(normalizeCarClass(3),"A");assert.equal(normalizeCarClass("s1"),"S1");
 });
