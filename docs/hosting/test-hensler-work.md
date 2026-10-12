@@ -8,8 +8,8 @@ This is the owner's personal hosting. The generic guide is
 
 - Public site: <https://test.hensler.work/splittime/rivalry.html>, also linked
   from the public projects page.
-- SplitTime runtime: `bc5f836dfe0ff048384e3d713e3154ac54086805` (#17),
-  reviewed at `c39ea19`. The initial deployment used `1e51eb9` (#15).
+- SplitTime runtime: `a669985ecad61e1bd942eaf744536cb4938a51ea` (#19). Earlier:
+  `bc5f836` (#17), and `1e51eb9` (#15) for the initial deployment.
 - Gateway deployment: `b950101ea36d39295740917280f71ddcec472bb8`, from reviewed
   [PR #113](https://github.com/adrianhensler/test.hensler.work/pull/113).
   #112 is closed as superseded. #111's footer removal is also deployed.
@@ -134,6 +134,22 @@ These were diagnostic packets, not game recordings or internet timing evidence.
 Command/status receipts are under
 `/home/adrian/splittime-import/live-deployment-20261012/`; rollback image:
 `testhenslerwork-splittime:pre-live-20261012`.
+
+## PR #19 deployment and reprocess, 2026-10-12
+
+[Receipt](https://github.com/adrianhensler/splittime/pull/19#issuecomment-6129168560).
+Runtime moved from `bc5f836` to `a669985` (#19) with the gateway guide's
+*Updating SplitTime* steps: online backup first
+(`/home/adrian/splittime-data/telemetry.db.bak-20261012T172146Z`), rollback
+image `testhenslerwork-splittime:pre-pr19-20261012`, only `splittime` recreated
+with both trackers idle. Gateway unchanged.
+
+On the owner's instruction, sessions 5, 8, 11 and 14 were then reprocessed
+through the app's own endpoint from inside the container. 11 laps became 4:
+each session keeps its timed lap (150.808 with `contact`, 74.654, 68.712,
+51.308) and loses the post-finish hold and wait. New lap ids are 12 to 15; ids
+1 to 11 are gone. 43,283 frames unchanged, integrity ok. Opus 5.5 self-checks;
+the pages were not opened in a real browser afterwards.
 
 ## Remaining field checks
 
