@@ -126,7 +126,8 @@ def test_teleport_is_reported_and_does_not_inflate_the_path():
 def test_result_is_plain_json_with_the_contract_fields(sim_traces):
     payload = json.loads(json.dumps(detect_corners(sim_traces[0]).to_dict()))
     assert set(payload) == {"version", "reference_lap_id", "s_start", "s_end",
-                            "metres_per_unit", "corners", "warnings"}
+                            "metres_per_unit", "direction_verified", "corners", "warnings"}
+    assert payload["direction_verified"] is False  # no real capture has confirmed R/L yet
     assert set(payload["corners"][0]) == {
         "n", "direction", "kind", "heading_change_deg", "s_entry", "s_apex",
         "s_exit", "radius_m", "length_m"}

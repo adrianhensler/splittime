@@ -86,6 +86,7 @@ def test_frames_missing_mid_corner_are_flagged_and_barely_move_the_times():
 
     result = compare_laps(whole, holed, route)
     assert result["b"]["capture_quality"] == "discontinuous"
+    assert (result["a"]["gaps"], result["b"]["gaps"]) == (0, 1)
     # the game clock kept counting through the hole, so segment times survive it
     assert all(abs(seg["dt"]) < 0.02 for seg in result["segments"])
 
@@ -112,6 +113,12 @@ def test_timing_source_falls_back_and_mixed_sources_are_not_comparable():
     route = detect_corners(lap)
     like_for_like = compare_laps(race, race, route)
     assert like_for_like["comparable"]
+    # arrival time crossed the internet: fine to look at, never to rank on,
+    # even when both laps are timed the same way
+    by_arrival = compare_laps(arrival, arrival, route)
+    assert not by_arrival["comparable"]
+    assert by_arrival["reasons"] == ["arrival_time_timing"]
+    assert len(_corners(by_arrival)) == 4
     mixed = compare_laps(lap, arrival, route)
     assert not mixed["comparable"]
     assert "different_timing_source" in mixed["reasons"]
@@ -185,7 +192,7 @@ def test_result_is_plain_json_with_the_contract_fields(sim_traces):
     payload = json.loads(json.dumps(compare_laps(sim_traces[0], sim_traces[1], route)))
     assert set(payload) == {"version", "comparable", "reasons", "a", "b", "segments",
                             "totals", "sum_check", "largest"}
-    assert set(payload["a"]) == {"lap_id", "timing_source", "capture_quality", "samples"}
+    assert set(payload["a"]) == {"lap_id", "timing_source", "capture_quality", "gaps", "samples"}
     corner = _corners(payload)[0]
     assert set(corner) == {"kind", "n", "s_from", "s_to", "time_a", "time_b", "dt", "a", "b"}
     assert set(corner["a"]) == {"entry_kmh", "min_kmh", "s_min", "exit_kmh",

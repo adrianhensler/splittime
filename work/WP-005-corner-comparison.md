@@ -79,7 +79,7 @@ Ubuntu, Python 3.12.3. Head of `feat/opus-corner-analysis`.
 
 | ID | What | How to re-run |
 |---|---|---|
-| E1 | 29 tests in `tests/corners/` pass; full suite "182 passed" | `.venv/bin/pytest -q tests/corners` and `.venv/bin/pytest -q` |
+| E1 | 31 tests in `tests/corners/` pass; full suite "184 passed" | `.venv/bin/pytest -q tests/corners` and `.venv/bin/pytest -q` |
 | E2 | Detected vs true positions on the simulator: entries 603.2 / 1579.6 (true 600 / 1577), exits 973.3 / 1949.1 (true 977 / 1954), radius 120.0 | `test_simulator_circuit_has_its_two_known_corners`; true values from `tools/simulator.py` `STRAIGHT`, `RADIUS` |
 | E3 | Against the database recorded in WP-001 E5: 2 corners, `capture_quality: continuous`, totals dt −0.273 s, lap-time dt −0.283 s, residual −0.010 s; about 150 ms per comparison | record a session as in `AGENTS.md`, then call `app.corners.api.corners_compare` with a stub request as `tests/corners/test_corners_api.py` does |
 | E4 | Empty diff | `git diff --stat origin/main -- app/api app/recorder app/telemetry app/main.py app/static tools prototype requirements.txt` |
@@ -100,12 +100,12 @@ Ubuntu, Python 3.12.3. Head of `feat/opus-corner-analysis`.
 
 ## Unresolved
 
-1. **Contract not yet agreed.** Four questions for GPT-6 in section 6.
+1. Contract agreed for the isolated module (review round 1 below).
 2. **Not wired in.** `app/corners/api.py` has the router; including it is one
    line in `app/main.py`, which GPT-6 owns.
-3. **No caching.** Corners are recomputed per request from the route's fastest
-   lap, so numbering can shift if a new fastest lap finds a different set.
-   Storing them on the route fixes that and needs GPT-6's schema.
+3. **No caching**, by agreement. Corners are recomputed per request from the
+   route's fastest clean lap, so numbering can shift if a new fastest lap
+   finds a different set.
 4. **Start/finish line.** A corner straddling the line shows as two parts.
 5. **Chicanes.** The reversal blurs: about 5° of heading and a 9 m gap between
    the two halves go to a short "straight" segment.
@@ -113,6 +113,20 @@ Ubuntu, Python 3.12.3. Head of `feat/opus-corner-analysis`.
 7. Upstream's `_LapScan` is not reused, to avoid importing a private name from
    a file GPT-6 owns. The rewind rule is reimplemented in `trace.py`; if the
    two ever disagree, charts and corner tables would differ slightly.
+
+## Review round 1 (PR #5, 2026-10-12)
+
+GPT-6 reviewed the contract at `2bb8fdc`, answered the four questions and asked
+for refinements. It did not run the tests.
+
+| Refinement | Response |
+|---|---|
+| Arrival time must never be a ranked timing basis | Done: any comparison resting on `arrival_time` is `comparable: false` with reason `arrival_time_timing`; segments still returned. Test added. |
+| Direction sign is unverified; do not present as fact | Done: every route result carries `direction_verified: false`. The sign rule is unchanged. |
+| Reference lap may be rewound, cutoff or suspect | Done: fastest unflagged, unexcluded lap; falls back to fastest with a warning. Two tests added, one on upstream's dirty-lap scenario. |
+| Distance is not metres; convert the 300 m windows | Already converted with `metres_per_unit`. Contract now says the scale is a lap average and approximate. |
+| Include gap evidence | Done: `gaps` count in each lap summary. |
+| Simulator passes are not field accuracy | Agreed; stated in Known/unknown above. |
 
 ## Checkpoint
 

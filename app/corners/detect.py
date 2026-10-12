@@ -75,6 +75,10 @@ class RouteCorners:
     s_start: float | None = None
     s_end: float | None = None
     metres_per_unit: float | None = None
+    # R/L comes from the sign of car-local lateral acceleration, a rule taken
+    # from upstream's axis notes and not yet checked against a real capture.
+    # Flip to True only with that evidence.
+    direction_verified: bool = False
     corners: list[Corner] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
 

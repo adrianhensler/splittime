@@ -13,7 +13,7 @@ import pytest
 from fastapi import HTTPException
 
 import harness
-from app.corners.api import corners_compare, route_corners, router
+from app.corners.api import corners_compare, pick_reference, route_corners, router
 from corner_course import trace_of
 
 
@@ -50,8 +50,41 @@ def test_route_corners_endpoint(sim_store, sim_laps):
     payload = json.loads(json.dumps(route_corners(route_id, _request(sim_store))))
     assert payload["route_id"] == route_id
     assert [c["n"] for c in payload["corners"]] == [1, 2]
-    # the reference is the fastest completed lap on the route
+    # all three laps are clean, so the reference is simply the fastest
     assert payload["reference_lap_id"] == min(sim_laps, key=lambda lap: lap["lap_time"])["id"]
+    assert payload["warnings"] == []
+
+
+def test_reference_lap_prefers_clean_over_fast():
+    laps = [{"id": 1, "lap_time": 40.0, "flags": "rewind", "excluded": False},
+            {"id": 2, "lap_time": 41.0, "flags": None, "excluded": True},
+            {"id": 3, "lap_time": 42.0, "flags": "", "excluded": False},
+            {"id": 4, "lap_time": 43.0, "flags": None, "excluded": False},
+            {"id": 5, "lap_time": None, "flags": None, "excluded": False}]
+    assert pick_reference(laps) == (laps[2], [])
+
+    only_flagged = laps[:2]
+    lap, warnings = pick_reference(only_flagged)
+    assert lap["id"] == 1
+    assert warnings == ["no clean lap on this route; reference lap 1 is flagged: rewind"]
+    assert pick_reference([laps[4]]) == (None, [])
+    assert pick_reference([]) == (None, [])
+
+
+def test_a_rewound_or_crashed_lap_is_not_used_as_the_reference(tmp_path):
+    """upstream's --dirty scenario: wall contact on lap 2, a rewind on lap 3."""
+    def scenario(sim):
+        sim.event(190, "dirty", dirty=True)
+        sim.race_off()
+
+    store = harness.run(scenario, tmp_path)
+    session = harness.sessions(store)[0]
+    laps = harness.completed_laps(store, session["id"])
+    flagged = {lap["id"] for lap in laps if harness.flags_of(lap)}
+    assert flagged, "the scenario should have produced flagged laps"
+    payload = route_corners(session["route_id"], _request(store))
+    assert payload["reference_lap_id"] not in flagged
+    assert [c["n"] for c in payload["corners"]] == [1, 2]
 
 
 def test_compare_endpoint_matches_the_core_and_explains_the_lap_delta(sim_store, sim_laps):
