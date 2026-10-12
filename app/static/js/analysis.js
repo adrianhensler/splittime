@@ -302,8 +302,8 @@ function groupCard(shown, all) {
   $(".title", card).prepend(mark);
   const partial = shown.length < all.length
     ? ` (${shown.length} match)` : "";
-  $(".sub", card).textContent =
-    `${fmtDate(Math.max(...times))} · ${all.length} sessions${partial}`
+  $(".sub", card).textContent = driverPrefix(lead)
+    + `${fmtDate(Math.max(...times))} · ${all.length} sessions${partial}`
     + ` · ${runs} ${lapWord(lead.route_kind, runs)}`
     + ` · best ${fmtLap(bests.length ? Math.min(...bests) : null)}`;
   card.onclick = () => selectGroup(lead.group_id);

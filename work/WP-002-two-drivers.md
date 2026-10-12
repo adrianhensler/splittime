@@ -124,3 +124,14 @@ the repaired PR #7 merge `8684f17`. Fetch current refs and inspect
 the earlier `3ed8f6c` checkpoint predates these review fixes. Main and deployment
 remain unchanged. Prior recovery-only results are preserved in the Workpacket
 takeaways and the PR history.
+
+## PR #19 checkpoint (2026-10-12, Opus 5.5)
+
+[PR #19](https://github.com/adrianhensler/splittime/pull/19): the one session
+projection (`_SESSION_SELECT`) joins `drivers` and returns `driver_name`. The
+Analysis page shows it on single and merged sidebar cards and in the session
+header, offers a Driver filter, and matches it in the search box. Evidence:
+`node --test tests/ui/driver-labels.test.cjs` (cards, filter, search);
+`curl localhost:8100/api/sessions` against a copy of the live database returned
+`driver_name` on all four sessions and no `source_addr`. Not checked: the header
+badge and filter menu were not clicked in a real browser.

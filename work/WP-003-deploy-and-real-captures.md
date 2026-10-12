@@ -167,3 +167,28 @@ Second-driver real capture and the full matrix remain unverified.
 Reviewed deployment slice merged and deployed under the owner's authority.
 This packet remains partial; docs-only merging does not admit its unresolved
 field criteria or declare the original v1 complete.
+
+## PR #19 field finding: Rivals post-finish hold (2026-10-12, Opus 5.5)
+
+From the owner's first four live Rivals runs. After a timed lap the game holds
+the car at the line for about 20 s (LapNumber 1, speed 0 from the first frame,
+a 196 m/s² spike), then resets it to the start (LapNumber 0) until the race
+clock restarts. The recorder stored both stretches as incomplete laps, the
+first flagged `contact`.
+
+[PR #19](https://github.com/adrianhensler/splittime/pull/19) adds
+`_drop_parked_lap` in `app/recorder/laps.py`: an untimed lap that follows a
+timed one is deleted when it moved under 25 odometer units **and** never
+reached 5 m/s. Observed in the holds: movement 1.5 to 5.8, top speed 1.6 to
+3.0 m/s with throttle at 255. No existing threshold changed.
+
+| Evidence | Re-run |
+|---|---|
+| 8 tests, including the reviewer's short driven attempts (10, 24, 26 units) being kept | `.venv/bin/pytest -q tests/test_rivals_finish.py` |
+| Replay of a read-only copy of sessions 5, 8, 11, 14: 11 laps become 4; times 150.808 / 74.654 / 68.712 / 51.308 and the Highway lap's `contact` unchanged; 43,283 frames untouched | `reprocess_session` on a copy, never the live directory |
+
+Unknown: whether a second Rivals lap can run on without the hold; a driven lap
+is kept and would carry the spike's `contact` flag. A real attempt abandoned
+below 5 m/s within 25 units of the line would be dropped. Stored live sessions
+are not changed by the merge; reprocessing them is a separate, owner-authorised
+step that renumbers their lap ids.

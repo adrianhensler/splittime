@@ -104,7 +104,7 @@ let browseAll = [];  // the last fetched session list, for the facet menus
 /* ---------------- matching ---------------- */
 
 function browseMatchesText(s, q) {
-  return [s.name, s.route_name, s.car_name, s.display_name]
+  return [s.name, s.route_name, s.car_name, s.display_name, s.driver_name]
     .some((v) => v && v.toLowerCase().includes(q));
 }
 

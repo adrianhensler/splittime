@@ -57,6 +57,28 @@ def test_a_second_lap_that_is_actually_driven_is_kept_with_its_flag(tmp_path):
         (0, False, None), (1, True, "contact")]
 
 
+@pytest.mark.parametrize("moved", [10, 24, 26])
+def test_a_short_lap_that_was_driven_is_kept(tmp_path, moved):
+    """Reviewer's case on PR #19: quit, reset or lost telemetry a moment
+    after the line. Short, but the car was moving, so it is an attempt."""
+    d = Driver(tmp_path)
+    timed_lap(d)
+    for i in range(1, 61):
+        d.send(current_lap=i / 60, distance_traveled=5949.1 + moved * i / 60,
+               speed=moved, accel=200, accel_x=0)
+    assert len(d.finish()) == 2
+
+
+def test_the_hold_is_recognised_at_its_observed_creep_speed(tmp_path):
+    """Throttle was held flat through the real holds; speed peaked at 3.0 m/s."""
+    d = Driver(tmp_path)
+    timed_lap(d)
+    for i in range(1, 300):
+        d.send(current_lap=i / 60, distance_traveled=5949.1 + min(i, 90) * 5.8 / 90,
+               speed=3.0 if i == 40 else 0.1, accel=255)
+    assert len(d.finish()) == 1
+
+
 def test_a_parked_first_lap_is_not_dropped(tmp_path):
     """Only laps after a timed one: an untimed session is discarded whole by
     the existing rule, and its diagnostics should not change."""
