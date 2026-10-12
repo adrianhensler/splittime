@@ -138,3 +138,11 @@ badge and filter menu were not clicked in a real browser.
 The review repair on top of `560aa52` touches only the recorder and its test
 (see [WP-003](WP-003-deploy-and-real-captures.md)); `node --test tests/ui/*.test.cjs`
 re-run there: 49 passed. The `curl` check was not repeated.
+
+**Owner correction, 2026-10-12:** the name belongs beside the track name, not
+in the grey detail line. It is now a badge in the card title (single, merged
+and merge-suggestion cards) and beside the session title; picked laps are
+labelled by driver once a comparison spans both drivers. Evidence:
+`tests/ui/driver-labels.test.cjs` runs the real card builders; a headless
+screenshot of the list against a copy of the live database showed the badge on
+all four cards. The session header and comparison tray were not rendered.

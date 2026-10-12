@@ -67,7 +67,7 @@ const lapNo = (lap) => lap.run_index ?? lap.lap_number + 1;
 function chipLabel(pick, crossSession) {
   const n = lapNo(pick.lap);
   return crossSession
-    ? `${shortName(pick.session)} · ${pick.session.route_kind === "sprint" ? "R" : "L"}${n}`
+    ? `${pickOwner(pick.session)} · ${pick.session.route_kind === "sprint" ? "R" : "L"}${n}`
     : lapLabel(pick.session.route_kind, n);
 }
 
@@ -105,11 +105,17 @@ function displayName(s) {
 
 /* Two drivers share this site: every session says whose it is. */
 const driverLabel = (s) => s.driver_name || s.driver_id || "";
-const driverPrefix = (s) => (driverLabel(s) ? `${driverLabel(s)} · ` : "");
+/* What a picked lap from another session is called: once the picks span
+   both drivers the driver's name tells them apart (their sessions usually
+   share one route name); otherwise the session's own name does. */
+function pickOwner(session) {
+  const drivers = new Set(state.picks.map((p) => p.session.driver_id || "legacy"));
+  return drivers.size > 1 && driverLabel(session) ? driverLabel(session) : shortName(session);
+}
 function driverBadge(s) {
   const b = document.createElement("span");
   if (!driverLabel(s)) return b;
-  b.className = "group-badge";
+  b.className = "group-badge driver-badge";
   b.title = "The driver whose game sent this recording";
   b.textContent = driverLabel(s);
   return b;
@@ -302,8 +308,8 @@ function groupCard(shown, all) {
   $(".title", card).prepend(mark);
   const partial = shown.length < all.length
     ? ` (${shown.length} match)` : "";
-  $(".sub", card).textContent = driverPrefix(lead)
-    + `${fmtDate(Math.max(...times))} · ${all.length} sessions${partial}`
+  $(".sub", card).textContent =
+    `${fmtDate(Math.max(...times))} · ${all.length} sessions${partial}`
     + ` · ${runs} ${lapWord(lead.route_kind, runs)}`
     + ` · best ${fmtLap(bests.length ? Math.min(...bests) : null)}`;
   card.onclick = () => selectGroup(lead.group_id);
@@ -322,6 +328,8 @@ function cardBody(card, s, titleText) {
   const title = document.createElement("span");
   title.className = "title";
   title.textContent = titleText;
+  // whose session it is sits right beside the track's name
+  if (driverLabel(s)) title.append(driverBadge(s));
   // the race type is a property of the track, so it rides with the track's
   // name rather than sitting on the car's line as if it described the car
   title.insertAdjacentHTML("beforeend", trackBadge(s.track_type));
@@ -502,8 +510,8 @@ async function reviewMerges() {
     title.append(name, count);
     const sub = document.createElement("span");
     sub.className = "rv-sub";
-    sub.textContent = driverPrefix(s)
-      + `${fmtDate(Math.min(...cluster.map((x) => x.started_at)))}`
+    if (driverLabel(s)) name.append(driverBadge(s));
+    sub.textContent = `${fmtDate(Math.min(...cluster.map((x) => x.started_at)))}`
       + ` · ${s.car_name} · ${runs} ${lapWord(s.route_kind, runs)}`
       + ` · best ${fmtLap(bests.length ? Math.min(...bests) : null)}`;
     text.append(title, sub);
@@ -596,8 +604,8 @@ function sessionCard(s) {
   // with that same date — so on a fresh install, where nothing is named and no
   // route is known yet, EVERY card printed its timestamp twice (issue #75)
   const named = !!(s.name || s.route_name);
-  $(".sub", card).textContent = driverPrefix(s)
-    + (named ? `${fmtDate(s.started_at)} · ` : "")
+  $(".sub", card).textContent =
+    (named ? `${fmtDate(s.started_at)} · ` : "")
     + `${s.lap_count} ${lapWord(s.route_kind, s.lap_count)}`
     + ` · best ${fmtLap(s.best_lap)}`;
   card.onclick = () => selectSession(s.id);
@@ -2243,7 +2251,7 @@ function exportMapPng() {
   // session's name so a cross-session overlay stays readable
   const lapsTxt = state.picks.map((p) => {
     const t = `${lapLabel(p.session.route_kind, lapNo(p.lap))} — ${fmtLap(p.lap.lap_time)}`;
-    return p.session.id !== s.id ? `${shortName(p.session)} ${t}` : t;
+    return p.session.id !== s.id ? `${pickOwner(p.session)} ${t}` : t;
   }).join("  ·  ");
   ctx.fillStyle = color("--muted", "#8494a7");
   ctx.font = "13px 'Segoe UI', system-ui, sans-serif";

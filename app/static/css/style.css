@@ -1195,7 +1195,7 @@ dialog.modal::backdrop {
 /* merged run groups: several attempts at one route, browsed as one card */
 .session-card.group-card { border-left-color: var(--good); }
 .session-card.group-card.active { border-left-color: var(--accent); }
-.session-card .title { display: flex; align-items: baseline; gap: 6px; }
+.session-card .title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; }
 .group-mark { color: var(--good); font-size: 0.85rem; }
 .group-badge {
   margin-left: 6px;
@@ -1206,6 +1206,7 @@ dialog.modal::backdrop {
   color: var(--good);
   white-space: nowrap;
 }
+.driver-badge { margin-left: 0; border-color: #2a5f86; color: var(--accent); font-family: var(--body, inherit); font-weight: 600; }
 table.laps .run-when { white-space: nowrap; }
 table.laps .run-when .lap-act {
   opacity: 0.75;
