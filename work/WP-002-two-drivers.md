@@ -2,10 +2,10 @@
 
 | | |
 |---|---|
-| Status | draft |
+| Status | in-progress; implemented, correcting independent review findings in PR #6 |
 | Parent | WP-000 |
 | Children | none |
-| Worker | — |
+| Worker | GPT-6; review repairs by Codex on 2026-10-12 |
 | Verifier | — |
 | Acceptor | owner |
 
@@ -66,15 +66,28 @@ driver on every session, and per-driver bests.
 
 ## Unresolved
 
-None.
+Real-game and deployment checks remain unverified. Review also reported an
+inherited detector issue: out-of-order UDP near a lap boundary can duplicate
+laps. Detector changes require a capture and remain separate from these fixes.
 
 ## Checkpoint
 
-Not started. Depends on WP-001 being admitted.
+Baseline is merged at `ad4551b`. Branch `feat/gpt6-two-driver-backend`,
+[PR #6](https://github.com/adrianhensler/splittime/pull/6), holds implementation
+and the live review record. Repairs cover atomic port changes, driver-scoped
+grouping and bounded source tracking. Reproducer regressions are
+`tests/test_driver_review.py` and `tests/ui/driver-groups.test.cjs`;
+six Python cases failed before the fix. Re-run
+`python -m pytest -q tests/test_driver_review.py tests/test_multi_driver.py`
+and `node --test tests/ui/driver-groups.test.cjs`.
+Next: fetch, inspect the PR's newest head/checks, request independent re-review,
+and propagate the fixes through stacked PR #7 and the integration branch.
 
 ## Verification
 
-—
+Own repair checks: 23 focused Python tests and two Node grouping tests passed;
+full-suite results are in PR #6. Prior independent Opus review found the bugs;
+this repair has not yet had independent re-review. No owner acceptance or deployment.
 
 ## Acceptance
 

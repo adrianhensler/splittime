@@ -8,8 +8,9 @@ from __future__ import annotations
 import math
 from datetime import datetime, timezone
 
+from .cars import resolve_name
+
 CLASS_LABELS = ("D", "C", "B", "A", "S1", "S2", "R", "X")
-SUSPECT_FLAGS = {"rewind", "contact"}
 
 
 def _utc(t):
@@ -21,12 +22,15 @@ def _utc(t):
 def _lap_out(session: dict, lap: dict, names: dict) -> dict:
     raw_flags = lap.get("flags") or ""
     flags = sorted({item.strip() for item in raw_flags.split(",") if item.strip()})
+    auto_flags = {item.strip() for item in (lap.get("flags_auto", raw_flags) or "").split(",")
+                  if item.strip()}
+    estimated = "cutoff" in auto_flags or "cutoff" in flags
     duration = lap.get("lap_time")
     timed = isinstance(duration, (int, float)) and math.isfinite(duration) and duration > 0
     completion = ("incomplete" if not timed else
-                  "provisional" if "cutoff" in flags else "complete")
+                  "provisional" if estimated else "complete")
     validity = ("excluded" if lap.get("excluded") else
-                "suspect" if SUSPECT_FLAGS.intersection(flags) else "accepted")
+                "suspect" if flags else "accepted")
     driver_id = session.get("driver_id") or "legacy"
     ordinal = session.get("car_ordinal")
     return {
@@ -36,18 +40,18 @@ def _lap_out(session: dict, lap: dict, names: dict) -> dict:
         "driver_name": names.get(driver_id, driver_id),
         "started_at_utc": _utc(lap.get("started_t")),
         "car_ordinal": ordinal,
-        "car_name": session.get("car_name_override") or (
-            f"Car #{ordinal}" if ordinal is not None else "Unknown car"),
+        "car_name": resolve_name(ordinal, session.get("car_name_override")),
         "car_pi": session.get("car_pi"),
         "car_class": session.get("car_class"),
         "lap_number": lap.get("lap_number"),
-        "time_s": float(duration) if timed else None,
+        "time_s": round(float(duration), 3) if timed else None,
         "completion": completion,
         "validity": validity,
         "capture_quality": "unknown",
-        "timing_source": "cutoff_estimate" if "cutoff" in flags else "unverified",
+        "timing_source": "cutoff_estimate" if estimated else "unverified",
         "event_mode": "unknown",
         "flags": flags,
+        "flags_auto": sorted(auto_flags),
         "candidate_clean": timed and completion == "complete" and validity == "accepted",
     }
 

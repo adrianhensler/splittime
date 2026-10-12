@@ -136,3 +136,21 @@ small and put new features in new files where possible.
 
 Code and tests are in the two-driver PR; this is **not** independent verification
 and has not been exercised with actual Forza traffic.
+
+### PR #7 review corrections, 2026-10-12
+
+`app/cars.py` owns a shared name resolver; the session API keeps its existing
+helper delegating to it, and the rivalry projection uses the same catalogue
+and database overrides. No catalogue or recorded packet was changed.
+`app/rivalry.py` uses `flags_auto` for immutable cutoff timing evidence,
+effective flags for validity, millisecond display times, and conservative
+eligibility when an unknown effective flag appears.
+
+### PR #6 review corrections, 2026-10-12
+
+Port registration now reconciles atomically without deleting old identities.
+Source tracking is isolated in `app/telemetry/sources.py`; watchdog/shutdown
+flush pending provenance and warnings/writes are coalesced. Existing analysis
+group suggestions and API membership/scoring checks are scoped by driver.
+Mixed groups already stored remain intact and are refused for combined scoring.
+No detector thresholds, `laps.py`, or upstream scenario tests were changed.

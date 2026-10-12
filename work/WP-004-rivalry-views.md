@@ -2,10 +2,10 @@
 
 | | |
 |---|---|
-| Status | draft |
+| Status | in-progress; exploratory API in PR #7, fixing independent review findings |
 | Parent | WP-000 |
 | Children | none |
-| Worker | — |
+| Worker | GPT-6; review repairs by Codex on 2026-10-12 |
 | Verifier | — |
 | Acceptor | owner |
 
@@ -70,15 +70,26 @@ exploratory.
 
 ## Unresolved
 
-Owner confirmation of ADR 10 before this packet starts.
+Competitive scoring, real route equivalence, event mode, full quality
+classification and record-change history remain unresolved. The current
+projection explicitly has no winner and preserves unknowns.
 
 ## Checkpoint
 
-Not started. Depends on WP-003 being admitted.
+Branch `feat/gpt6-rivalry-api`,
+[PR #7](https://github.com/adrianhensler/splittime/pull/7), holds the API and
+live evidence. Before repair, two tests reproduced manual cutoff clearance
+promoting an estimate and missing known car names. Repairs preserve `flags_auto`
+provenance, use a shared car-name resolver and round displayed times to milliseconds.
+Re-run `python -m pytest -q tests/test_rivalry.py tests/test_rivalry_review.py`.
+Next: incorporate the repaired PR #6 base, verify the combined suite, push
+without rewriting history, and seek independent re-review before merging.
 
 ## Verification
 
-—
+Independent Opus and automated reviews reproduced both defects. Repair tests
+are this worker's self-checks; full results are in PR #7. Real-game behaviour
+and independent re-review of the repair remain pending.
 
 ## Acceptance
 

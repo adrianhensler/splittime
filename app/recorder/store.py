@@ -475,14 +475,15 @@ class Store:
                 "reclaimed_bytes": max(0, before - after)}
 
     def register_drivers(self, drivers) -> None:
-        """Persist configured identities. Ports identify a driver but do not authenticate."""
-        for d in drivers:
-            self.db.execute(
-                "INSERT INTO drivers(id, name, udp_port) VALUES (?, ?, ?)"
-                " ON CONFLICT(id) DO UPDATE SET name=excluded.name,"
-                " udp_port=excluded.udp_port",
-                (d.id, d.name, d.udp_port))
-        self._commit()
+        """Reconcile current ports atomically, keeping historical driver identities."""
+        with self.transaction():
+            self.db.execute("UPDATE drivers SET udp_port = NULL")
+            for d in drivers:
+                self.db.execute(
+                    "INSERT INTO drivers(id, name, udp_port) VALUES (?, ?, ?)"
+                    " ON CONFLICT(id) DO UPDATE SET name=excluded.name,"
+                    " udp_port=excluded.udp_port",
+                    (d.id, d.name, d.udp_port))
 
     def record_source(self, session_id: int, source_addr: str) -> None:
         """Last seen sender is evidence only, never used for driver identity."""
