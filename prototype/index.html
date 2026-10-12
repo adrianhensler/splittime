@@ -30,6 +30,7 @@ footer{color:var(--muted);font-size:11px;margin:24px 0 6px}.mono{font-variant-nu
 <section class="card"><h2>Capture and comparison rules</h2><div class="note">A shared physical route is not automatically a fair ranked comparison. Game modes, direction, checkpoints, car class/PI and uncertain finishes must be visible.</div><p class="notice">Completion, lap validity and capture quality are independent. An abandoned event can contain ranked completed laps; a provisional finish, suspect lap or unknown mode must not silently become an official result.</p><div id="modeNote" class="notice"></div></section>
 <section class="card full"><h2>Recorded attempts (different dates)</h2><div class="tableWrap"><table><thead><tr><th>Date (UTC)</th><th>Driver</th><th>Car / class</th><th>Mode</th><th>Time</th><th>Completion</th><th>Validity</th><th>Capture</th></tr></thead><tbody id="attempts"></tbody></table></div></section>
 </div><footer>Static no-dependency POC · Entire dataset and map are intentionally fictional · Backend adapter to follow after LapScope import</footer></main>
+<script src="./domain.js"></script>
 <script>
 "use strict";
 const R=[
@@ -48,7 +49,7 @@ const R=[
 ],corners:[["T1","0.22s","Different braking onset"],["T3","−0.14s","B has higher exit speed"],["T5","0.33s","A reaches throttle sooner"]],ranked:false}];
 let route=0,channel="speed",progress=.45;
 const $=id=>document.getElementById(id);
-const fmt=t=>t===null?"—":Math.floor(t/60)+":"+(t%60).toFixed(3).padStart(6,"0");
+const fmt=SplitTimeDomain.formatLapTime;
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 function channelValue(driver,p){const t=2*Math.PI,slow=Math.sin(t*(3.2*p+.16)),fast=Math.sin(t*(7.9*p+.23)),offset=driver==="A"?3:-3;
 if(channel==="speed")return Math.max(45,Math.min(260,153+47*slow+18*fast+offset));
@@ -59,12 +60,11 @@ $("lineA").setAttribute("d",graph("A"));$("lineB").setAttribute("d",graph("B"));
 function cursor(){let x=30+542*progress;$("cross").setAttribute("x1",x);$("cross").setAttribute("x2",x);const u=channel==="speed"?" km/h":"%";$("cursor").textContent=(progress*100).toFixed(0)+"% of route · A "+channelValue("A",progress).toFixed(0)+u+" · B "+channelValue("B",progress).toFixed(0)+u;
 for(const d of ["A","B"]){let path=$("mapLineA"),len=path.getTotalLength();let p=path.getPointAtLength(len*Math.min(.999,Math.max(0,progress+(d==="B"?.007:0))));$("marker"+d).setAttribute("cx",p.x);$("marker"+d).setAttribute("cy",p.y+(d==="B"?4:0));}}
 function render(){let r=R[route];$("mapPath").setAttribute("d",r.shape);$("mapLineA").setAttribute("d",r.shape);$("mapLineB").setAttribute("d",r.shape);
-const eligible=d=>r.attempts.filter(x=>x.driver===d&&x.completion==="complete"&&x.validity==="accepted"&&x.quality==="continuous").sort((a,b)=>a.time-b.time);
-const a=eligible("A")[0],b=eligible("B")[0];$("scoreA").textContent=fmt(a?.time??null);$("scoreB").textContent=fmt(b?.time??null);
+const {a,b,comparable,winner,reasons,margin_s}=SplitTimeDomain.summarizeRoute(r,{demo:true});$("scoreA").textContent=fmt(a?.time??null);$("scoreB").textContent=fmt(b?.time??null);
 $("carA").textContent=a? a.car+" · "+a.class+a.pi:"No eligible attempt";$("carB").textContent=b?b.car+" · "+b.class+b.pi:"No eligible attempt";
-const comparable=!!(r.ranked&&a&&b&&a.class===b.class&&a.mode===b.mode);
-$("winner").textContent=comparable?(a.time<=b.time?"A ":"B ")+Math.abs(a.time-b.time).toFixed(3)+"s":"Exploratory";
-$("winNote").textContent=comparable?"Same route, mode and class; sample rivalry only":"Conditions/mode not established equivalent — no competitive winner";
+
+$("winner").textContent=comparable?winner+" "+margin_s.toFixed(3)+"s":"Exploratory";
+$("winNote").textContent=comparable?"Demo-only: matched route, mode, class and PI":"No ranked winner: "+reasons.map(x=>x.replaceAll("_"," ")).join(", ");
 $("modeNote").textContent=r.ranked?"This synthetic comparison has matched route, mode, class and PI.":"The synthetic sprint includes an unknown event mode and different PI: compare traces only, no ranked winner.";
 $("corners").innerHTML=r.corners.map(k=>'<tr><td>'+esc(k[0])+'</td><td>'+esc(k[1])+'</td><td>'+esc(k[2])+'</td></tr>').join("");
 $("attempts").innerHTML=r.attempts.map(k=>'<tr><td>'+esc(k.date)+'</td><td class="'+(k.driver==="A"?"aa":"bb")+'">Driver '+k.driver+'</td><td>'+esc(k.car+' · '+k.class+k.pi)+'</td><td>'+esc(k.mode)+'</td><td>'+fmt(k.time)+'</td><td>'+esc(k.completion)+'</td><td>'+esc(k.validity)+'</td><td>'+esc(k.quality)+'</td></tr>').join("");
