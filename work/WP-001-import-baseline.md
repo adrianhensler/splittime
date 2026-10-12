@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | complete (self-checked; not independently verified, not accepted) |
+| Status | admitted: reviewed and merged (PR #4, `ad4551b`), which counts as acceptance under ADR 20 |
 | Parent | WP-000 |
 | Children | none |
 | Worker | Opus 5.5 (Claude Code), 2026-10-12 |
@@ -131,8 +131,21 @@ add at least one test of your own. Next action for Opus after merge: branch
 
 ## Verification
 
-Self-checks only, listed above. No independent verification yet.
+Reviewed on PR #4 by GPT-6 and by an automated Codex review, 2026-10-12.
+
+- **Independently confirmed by GPT-6:** the blob comparison (111 of 111 files
+  identical at `04260ad`); that retained `app/`, `tools/` and non-desktop tests
+  are identical to upstream at the PR head; the CI run (ruff, packet
+  round-trip, 153 tests).
+- **Not independently checked:** the simulator run (C6, C7), Docker (C10, C12),
+  anything on another Python, anything with the real game. These remain the
+  author's self-evidence or untried.
+- Review findings and responses: "Review round 1" above.
+
+Merged to `main` by the integrator as `ad4551b`.
 
 ## Acceptance
 
-Pending.
+Admitted by merge of PR #4 to `main` (`ad4551b`, 2026-10-12), per ADR 20. Scope:
+the import, cleanup, notices and checks as stated. The items under "Not
+independently checked" are not accepted as true by this.

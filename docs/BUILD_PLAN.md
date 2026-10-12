@@ -25,15 +25,22 @@ corrections and independent acceptance tests.
 
 ## Status
 
-| Milestone | Packet | State |
+"On `main`" below records only what has merged, and is updated by the pull
+request that merges it. Work in progress and in review is in the
+[pull request list](https://github.com/adrianhensler/splittime/pulls?q=is%3Apr);
+it is not tracked here, because a finer-grained table went stale within an
+hour of parallel work starting. The next slice is the first milestone not on
+`main`, subject to the open pull requests.
+
+| Milestone | Packet | On `main` |
 |---|---|---|
-| Planning docs | [WP-000](../work/WP-000-planning.md) | Complete, awaiting acceptance |
-| M0 Import baseline | [WP-001](../work/WP-001-import-baseline.md) | Merged to main (PR #4, `ad4551b`) |
-| M1 Two drivers | [WP-002](../work/WP-002-two-drivers.md) | Implemented on PR #6; review fixes, tests and current head in that PR |
-| M2 Deploy and real captures | [WP-003](../work/WP-003-deploy-and-real-captures.md) | Draft |
-| M3 Rivalry views | [WP-004](../work/WP-004-rivalry-views.md) | Exploratory API on PR #7; review repairs and evidence in that PR |
-| M4 Corner comparison | [WP-005](../work/WP-005-corner-comparison.md) | Wired in draft PR #10; synthetic checks only; newest corner fixes pending |
-| M5 Summary page and polish | [WP-006](../work/WP-006-summary-page.md) | Draft |
+| Planning docs | [WP-000](../work/WP-000-planning.md) | yes |
+| M0 Import baseline | [WP-001](../work/WP-001-import-baseline.md) | yes (PR #4, `ad4551b`) |
+| M1 Two drivers | [WP-002](../work/WP-002-two-drivers.md) | no |
+| M2 Deploy and real captures | [WP-003](../work/WP-003-deploy-and-real-captures.md) | no |
+| M3 Rivalry views | [WP-004](../work/WP-004-rivalry-views.md) | no |
+| M4 Corner comparison | [WP-005](../work/WP-005-corner-comparison.md) | no |
+| M5 Summary page and polish | [WP-006](../work/WP-006-summary-page.md) | no |
 
 ## Milestones in one line each
 
@@ -99,7 +106,35 @@ platform (both PC); server (this host, direct UDP, ADR 5); run mode
 
 ## Findings
 
-### Integrated local POC checkpoint, 2026-10-12
+### Real capture and final integration checkpoint, 2026-10-12
+
+PR #10 is the single integration route to main. Opus merged corner fix `c29fdcc`
+at `7c81323`, preserving driver attribution; independently re-ran 18/19 adverse
+tests successfully. The inherited out-of-order lap-duplication test remains a
+known limit. PR #8 process documentation is reconciled into this branch.
+
+The owner confirmed one real Rivals lap, no rewind, with wall contact. A local
+snapshot holds 16,333 frames; stored 150.807556 s matches both game lap-time
+fields. A negative-distance approach and first-line lap-clock reset caused a
+false rewind. Repair `175bffe` re-anchors that observed first-start signature
+without changing any detector threshold. Separate replay copies retain contact
+and the game time, remove false rewind/clock warnings; live data stays intact.
+Corrected timed trace: 14,187 samples, continuous, zero gaps, 12 detected corners,
+metres_per_unit 1.16881; direction and corner accuracy remain unverified.
+
+Own checks: 223 Python tests, 12 Node UI tests, Ruff and packet round trip pass.
+UI repair `f09c3ec` follows configured A/B order, explains unresolved equivalence
+and clock warnings, and makes chart axes readable on narrow screens. New
+recorder/UI changes still need independent review. Current live recording retains
+its original index until deliberate curation or reprocessing; only copies were replayed.
+
+Next: review the new integration head and make PR #10 ready; do not close source
+PRs until integration succeeds. Then verify URL-prefix/gateway/Docker setup and
+capture the second driver. Route equivalence, official validity, cross-car
+alignment and the complete event matrix remain open. Defer rivalry history and
+extra analysis until this capture-to-page path is in ordinary use.
+
+### Initial integrated local POC checkpoint, 2026-10-12
 
 Branch `feat/codex-integrated-poc` combines the two-driver backend, rivalry API,
 rivalry page and isolated corner module. Corner endpoints are now registered in

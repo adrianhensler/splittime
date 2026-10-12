@@ -140,8 +140,9 @@ small and put new features in new files where possible.
   rebinding weakness reported on PR #4; this is a defensive change, not
   evidence that the public deployment is safe.
 
-Code and tests are in the two-driver PR; this is **not** independent verification
-and has not been exercised with actual Forza traffic.
+At the initial two-driver checkpoint, checks were synthetic self-checks only.
+The real-capture evidence and subsequent independent reviews are recorded below
+and in the current PR description; they do not prove the full field matrix.
 
 ### First real Rivals capture: first-line clock reset, 2026-10-12
 
