@@ -37,8 +37,8 @@ handoff checklists, not a required runtime or serial approval ceremony. Read
 3. [docs/UPSTREAM.md](docs/UPSTREAM.md) — what comes from LapScope and
    Forza-6-telemetry.
 4. [docs/ADR.md](docs/ADR.md) — why things are the way they are.
-5. After WP-001: upstream's `ARCHITECTURE.md` and
-   `docs/wiki/Event-Detection.md` before touching `app/recorder/laps.py`.
+5. Upstream's own documents, now under `docs/upstream/`: `ARCHITECTURE.md`
+   and `wiki/Event-Detection.md` before touching `app/recorder/laps.py`.
 
 ## Rules
 
@@ -78,9 +78,18 @@ handoff checklists, not a required runtime or serial approval ceremony. Read
 
 ## Commands
 
-Available after WP-001:
+```sh
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt -r requirements-dev.txt
+.venv/bin/ruff check .
+.venv/bin/python app/telemetry/packet.py
+.venv/bin/pytest -q
+```
+
+Run the app and the simulator on test ports:
 
 ```sh
-.venv/bin/pytest
-.venv/bin/ruff check .
+DATA_DIR=/tmp/splittime-test TELEMETRY_UDP_PORT=19999 LS_OFFLINE=1 \
+  .venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8100
+.venv/bin/python tools/simulator.py --port 19999 --duration 100
 ```

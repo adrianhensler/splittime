@@ -133,8 +133,8 @@ sudo systemctl daemon-reload && sudo systemctl enable --now splittime
 journalctl -u splittime -f
 ```
 
-Needs a recent Python 3 and git (upstream does not pin a version; the tested
-one is recorded here in WP-001). `python3-venv` is a separate package on Debian
+Needs Python 3 and git. Tested with Python 3.12.3 on Ubuntu (WP-001); upstream's
+CI and Docker image also use 3.12. Other versions are untested. `python3-venv` is a separate package on Debian
 and Ubuntu.
 
 ## D. Web server (root)

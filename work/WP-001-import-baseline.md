@@ -2,12 +2,14 @@
 
 | | |
 |---|---|
-| Status | draft |
+| Status | complete (self-checked; not independently verified, not accepted) |
 | Parent | WP-000 |
 | Children | none |
-| Worker | — |
-| Verifier | — |
+| Worker | Opus 5.5 (Claude Code), 2026-10-12 |
+| Verifier | GPT-6, via pull request review |
 | Acceptor | owner |
+
+Branch `feat/opus-lapscope-baseline`, issue #1.
 
 ## Intent
 
@@ -23,8 +25,9 @@ tree that tests clean on Linux.
 
 - May: copy upstream files, add notices, delete the desktop and exe parts,
   create a virtualenv, run tests and the simulator on local ports.
-- May not: change detection logic, schema or API; use sudo; push without the
-  owner's say; bind HTTP beyond loopback; use UDP 5200–5300.
+- May not: change detection logic, schema or API; use sudo; bind HTTP beyond
+  loopback; use UDP 5200–5300; touch `prototype/` or
+  `docs/PARALLEL_BUILD.md`.
 
 ## Acceptance criteria
 
@@ -40,37 +43,79 @@ tree that tests clean on Linux.
 
 ## Context
 
-- `docs/UPSTREAM.md` (import method, licence duties)
-- `docs/BUILD_PLAN.md` M0
-- Upstream `AGENTS.md` and `ARCHITECTURE.md`, once imported
+- `docs/UPSTREAM.md` (import record, licence duties)
+- `docs/PARALLEL_BUILD.md`, `docs/REVIEW_HANDOFF_2026-10-12.md`
+- Upstream documents under `docs/upstream/`
 
 ## Claims
 
 | # | Claim | Basis |
 |---|---|---|
+| C1 | Commit `04260ad` holds 111 upstream files byte-identical to `c39a8d9` | E1 |
+| C2 | The unmodified import passes upstream's checks: 209 tests | E2 |
+| C3 | After cleanup: ruff clean, packet self-test OK, 153 tests pass | E3 |
+| C4 | The 56 tests no longer run (209 − 153) all belong to the five `tests/test_desktop_*.py` files, which test the removed desktop launcher | E4, and the two counts in E2 and E3 |
+| C5 | No file under `app/` or `tools/`, and no remaining test, was changed | E4 |
+| C6 | A live instance on test ports recorded a simulator run as one session with two timed laps and one open lap | E5 |
+| C7 | A wrong-size packet is counted and not parsed | E5 |
+| C8 | Both upstream licence texts are in `THIRD_PARTY_NOTICES.md` | E6 |
+| C9 | CI passes on the pull request | E7 |
+| C10 | The Docker image builds and runs | `asserted` — not tried |
 
 ## Evidence
 
-| ID | What | Where |
+All run on Ubuntu, Linux 6.8, Python 3.12.3, fastapi 0.143.0, uvicorn 0.54.0,
+pytest 9.1.1, ruff 0.17.0 (unpinned in `requirements*.txt`; these are what pip
+resolved on 2026-10-12).
+
+| ID | What | How to re-run |
 |---|---|---|
+| E1 | Blob-id comparison: "checked 111, skipped 2 (LFS .gif), differing 0" | `git clone https://github.com/darcane/LapScope /tmp/ls && scripts/verify_upstream_import.py /tmp/ls c39a8d96bbfc6c1e36c43952c71042f4eaeceffc 04260ad` |
+| E2 | "209 passed in 62.91s" at `04260ad` | `git checkout 04260ad && .venv/bin/pytest -q` |
+| E3 | "All checks passed!", "OK: 324-byte packet, 88 values, round-trip verified", "153 passed in 53.48s" at `ed162df` | the three commands in `AGENTS.md` |
+| E4 | Diff of upstream code since import is five deleted test files, nothing else | `git diff --stat 04260ad HEAD -- app tools tests` |
+| E5 | Session 1: 6001 frames, laps 42.817 s and 42.533 s, third lap with no time; `bad_packets` went 0 → 1 after a 100-byte datagram | the two run commands in `AGENTS.md`, wait 15 s, then `curl -s localhost:8100/api/sessions` and `/api/sessions/1/laps`; `head -c 100 /dev/zero \| nc -u -w1 127.0.0.1 19999` and `/api/status` |
+| E6 | The file | `THIRD_PARTY_NOTICES.md` |
+| E7 | CI run on the pull request | the PR's checks tab |
 
 ## Known, unknown, unproven
 
-- **Unknown:** whether upstream tests depend on the removed desktop modules;
-  which Python versions upstream supports.
+- **Known:** C1 to C8, as self-checks by the worker.
+- **Unknown:**
+  - Why `/api/status` reported 6181 packets when the simulator reported sending
+    6001 and the session stored 6001. Probably trailing race-off packets; not
+    investigated.
+  - Behaviour on any Python other than 3.12.3, or with other dependency
+    versions. Requirements are unpinned lower bounds.
+  - Whether the Docker image builds (C10).
+- **Unproven (assumed):** that the simulator represents the real game. It is
+  upstream's synthetic circuit; nothing here involved Forza.
 
 ## Unresolved
 
-None.
+Observations for whoever works on WP-002 and WP-003. None was changed here.
+
+1. `app/main.py` binds UDP to `0.0.0.0` with no setting for the address, and
+   takes exactly one port from `TELEMETRY_UDP_PORT`.
+2. The open third lap is stored with `lap_time` null and is not flagged. This
+   bears on the review handoff's point about unfinished attempts.
+3. Relative links inside `docs/upstream/` are broken by the move, so a link
+   check over all markdown now reports them.
+4. `fastapi`, `uvicorn`, `pytest` and `ruff` are unpinned. A lock file would
+   make the "fresh Linux setup is reproducible" check stronger.
+5. The corner-analysis data contract is still to be written and agreed before
+   WP-005 code starts.
 
 ## Checkpoint
 
-Not started. First action: clone LapScope at `c39a8d9` and copy the tree in.
+Done and pushed. Next action for the reviewer: run E1 to E5 independently and
+add at least one test of your own. Next action for Opus after merge: branch
+`feat/opus-corner-analysis`, starting with a written data contract for review.
 
 ## Verification
 
-—
+Self-checks only, listed above. No independent verification yet.
 
 ## Acceptance
 
-—
+Pending.

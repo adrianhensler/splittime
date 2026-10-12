@@ -24,4 +24,6 @@ records events automatically and lets both compare laps afterwards.
 | [AGENTS.md](AGENTS.md) | Rules for any coding agent or person working here |
 | [docs/WORKPACKET_TAKEAWAYS.md](docs/WORKPACKET_TAKEAWAYS.md) | Notes for the separate Workpacket project |
 | [docs/REVIEW_HANDOFF_2026-10-12.md](docs/REVIEW_HANDOFF_2026-10-12.md) | Independent design review, corrections and coding-agent handoff |
+| [docs/upstream/](docs/upstream/) | LapScope's own documents, unchanged. Read `ARCHITECTURE.md` and `wiki/Event-Detection.md` before touching the recorder. |
+| [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) | Licences of the code this includes |
 | [docs/archive/](docs/archive/) | Original concept PDF (superseded by DESIGN.md) |
