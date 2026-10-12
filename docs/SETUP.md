@@ -114,6 +114,27 @@ memory and their latest address is saved at most once every five seconds,
 with a final flush at session close or shutdown. Source-change warnings are
 also rate-limited. These addresses and counters are evidence, not authentication.
 
+### Optional: collector and web as two processes
+
+Proposed in [ADR 24](ADR.md); not required. Use it if you update the site
+often and do not want an update to interrupt a recording. Run the same build
+twice, with the same `DATA_DIR` and `SPLITTIME_DRIVERS`:
+
+| | Collector | Web |
+|---|---|---|
+| `SPLITTIME_ROLE` | `collector` | `web` |
+| Also set | — | `SPLITTIME_COLLECTOR_URL=http://<collector>:8000` |
+| UDP driver ports | published | none |
+| HTTP | private; proxy only `/ws/live` to it | private; proxy everything else to it |
+
+Start the collector first. Both must be the same user and see the same data
+directory on one machine (SQLite's write-ahead log does not work across a
+network share). The collector serves only `GET /api/status` and `/ws/live`;
+never proxy any other path to it, and keep its HTTP port off the public
+address like the web process's. Update the web process whenever you like.
+Update the collector only when nobody is driving: check that
+`last_packet_age` in `/api/status` is null or large first.
+
 ### Option 1: container
 
 Upstream ships a `Dockerfile` and `docker-compose.yml`. Publish the two UDP
@@ -212,6 +233,9 @@ Pitfalls:
   each deployment's real proxy authentication and WebSocket upgrade still need
   checking. The worked hosting example records its completed gateway checks.
 - The upgrade headers are needed for the WebSocket.
+- With separate collector and web processes, proxy `/ws/live` to the collector
+  and everything else to web, behind the same login rules. `/api/status` can
+  stay on web, which relays the collector's answer.
 - On SELinux systems nginx needs `setsebool -P httpd_can_network_connect 1`.
 - Confirm `curl http://<server-ip>:8000/` from outside fails.
 

@@ -210,3 +210,17 @@ served `ws/live?driver=<id>` per driver and still serves the no-query form.
 
 On an upstream sync, changes to upstream's `connect()` or overlay will
 conflict; take ours for those and keep upstream's gauge changes.
+
+### Collector and web roles, 2026-10-12
+
+ADR 24, WP-007. New logic is in `app/roles.py`. Edits to imported files:
+
+- `app/main.py`: the module-level app is now built by `create_app(role)`, so
+  routes and middleware are registered there instead of by decorators; the
+  handlers themselves are unchanged. `lifespan` skips driver registration,
+  startup cleanup, listeners and trackers in the web role.
+- `app/api/routes.py`: `status` and the two `_session_active` guards ask the
+  collector when the role is web.
+- `app/recorder/store.py`: `session_seq` table and `create_session` allocate
+  session ids in the database; `Store(timeout=)` sets the lock wait. No
+  schema version change: older builds ignore the table.

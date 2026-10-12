@@ -14,8 +14,8 @@ from urllib.parse import urlsplit
 from fastapi import FastAPI, Response, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 
-from . import cars, tracks
-from .api.routes import router
+from . import cars, roles, tracks
+from .api.routes import router, status
 from .corners.api import router as corners_router
 from .recorder.laps import SessionTracker
 from .recorder.store import Store
@@ -46,22 +46,34 @@ async def lifespan(app: FastAPI):
 
     cars.load(data_dir)
     tracks.load(data_dir)
-    store = Store(os.path.join(data_dir, "telemetry.db"))
-    store.register_drivers(drivers)
-    removed = store.cleanup_sessions()
-    if removed:
-        log.info("Startup cleanup: removed %d untimed session(s)", removed)
+    role = getattr(app.state, "role", roles.ALL)
+    # the web half never records: it must not bind the drivers' ports, and
+    # above all must not run the startup cleanup, which closes every open
+    # session it finds - the collector's live one included (ADR 24)
+    records = role != roles.WEB
+    store = Store(os.path.join(data_dir, "telemetry.db"),
+                  timeout=(roles.COLLECTOR_BUSY_TIMEOUT_S
+                           if role == roles.COLLECTOR else 5.0))
+    if records:
+        store.register_drivers(drivers)
+        removed = store.cleanup_sessions()
+        if removed:
+            log.info("Startup cleanup: removed %d untimed session(s)", removed)
+    else:
+        log.info("Role web: no UDP, no recorder; live state comes from %s",
+                 roles.collector_url())
 
-    hubs = {d.id: Hub() for d in drivers}
-    trackers = {d.id: SessionTracker(DriverScopedStore(store, d.id)) for d in drivers}
+    hubs = {d.id: Hub() for d in drivers} if records else {}
+    trackers = ({d.id: SessionTracker(DriverScopedStore(store, d.id)) for d in drivers}
+                if records else {})
     first = drivers[0]
     app.state.store = store
     app.state.drivers = drivers
     app.state.hubs = hubs
     app.state.trackers = trackers
     # Compatibility: legacy endpoints and upstream dashboard default to first driver.
-    app.state.hub = hubs[first.id]
-    app.state.tracker = trackers[first.id]
+    app.state.hub = hubs.get(first.id)
+    app.state.tracker = trackers.get(first.id)
     app.state.udp_port = first.udp_port
     app.state.udp_error = None
     app.state.udp_errors = {}
@@ -71,7 +83,7 @@ async def lifespan(app: FastAPI):
     protocols = {}
     watchdogs = []
     try:
-        for d in drivers:
+        for d in drivers if records else ():
             try:
                 transport, protocol = await loop.create_datagram_endpoint(
                     lambda d=d: TelemetryProtocol(hubs[d.id], trackers[d.id], d.id),
@@ -99,11 +111,6 @@ async def lifespan(app: FastAPI):
         for tracker in trackers.values():
             tracker.shutdown(time.time())
         store.close()
-
-app = FastAPI(title="LapScope", lifespan=lifespan)
-app.include_router(router, prefix="/api")
-app.include_router(corners_router, prefix="/api")
-
 
 # extra Host names to answer to, comma-separated (a reverse proxy, a hostname
 # the box is known by). Read once at import, like the app object itself.
@@ -148,7 +155,6 @@ def host_allowed(host_header: str) -> bool:
     return True
 
 
-@app.middleware("http")
 async def revalidate_static(request, call_next):
     """Make browsers revalidate dashboard assets so UI updates apply on reload
     (cheap 304s on localhost; without this, heuristic caching serves stale JS/CSS)."""
@@ -158,9 +164,6 @@ async def revalidate_static(request, call_next):
     return response
 
 
-# registered last, so it wraps everything above: a request for a host this
-# server has no business answering is refused before any handler sees it
-@app.middleware("http")
 async def check_host(request, call_next):
     if not host_allowed(request.headers.get("host", "")):
         return Response("Invalid host header", status_code=400,
@@ -182,7 +185,6 @@ def origin_allowed(origin: str | None, host_header: str) -> bool:
     return bool(netloc) and netloc == host_header.strip().lower()
 
 
-@app.websocket("/ws/live")
 async def ws_live(ws: WebSocket) -> None:
     if (not host_allowed(ws.headers.get("host", "")) or
             not origin_allowed(ws.headers.get("origin"), ws.headers.get("host", ""))):
@@ -234,4 +236,31 @@ async def ws_live(ws: WebSocket) -> None:
         hub.unsubscribe(q)
 
 
-app.mount("/", StaticFiles(directory=Path(__file__).parent / "static", html=True), name="static")
+def create_app(role: str = roles.ALL) -> FastAPI:
+    """The app for one role (see roles.py). The collector answers only what
+    has to come from the recording process - the live socket and its status -
+    so nothing that edits or deletes is reachable on it."""
+    live_only = role == roles.COLLECTOR
+    app = FastAPI(title="LapScope", lifespan=lifespan,
+                  **({"docs_url": None, "redoc_url": None, "openapi_url": None}
+                     if live_only else {}))
+    app.state.role = role
+    if live_only:
+        app.add_api_route("/api/status", status, methods=["GET"])
+    else:
+        app.include_router(router, prefix="/api")
+        app.include_router(corners_router, prefix="/api")
+    app.middleware("http")(revalidate_static)
+    # registered last, so it wraps everything above: a request for a host this
+    # server has no business answering is refused before any handler sees it
+    app.middleware("http")(check_host)
+    # in the web role there is no hub, so ws_live refuses the socket cleanly;
+    # a gateway sends this one path to the collector instead
+    app.websocket("/ws/live")(ws_live)
+    if not live_only:
+        app.mount("/", StaticFiles(directory=Path(__file__).parent / "static", html=True),
+                  name="static")
+    return app
+
+
+app = create_app(roles.from_env())

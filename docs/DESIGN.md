@@ -53,6 +53,10 @@ Driver B  FH6 Data Out ──UDP :10000─┘        (size check, parse)        
 
 - One Python process (FastAPI, uvicorn, asyncio), one SQLite database. It runs
   as a container or a plain process and needs nothing privileged.
+- Optionally two processes on that one database (ADR 24, proposed): a
+  **collector** that owns the UDP ports, lap detection and recording and
+  serves only live state, and a **web** process with the pages and API. The
+  web process can then be restarted without interrupting a recording.
 - UDP ports are above 1024 and outside 5200–5300 (the game binds its own
   socket there).
 - HTTP is reachable only by the web server in front, which terminates TLS and
