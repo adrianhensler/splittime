@@ -12,7 +12,7 @@ commits below.
 
 Single-driver FH6 recorder and analysis site. Python, FastAPI, uvicorn, SQLite,
 no other runtime dependencies, no build step. About 6,000 lines of backend and about
-190 tests.
+209 tests (153 after the desktop tests were removed).
 
 | Area | File | Use |
 |---|---|---|
@@ -73,6 +73,42 @@ MIT requires the copyright and permission notice to travel with the code.
 - Record in this file every later sync from upstream, with the new commit.
 - SplitTime's own licence is undecided. See open questions in
   [BUILD_PLAN.md](BUILD_PLAN.md#open-questions).
+
+## Import record
+
+| | |
+|---|---|
+| Import commit | `04260ad` — every imported file byte-identical to upstream `c39a8d9` |
+| Cleanup commit | `ed162df` |
+| Check | `scripts/verify_upstream_import.py <LapScope checkout> c39a8d9 04260ad` |
+| Our changes to upstream code | `git diff 04260ad -- app tools tests` |
+
+Path changes at import, content unchanged: upstream's `README.md`, `AGENTS.md`,
+`ARCHITECTURE.md`, `CODE_OF_CONDUCT.md`, `CONTRIBUTING.md`, `LICENSE` and its
+`docs/` are under [`docs/upstream/`](upstream/). Relative links inside those
+documents are therefore broken; read them as reference.
+
+Not imported: `docs/media/hero.gif` and `docs/media/track-map-3d-animated.gif`
+(Git LFS pointers upstream).
+
+Removed in the cleanup commit: `desktop/`, `run_desktop.py`, `LapScope.spec`,
+`requirements-build.*`, `assets/`, `tests/test_desktop_*.py` (56 tests),
+the release and wiki workflows, funding file, issue and PR templates,
+`.claude/launch.json`, and the LFS rule in `.gitattributes`.
+
+Syncs from upstream since import: none.
+
+Changes to upstream files since import:
+
+| File | Change | Why |
+|---|---|---|
+| `docker-compose.yml` | HTTP port published on `127.0.0.1` only | Upstream published it on all interfaces; the API is unauthenticated (PR #4 review) |
+
+Known upstream issues not yet fixed here:
+
+| Where | Issue | Owner |
+|---|---|---|
+| `app/main.py` `origin_allowed` / `ws_live` | The WebSocket handshake compares `Origin` with `Host` but never checks `Host` against the allow-list, and the HTTP `check_host` middleware does not run for WebSockets. A DNS-rebinding page can therefore subscribe to `/ws/live`. Found by automated review on PR #4; read and judged plausible, not reproduced. | Whoever next changes `app/main.py` (WP-002 or WP-003) |
 
 ## Import method
 

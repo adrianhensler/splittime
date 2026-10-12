@@ -1,0 +1,441 @@
+# ARCHITECTURE.md — LapScope
+
+Structural map of the repo: what lives where, how data flows, and the contracts
+between the parts. Behavioral knowledge (FH6 packet quirks, event-detection
+rules) lives in [AGENTS.md](AGENTS.md); usage in [README.md](README.md).
+
+## Runtime topology
+
+One Docker container: FastAPI + uvicorn, asyncio, SQLite. No external services,
+no build step, fully offline.
+
+```
+FH6 ──UDP 9999──▶ listener.py ─▶ packet.py parse ─┬─▶ hub.py ─▶ /ws/live ─▶ dashboard.js
+                                                  └─▶ laps.py SessionTracker ─▶ store.py (SQLite)
+                                                          ▲                        │
+                                          reprocess.py ───┘        routes.py /api ─┴─▶ analysis.js
+```
+
+## Backend files
+
+| File | Responsibility |
+|---|---|
+| [app/main.py](app/main.py) | Wiring: lifespan creates Store/Hub/SessionTracker, binds the UDP endpoint (a busy port is caught, logged, and surfaced via `app.state.udp_error` / `/api/status` rather than crash-exiting — the dashboard keeps serving), runs a 1 s watchdog that closes sessions on silence. `no-cache` middleware for non-`/api` paths (keep it — stale-JS bug shipped once). Outermost middleware is `check_host`: it answers to `localhost`, `*.local`/`*.localhost`, any IP literal and `LS_ALLOWED_HOSTS`, and 400s anything else — a borrowed *name* in `Host` is what DNS rebinding needs, and a bare address is what every legitimate client sends. `origin_allowed` does the same job for the `/ws/live` handshake (WebSockets skip CORS entirely). Serves `app/static/` at `/`. |
+| [app/telemetry/packet.py](app/telemetry/packet.py) | 324-byte Data Out struct: `parse()`, `pack()` (simulator/tests), `empty_fields()`, `FIELDS` name/count table. Self-test via `python app/telemetry/packet.py`. |
+| [app/telemetry/listener.py](app/telemetry/listener.py) | `asyncio.DatagramProtocol`: counts packets, warns once on wrong size (hex dump), parses, feeds tracker, publishes frame+extras to hub. Recorder exceptions never kill the stream. |
+| [app/telemetry/hub.py](app/telemetry/hub.py) | Fan-out to WebSocket subscriber queues (drop-oldest on slow clients) + stream stats used by `/api/status`. |
+| [app/recorder/laps.py](app/recorder/laps.py) | **The heart.** `SessionTracker`: session boundaries, lap segmentation, finish detection, geometric (WTA) laps, dirty-lap flags, wet detection, route fingerprint triggers, live delta, `race_mode`, and the track-type auto-suggestion (`suggest_track_type` + per-frame surface accumulators; written at session close with COALESCE so user tags win). All tunable thresholds are module constants at the top. `flush()` never raises: a failed write (disk full, database locked) is logged once on the way in and once on recovery, the buffer is capped at `FRAME_BUFFER_MAX` frames dropping oldest first, and `write_error`/`frames_dropped` carry the state to `/api/status`. |
+| [app/recorder/store.py](app/recorder/store.py) | SQLite persistence: schema, `SCHEMA_VERSION`/`MIGRATIONS`, session/lap/route/car-name CRUD, manual-edit overrides (`edits` table, merged into `session_laps` at read time), monotonic session-id counter, `reader()` for threadpool access, `transaction()` (all-or-nothing batches of event-loop writes), `add_frames()` rolling back a half-applied batch so the tracker's retry can't store it twice, `storage_stats()`/`vacuum()` (disk usage + the compaction behind Settings → Storage). |
+| [app/recorder/reprocess.py](app/recorder/reprocess.py) | Replays a session's stored raw frames through a fresh `SessionTracker` via `_ReplayStore` (laps/routes written for real; session row and frames untouched; discard suppressed). The delete + rebuild runs inside one `store.transaction()`, so a replay that raises leaves the session exactly as it was instead of destroying its lap times. |
+| [app/api/routes.py](app/api/routes.py) | REST API (table below) + constants: `CAR_CLASSES`, `CONDITIONS`, `TRACK_TYPES`, `DRIVETRAINS`, `CHANNELS` (channel-name → frame extractor for lap data; a loop appends generated `raw_<field>` / `raw_<field>_<fl\|fr\|rl\|rr>` channels — every `packet.FIELDS` entry verbatim, packet-native units — for the analysis raw-data view). |
+| [app/cars.py](app/cars.py) | Community car-name list (`CarOrdinal` → name), three layers, top wins: `car_names` DB override > downloaded `DATA_DIR/car_ordinals.json` > bundled `app/car_ordinals.json`. `refresh()` re-downloads the maintained copy from this repo's `main` (validated, atomically persisted, hot-swapped); triggered by the browser daily + Settings "Refresh now" via `POST /api/cars/refresh`. |
+| [app/tracks.py](app/tracks.py) | Official-route catalogue (route fingerprint → name), the same three-layer shape as `cars.py`: a user's own `PATCH /routes/{id}` rename > downloaded `DATA_DIR/track_catalog.json` > bundled `app/track_catalog.json`. `match()` reuses the recorder's own tolerances (imported from `store.py`, which is why the reverse import is function-local) and returns `None` on ambiguity rather than guessing. The catalogue is **generated** by `tools/export_track_catalog.py`, never hand-edited. |
+
+## Concurrency model (breaking this corrupts data)
+
+- Everything in `SessionTracker` and the single `Store.db` connection runs on
+  the **asyncio event-loop thread** (UDP callbacks, watchdog, `async def`
+  handlers). `reprocess` endpoint is `async def` **on purpose** for this reason.
+- Plain `def` API handlers run in FastAPI's **threadpool** and must use
+  `Store.reader()` (short-lived connection; WAL makes small writes there fine —
+  renames/tags do this).
+- Store write methods commit through `Store._commit()`, which `transaction()`
+  holds open so a batch lands all-or-nothing. It groups **only** the event-loop
+  connection: a `reader()` inside an open transaction opens its own connection
+  and still sees the pre-transaction data, so never read (or write) through one
+  in there — `reprocess_session` counts its laps after the commit for exactly
+  this reason. Not reentrant; SQLite has no nested transactions.
+- Hub `publish()` never blocks: full subscriber queues drop their oldest frame.
+
+## SQLite schema (`data/telemetry.db`, WAL)
+
+- `sessions(id, started_at, ended_at, name, car_ordinal, car_class, car_pi,
+  drivetrain_type, frame_count, conditions, route_id, track_type, kept)`
+  — `id` comes from `Store._next_session_id` (monotonic, never reused; rowid
+  reuse broke live-map reset). `kept=1` exempts from no-laps cleanup.
+- `frames(id, session_id→sessions CASCADE, t, raw)` — raw 324-byte packets,
+  lossless; ~70 MB per driving hour. Index on `(session_id, t)`.
+- `laps(id, session_id→sessions CASCADE, lap_number, lap_time, started_t,
+  ended_t, start_distance, flags)` — `flags` is CSV: `rewind`, `contact`,
+  `cutoff`. `lap_time NULL` = incomplete.
+- `routes(id, name, start_x, start_z, lap_length, span_x, span_z, kind,
+  kind_user, outline, catalog_key)` — fingerprint: start within 120 m + length within 5 % + bounding-box
+  dimensions within 15 % (floor 50 m). The span term is what separates
+  courses sharing a start line; `lap_length` alone can't, because
+  DistanceTraveled is normalized per route (~5950 for every completed one).
+  `span_x`/`span_z` NULL = row predates the span term; the next matching lap
+  adopts its shape (reprocess both sessions to unpick an already-collapsed
+  route). `kind` (`circuit`/`sprint`) decides whether the UI says "lap" or
+  "run": a Horizon sprint is point-to-point, so one visit produces exactly one
+  timed run. The recorder derives it from which lap machinery fired
+  (`_route_kind`, laps.py) and may only promote `NULL → any` and
+  `sprint → circuit` — circuit evidence (a LapNumber increment, a geometric
+  loop closure) is strong, "only ever produced one run" is also what a
+  single-lap circuit race looks like. `kind_user` is the manual override from
+  `PATCH /routes/{id}` and always wins (`COALESCE(kind_user, kind)`); routes
+  driven before the column existed are classified once by
+  `Store.backfill_route_kinds()` from the index tables alone, and routes with
+  no sessions left stay NULL. `outline` is a derived cache — the course as a
+  flat `[x0, y0, x1, y1, …]` JSON polyline in a 0..1000 box, drawn from the
+  fastest recorded lap's frames on first request and spaced along the driven
+  line so a car idling on the grid doesn't eat the point budget. It backs the
+  route thumbnails in the browse bar and the route dialog. NULL means "not
+  drawn yet", never "has no shape": a miss is deliberately not cached, so a
+  route whose only capture was deleted fills in the next time it is driven.
+  `catalog_key` records that the row's `name` came from the shipped track
+  catalogue (app/tracks.py) rather than from the user. `name` is written only
+  when it is empty, and `rename_route` clears `catalog_key`, so a catalogue
+  update can correct a name it supplied earlier but can never overwrite one a
+  human typed. `Store.backfill_route_names()` applies both passes at startup
+  and after a catalogue refresh; a route with no span can't be fingerprinted
+  and is left alone until one of its sessions is reprocessed.
+- `session_groups(id, name, route_id, car_ordinal, created_at)` +
+  `sessions.group_id` — merged runs. A point-to-point route can only be
+  re-attempted by restarting the event, so a grind is N one-run sessions the
+  user wants to browse and score as one thing. A group is purely an index:
+  sessions, frames, laps and edits are untouched, so ungrouping is free and a
+  reprocess of any member behaves exactly as before. `route_id`/`car_ordinal`
+  are pinned at creation so the group keeps its identity as members leave.
+  Membership (same route AND same car, both known) is validated **on write
+  only** — a reprocess can legitimately re-fingerprint a member onto another
+  route, and refusing to *read* a group the user can no longer repair would be
+  worse than reporting `mixed: true`. `reader()` does not enable foreign keys,
+  so ungroup is two explicit statements in one transaction, never
+  `ON DELETE SET NULL`.
+- `car_names(ordinal, name)` — user overrides of the bundled ordinal list.
+- `edits(id, session_id→sessions CASCADE, kind, anchor_t, value, created_at)`
+  — manual session edits, applied at read time (raw frames and the recorder's
+  lap rows are never rewritten). `kind`: `dismiss_contact` (anchor = the
+  collision peak's frame time, matched ±0.5 s), `flags` (`value` = the full
+  flags CSV, `""` = none) and `exclude_lap` (both anchored at the lap-span
+  midpoint). Keyed by frame time so a reprocess — which recreates lap rows
+  under recycled rowids — keeps them. A lap's span is **half-open**
+  (`started_t <= anchor < ended_t`, `1e18` for an open lap): consecutive laps
+  share a frame, so with both ends inclusive an anchor on the boundary belonged
+  to two laps at once. Four places implement that one rule and must agree —
+  `lap_span`/`_merge_edits`, the `_SESSION_SELECT` overlay (the source of
+  `lap_count`/`best_lap`), `remove_edits`, and the flags lookup in
+  `dismiss_contact`.
+
+Startup repair (`Store.cleanup_sessions()`, once from the lifespan **before**
+the tracker exists — it closes every open row it finds, and a recording
+session's are open on purpose): a crashed process leaves `sessions.ended_at`
+and the final `laps.ended_t` NULL, both backfilled from the session's last
+frame; `lap_time` stays NULL because that lap never crossed the line. Then
+sessions with no timed lap and `kept = 0` are deleted (free-roam cruising, menu
+blips) and empty groups pruned. The `ended_t` repair is what keeps an orphaned
+open lap addressable — see the half-open span above.
+
+Schema changes: append `ALTER TABLE ... ADD COLUMN` to `store.MIGRATIONS`; each
+runs on every startup, and **only** a "duplicate column" error is swallowed —
+anything else (locked database, disk I/O, readonly file) is re-raised rather
+than leaving the app half-migrated to die later on a missing column. New tables
+go straight into `SCHEMA` (`CREATE TABLE IF NOT EXISTS` is idempotent).
+`store.SCHEMA_VERSION` is stamped into `PRAGMA user_version` once both have run,
+so a database can say which shape it is without probing `table_info`; databases
+written before it existed read 0, a stamp from a newer build is never lowered.
+Bump it when a change can't be expressed as an idempotent ADD COLUMN.
+
+Nothing shrinks the file on its own: deleting a session frees its pages for
+reuse (`freelist_count`), and `PRAGMA auto_vacuum` is deliberately not set —
+it only takes effect on a database configured before its first table existed,
+so every existing user would need a full `VACUUM` anyway. `Store.vacuum()`
+(Settings → Storage → Compact now) is that explicit action.
+
+## REST API (`/api`)
+
+| Endpoint | Notes |
+|---|---|
+| `GET /status` | Packet counters, last-packet age/size, active session, session best, `version` (`app.__version__`), `udp_error` (non-null when the UDP port could not be bound), and `write_error`/`frames_dropped` (non-null when the recorder cannot write — packets still arrive and the gauges still move, so this is the only thing that says the drive isn't being stored; the dashboard turns it into a banner). First stop when "nothing works". |
+| `GET /version` | `{"version": app.__version__}` — the running build. The frontend compares it (client-side) against the latest GitHub Release for the update notice; `"0.0.0"` (dev/source run) suppresses the check. |
+| `GET /storage`, `POST /storage/compact` | Disk the recordings occupy (`db_bytes` incl. the WAL sidecars, `free_bytes` = freelist pages a compaction would release, `sessions`) / `VACUUM` + truncating checkpoint, returning `before_bytes`/`after_bytes`/`reclaimed_bytes`. `async def` and 409-while-recording like reprocess: the rebuild runs on the event-loop connection and holds an exclusive lock throughout. 503 (with the SQLite message) when it can't run — usually no room for the second copy VACUUM writes. |
+| `GET /sessions` | List with route/car-name joins, lap counts, best lap, and the route's effective `route_kind` + detected `route_kind_auto`. No query params by design — the analysis browse bar filters this payload client-side. |
+| `PATCH /sessions/{id}` | `name` (`""` clears → display falls back to route/date), `conditions` (`dry/wet/snow`, `""` clears), `track_type` (`road/street/touge/dirt/cross/drag/wtc`, `""` clears). |
+| `POST /sessions/{id}/reprocess` | Rebuild laps from stored frames (async def — event-loop writes). 409 while **any** session records: the synchronous replay would stall the event loop and freeze live telemetry. Manual edits survive (time-keyed — see the `edits` table). |
+| `DELETE /sessions/{id}` | Cascades frames+laps. 409 while recording. |
+| `GET /sessions/{id}/laps` | Session + laps with `is_best` / `gap_to_best` (excluded laps never score). Each lap carries effective `flags`, detected `flags_auto`, `excluded`; the session carries `edit_count` (drives the Reset-edits button). |
+| `POST /groups`, `GET /groups/{id}/laps`, `PATCH /groups/{id}`, `POST\|DELETE /groups/{id}/sessions[/{sid}]`, `DELETE /groups/{id}` | Merged run groups. Create validates same route + same car, both non-NULL (400), nothing already grouped (409). `GET .../laps` mirrors `GET /sessions/{id}/laps` but scores the **whole group**: one `is_best`, gaps against it, plus a display-only `run_index` — `lap_number` is left alone because it names the CSV column and the export filename, and every sprint member's is 0. `DELETE /groups/{id}` ungroups (the sessions survive); removing the last member prunes the group. `DELETE /groups/{id}/sessions/{sid}` checks membership in the UPDATE's WHERE and 404s if the session isn't in *that* group — without it, a request naming one group could ungroup another group's session and prune that group instead. No group CSV export on purpose: `_lap_csv_rows` writes `lap_number + 1` and the importer starts a new lap group only when that number *changes*, so a concatenated group export would re-import as one giant lap. |
+| `PATCH /laps/{id}` | Manual lap curation as read-time edits: `flags` (full CSV, `""` = none; a value equal to the detected flags removes the override), `excluded` (drop/restore from bests+counts). |
+| `POST /laps/{id}/dismiss_contact` | "Not a contact": body `{t}` from the collision list. 404 if no real (non-landing) collision peak within ±0.5 s; re-dismissing an already-dismissed marker is an idempotent no-op. Lifts the lap's `contact` flag once no real (non-landing, non-dismissed) contact remains — only ever removes flags. |
+| `DELETE /sessions/{id}/edits` | Reset edits: drops every manual edit of the session, back to pure detection. |
+| `GET /laps/{id}/data?channels=&max_points=` | Distance-indexed channel arrays; drops rewound-over samples; decimates to `max_points` (stride rounded **up**, so the answer stays inside the budget rather than up to 2x it). Channel names = `CHANNELS` keys in routes.py. `lap_time` falls back to time-since-lap-start when the packet lap clock never ran (WTA / bare sprints keep `CurrentLap` at 0), so the Δ-time chart works for those events. Also returns `collisions` (contact-spike peaks, `landing: true/false`, `t` = the peak's frame time — the dismissal handle — and `dismissed: true` when a manual edit matched it) and `jumps` (airborne segments: takeoff → touchdown world coords + `dist0/dist1`, `air_s`, `hard` + peak `g` when the landing spiked) — both computed on the full-resolution trace, never decimated away. |
+| `GET /laps/{id}/export.csv`, `GET /sessions/{id}/export.csv` | CSV download (streamed per lap, `Content-Disposition` filename built from the session's display name — sanitized ASCII, Windows-safe). Full resolution: every kept frame of the same rewind-trimmed trace `/data` serves, **no decimation**; canonical metric units with unit-suffixed headers (`speed_kmh`, `pos_x_m`, `boost_psi`, `lap_time_s` incl. the dead-lap-clock fallback). The session variant concatenates the **timed, non-excluded** laps (`lap` column) — exclusions honored like bests/counts, the untimed post-finish coast skipped because a re-import would mint a time for it; the per-lap variant exports either kind — asking for one lap is explicit. **`?raw=1`** widens the file from the 19 curated columns to 107: every `raw_*` channel appended *after* the curated ones, in packet order, so a raw export is a strict superset (`_export_columns` picks the pair; `_LAP_TIME_COL` indexes the curated prefix and stays valid either way). The variants get different filenames (`…_raw.csv`) so one never quietly overwrites the other. Both flags default to a **plain `bool`, not `Query(False)`** — the tests call these handlers as functions, and a `Query` default is a truthy object. |
+| `POST /import/csv?name=` | The reverse trip: raw body = a LapScope CSV export (text/csv — no multipart, no new dependency). Rebuilds a session: frames synthesized via `packet.pack()` (CSV channels real, rest neutral filler — suspension parked grounded so the airborne classifier can't fire, `NormalizedDrivingLine` saturated so the flat fake suspension is never read as surface evidence, and each lap group's final frame carries the group's lap time as `LastLap` so a reprocess re-times every lap through the LastLap-change finish instead of wiping them), lap groups become completed laps timed by the clock's high-water mark, laid end-to-end on fresh time/distance axes. No car/route metadata (`car_ordinal` NULL → "Unknown car", `car_known` true so the unknown-car affordances stay quiet). `async def` like reprocess (event-loop Store writes) incl. the 409-while-recording guard; 400s name the offending line (the `lap` column is range-checked into 1..`IMPORT_MAX_LAP` — it lands in a uint16 packet field), nothing written unless the whole file parses. `Content-Type: text/csv` is **required** (415) — without it this is a CORS-simple request any page could POST cross-origin — the body is capped at `IMPORT_MAX_BYTES` (413, checked on `Content-Length` and again while streaming), and parsing + frame synthesis run in the threadpool so a big file can't stall the loop and drop live UDP. |
+| `PATCH /routes/{id}`, `GET/PATCH /cars/{ordinal}` | Route: `name` renames, `kind` (`circuit`/`sprint`, `""` clears back to the detected shape) overrides the route's shape, `track_type` retags **every session on the route** at once (the analysis page offers this when a session's type is changed; `""` clears them all). Car override (`name: ""` reverts to the bundled/downloaded name). `GET` also returns `known` (ordinal resolvable without the `Car #<id>` fallback). |
+| `GET /routes/{id}/outline` | The course as a polyline for the route thumbnails (`{id, outline, box}`; `outline: null` = nothing to draw). Computed from the fastest recorded lap's frames on first request and cached on `routes.outline`; a miss is not cached. Lazily fetched per visible row, so a menu of 80 routes doesn't parse 80 laps to open. |
+| `GET /cars`, `POST /cars/refresh` | Car-list metadata (`total`, `fetched_at`) / re-download the community list (see app/cars.py row above; 502 with a readable `detail` on failure — the current list stays). Registered before `/cars/{ordinal}` so `refresh` isn't parsed as an ordinal. |
+| `GET /tracks`, `POST /tracks/refresh` | Track-catalogue metadata (`total`, `fetched_at`) / re-download the official-route catalogue (see app/tracks.py row above; same 502-on-failure contract). The refresh also re-runs `Store.backfill_route_names()` and returns `named` — how many routes *already in this database* the new catalogue could identify, which is the only number the user can see the effect of. `async def` because that backfill writes through the Store's event-loop connection. |
+
+## WebSocket `/ws/live` frame
+
+Every parsed packet field (snake_case per `packet.FIELDS`, wheel groups as
+4-element lists ordered FL FR RL RR) **plus** tracker extras merged in by the
+listener: `session_id`, `delta` (vs session-best), `session_best`,
+`lap_elapsed` (fallback clock when `CurrentLap` is dead), `race_mode`, `_t`.
+
+The handshake is refused (1008) when the request carries an `Origin` that isn't
+the page's own — WebSockets are exempt from CORS, so without it any page the
+user has open could stream their live position, speed and car while they drive.
+A missing `Origin` (a script, a CLI tool) is allowed.
+
+## Frontend (`app/static/`, vanilla JS, no build step — keep it that way)
+
+| File | Responsibility |
+|---|---|
+| `index.html` + `js/dashboard.js` | Live page: WebSocket → `requestAnimationFrame` render loop; live track map state (`feedLiveMap`: resets on session-id change or >250 m jump — except a pause-split resume: same place + race clock kept its value keeps the path; `feedCollision` also tracks jump flights); race-mode gating of timer/chip/map; the WebSocket uses `wss:` when the page is served over TLS, reconnects with exponential backoff (1.5 s doubling to 15 s, reset on open) and **drops frames while `document.hidden`** — a background tab renders nothing, so parsing 64-field frames at 60 Hz into buffers nobody will see is pure CPU (#73). The full-screen no-data overlay is shown only **before the first frame ever**: FH6 stops Data Out whenever it loses focus, so a stall after that just flips the connection chip to an amber `paused` and the page stays usable on a second screen (#69). `/api/status` polled every 2 s — via `setVisibleInterval`, so a hidden tab stops polling — for the no-data overlay's stats line (while it is visible) and for `showWriteError`, which raises a non-dismissible `.rec-banner` whenever the recorder can't write — that is the only signal the drive isn't being stored, since packets keep arriving and every gauge keeps moving. Raw-telemetry panel (`#raw-panel`, hidden unless the `rawLive` setting is on): every WS-frame field verbatim in a value grid + FL/FR/RL/RR wheels table built once from `RAW_FIELDS`, per-frame updates rewrite only changed cells, ⏸ Hold freezes the display only. `describeCanvases` refreshes the grip and RPM canvases' `aria-label` at 1 Hz (the only two whose numbers appear nowhere else as text). |
+| `js/gauges.js` | Pure canvas renderers (RPM arc, friction circle, grip panel, input strip, live map incl. jump glyphs); `initCanvas` handles DPR scaling and clamps its CSS size to ≥ 1 px (a very narrow window measured −2 and left the backing store at the browser default). |
+| `analysis.html` + `js/analysis.js` | Session browser. Merged run groups: `selectSession` / `selectGroup` share one `selectSeq`, `mountDetail()` (map + its controls) and `applyPayload(laps, sessions)`; only the header wiring differs. `state.sessionsById` is what makes a group work — every pick carries its OWN session, so the tray, map, charts, PNG caption and `/laps/{id}/*` endpoints need no group awareness at all. The header is two rows — what the session IS (title, route chip, car chip, the two tag selects) above what you can DO to it (a contextual **Merge runs** and the ⋯ menu). Every action lives in that menu, built by `wireSessionMenu` / `wireGroupMenu` from a section list, so a group view simply omits the session-scoped ones rather than hiding five mounted buttons; `reloadSession` rebuilds the menu because **Reset edits** exists only while `edit_count > 0` and an edit can create or clear the last one. The three naming actions are also reachable inline — the title renames the session, the car chip's name names the car, the route chip's name names the route — which is what stops "Rename / Name route / Name car" from being three similar verbs chosen in the abstract; the menu keeps all three with `hint` lines stating each one's reach. The sidebar collapses a group's members into one card built from the **filtered** rows, so a filter matching 3 of 5 says so. `mergeSuggestions()` offers sittings (same route + car, gaps under 2 h, 2+ sessions, sprint routes first); dismissals live in `ls_merge_dismissed`. The banner is gated on `MERGE_HINT_MIN_SITTINGS` / `MERGE_HINT_MIN_SESSIONS` — two events, ninety seconds into a first ever drive, used to ask a brand-new user to decide about run groups, a concept nothing had introduced (#75). The sidebar banner speaks for the newest sitting and counts the queue behind it; `reviewMerges()` puts every pending sitting in one dialog and applies either verdict to whatever is ticked (everything starts ticked, so the buttons are "merge all" / "dismiss all" until you say otherwise, and unticking is *neither* — that sitting stays pending). Merge posts one `POST /api/groups` per sitting, so a failure on the third keeps the two that landed and the alert names the first one that didn't; a row's Edit hands off to the per-route `mergeRuns` dialog, which stays the only place that names a group or reaches across sittings. (`loadSessions` fetches — guarded by `sessionsSeq` against out-of-order polls — and `renderSessionList` renders: it rebuilds `#session-list` only when `cardSig` over the filtered rows changes, keeps `scrollTop` when it does, and moves the selection with a `markActive` class toggle. `state.sessionId` must stay out of `cardSig`, or every click rebuilds the list and scrolls it to the top). **First run** (#75): `renderSessionList` is also where the page adapts to having nothing in it — the whole browse bar and the header `#hint` chip are hidden at zero sessions (six controls filtering an empty list is the loudest "this app is complicated" signal a first launch has), and `renderDetailEmpty()` swaps the detail pane between "pick one from the list" and a `.first-run` panel whose one action points at the **Live tab**, which already holds the FH6 Data Out steps. It only ever replaces a node it put there itself (`#detail-empty`), so a mounted session and the transient "Session deleted." / "Ungrouped" notes survive the 15 s poll. A card's `.sub` drops its leading date when `displayName` already fell back to that same date — on a fresh install nothing is named and no route is known, so *every* card printed its timestamp twice. Lap table, 2D/3D track map (drag-to-rotate 3D, chart-hover → map marker on every picked trace, jump/contact layers, chart drag-zoom → highlighted span), multi-lap comparison (issue #30): `state.picks` is an ordered cross-session tray (cap 6, `PICK_COLORS` palette shared by table badges, tray chips, map traces and chart series; letters A–F), `picks[0]` = the reference lap — Δ-time and slip charts, zoom window, hover index, map extras and the PNG caption are based on it (★ on a chip promotes). A single pick keeps the speed/slip gradient coloring; ≥2 picks switch the map to solid per-lap colors and disable `#color-mode`. Charts are uPlot, x = the reference's DistanceTraveled track position (others interpolated onto it; drag-zoom syncs across all charts, double-click resets). Picks persist while browsing sessions (the lone best-lap auto-pick is replaced; any manual pick pins the tray; sidebar cards get a ＋ best-lap quick-add) and are dropped for a session that is reprocessed (recycled lap rowids) or deleted. Manual editing: right-click a contact spark → dismiss (works on any picked lap's markers), per-lap ✎ flags editor + 🗑/↩ exclude toggle in the lap table, Reset-edits header button (visible when `edit_count > 0`); `reloadSession()` refreshes after an edit without resetting the tray. Every read and write goes through `apiFetch` (common.js), so a failed one says so instead of doing nothing; `lapNo(lap)` (`run_index ?? lap_number + 1`) is the only way to number a lap in a label — a merged sprint group's members all carry `lap_number` 0. `destroyCharts()` must run before anything replaces `#detail`, or the uPlot instances stay in the `"fc" `cursor-sync group pointing at detached DOM. Resize and map drag are `rafThrottle`d, and a resize calls `u.setSize()` rather than rebuilding all five charts; `drawMap` reassigns the canvas backing stores only when the pixel size actually changed (issue #71). Export: ⬇ per lap / **Export CSV…** in the ⋯ menu, both through `exportCsv()`, which asks which columns first (issue #90: curated 19 vs every packet field, 107) and appends `?raw=1` for the wide one; `EXPORT_RAW_COLS` counts itself off `RAW_FIELDS` so the number the dialog prints can't drift from the packet. The pick is remembered in `lastExportVariant` for the page's lifetime only — it is a per-download choice, deliberately **not** a Setting. `downloadUrl` clicks a hidden `<a download>` — a `window.location` navigation threw the whole page away on an error response, Save PNG next to the map (`exportMapPng` composites the cached clean frame `mapCursor.snap` + a caption bar listing every picked lap over a solid `--bg` fill — the canvas itself is transparent). Import CSV above the session list (`bindImport`: file picker → raw `text/csv` POST → the rebuilt session is selected). Raw data at cursor (`#raw-section`, `rawAnalysis` setting): picks are fetched with the `raw_*` channels appended (`channelList()` — same request, so the arrays stay index-aligned with the chart cursor), one table row per raw channel × one column per pick; `setMapCursor` fills cells at the hovered position (reference by index, others via `lowerBound` on dist like the map dots); toggling the setting on refetches picks that lack raw channels (`syncRawSection`). |
+| `js/browse.js` | Analysis browse bar: full-width facet row under the header. Filtering, search and sort run **client-side** over the `/api/sessions` payload `analysis.js` already holds (`state.allSessions`) — there are no query params on the endpoint by design, so every field a facet reads has to stay in that payload (locked by `test_sessions_payload_carries_every_browse_facet`). `FACETS` drives everything: Route, Class, Car, Type on their own buttons, Conditions + Drivetrain + a date range behind "More". Only **named** routes get a row of their own (with a thumbnail of the course, `routeOutline` in common.js) — a fingerprint nobody has named says nothing a "Route #37" row could help you pick, and there are more of those than named ones, so they share one "Unnamed routes" bucket. Facet values are always strings so they survive the localStorage round-trip. Counts in a menu are computed with that facet's own filter skipped (`browsePasses(s, skip)`) — the usual faceted-search behaviour. Facets, date range and sort persist under `ls_browse`; the search box deliberately does not. `browseIndex()` re-renders the chips once a list exists to resolve their labels against; `browseStatus()` always shows "N of M" and warns when a best-time sort spans more than one route. The bar is **not** sticky (the header already is, and it wraps); its measured height feeds `--browse-h` so the sidebar's `max-height` stays viewport-correct — and it starts `display:none`, with `renderSessionList` (analysis.js) revealing it only once there is at least one session, which the `ResizeObserver` picks up on its own. |
+| `js/common.js` | Shared badges (class/PI, drivetrain, conditions, track type incl. `TRACK_META`) + `lapWord`/`lapLabel` (the lap-vs-run noun) + `routeOutline(routeId)` (the course drawn small: an inline SVG from `GET /routes/{id}/outline`, `stroke: currentColor` so a selected row's outline follows its label, `IntersectionObserver`-lazy by default, one in-flight fetch per route) + `RAW_FIELDS`/`RAW_WHEELS`/`fmtRaw` (the packet field list both raw views build from) + the `drawJump` canvas glyph both maps use + **`apiFetch(url, {what, quiet, ...init})` — the single funnel every API call on the Analysis page goes through** (issue #68): it throws an `ApiError` on a network failure or a non-2xx (carrying the server's `detail`), reports it in one modal at a time, resolves to the parsed body, and feeds `onServerReachable` — which is what drives the Analysis header's connection chip. A bare `onclick` can't await, so a global `unhandledrejection` listener swallows exactly the errors a modal already showed. `quiet` is for the polls. **New write paths must use it**, or they fail silently again. Plus `rafThrottle(fn)` (one call per animation frame — resize and map-drag handlers) and `setVisibleInterval(fn, ms)` (a poll that skips hidden tabs and fires immediately on becoming visible) + **`carChip(s, {edit})` / `routeChip(s, {edit})`** — the car (class plate, PI, name, drivetrain) and the place as one inline unit each, used by the Analysis header and both sidebar card types; the badges laid them out as four separate facts with the name muted two rows below its own plate. Inline flow, not flex, so a long car name wraps like a sentence in a 275 px card instead of parking the plate on a line of its own. `edit` turns the NAME (only the name) into a `.name-edit` button, which is how each name is edited where it is shown. `routeChip` is deliberately text-only — `routeOutline` thumbnails belong to the browse facets, where you're choosing between routes you can't name + **`menuButton({label, items})`** — the ⋯ overflow menu the header's actions live in. Sections are `{heading, items:[{label, hint, onSelect, danger}]}`, falsy items drop out. Hand-rolled rather than `<dialog>`: it carries its own keyboard contract (arrows move, Home/End jump, Escape and Tab close, focus returns to the trigger, outside pointerdown closes without stealing focus) because a modal menu can't be dismissed by clicking the thing behind it. At most one is open page-wide (`closeMenu()` — call it before replacing a pane that holds one). The `hint` line is load-bearing: it's what separates three actions whose labels all start with a naming verb but whose reach runs from one session to every session ever driven in that car + themed modal dialogs (`uiPrompt`/`uiConfirm`/`uiAlert` — never use `window.prompt/confirm/alert`; built on a real `<dialog>` + `showModal()`, which is where the focus trap, Escape, the `::backdrop` and focus restoration come from; `showModal` also takes `altText` for a second, opposite verdict over one selection — it resolves the `MODAL_ALT` sentinel and sits at the far end of the button row, away from the primary — and `wide` for dialogs that list rows instead of asking one question) + the fail-soft client-side update check (`/api/version` vs the GitHub Releases API; dismissible `.update-banner`, 24 h cached, skipped on `0.0.0`) + the once-a-day reference-list refresh triggers (`maybeRefreshCarList` → `POST /api/cars/refresh`, `maybeRefreshTrackList` → `POST /api/tracks/refresh` — both fail-soft and silent; the track one redraws the session list when the refresh named routes) and `unknownCarIssueUrl` (pre-filled `unknown_car.yml` issue). Those three are **every** outbound call this app makes, and each one waits on **`onlineAllowed()`** first (issue #76): it is false if the per-browser `onlineChecks` setting is off *or* the server reports `LS_OFFLINE` on `/api/version` — which `serverInfo()` asks for exactly once and shares the promise of, since every online path needs it and it is a local call. Gate before the timestamp, not after, so re-enabling the setting takes effect on the next load rather than a day later. |
+| `js/settings.js` | User display preferences, `localStorage`-only (no backend — conversions are display-time, the recorder stores raw packets). One JSON key `ls_settings`; converters (`speedFromMps`/`speedFromKmh`/`speedUnit`, `tempFromF`/`tempUnit`/`fmtTireTemp`, `distFromM`/`distUnit`); `getSettings`/`saveSettings`/`onSettingsChange` pub-sub; `openSettings()` themed panel (reuses `common.js` modal chrome). Loaded after `common.js` on both pages; the ⚙ header button (`#settings-btn`) opens it. The "Privacy" group is the opt-out for every outbound call (`onlineChecks`, read by `onlineAllowed()` in common.js) and carries the one `note()` in the panel — a switch labelled "check for updates" cannot say what is contacted, how often or what is sent, which is the whole question it exists to answer; when `/api/version` reports `LS_OFFLINE` the switch is disabled and the note says the install already decided. The "Car list", "Track list" and "Storage" groups are the exception to "localStorage-only": they act on server-side state and share the `actionRow(btnText)` chrome (status line + one button) — the first two through `refreshRow(path, unit, summarize)` over `GET/POST /api/<path>[/refresh]`, Storage over `GET /api/storage` + `POST /api/storage/compact` (confirm first: it needs disk space equal to the DB and pauses the app). |
+| `css/style.css` | Theme = CSS custom props. `css/fonts.css` + `fonts/` = vendored Rajdhani (OFL); app must work fully offline. A `@media (prefers-reduced-motion: reduce)` block at the end turns off every infinite animation (the loudest is the limiter's ~7 flashes/second) — **add new looping animations to it**. `@media (max-width: 900px)` collapses the analysis layout to one column. |
+| `js/vendor/uplot.iife.min.js` | Only dependency, vendored, analysis page only. |
+
+## Tools (repo root, stdlib only, no container needed)
+
+- [tools/simulator.py](tools/simulator.py) — synthetic packet sender, runs in
+  real time at 60 Hz. Flags: `--host --port --rate --freeroam S --events N
+  --duration S --wet --dirty --race LAPS --sprint SECS --cut --dirt SECS
+  --wta LAPS --jumps`. Stadium loop for circuits, open winding course for
+  sprints (a looping sprint would falsely trip geometric lap detection).
+  `--dirt` models the verified real point-to-point race (CurrentLap counts,
+  `DistanceTraveled`-reset finish after a results-cinematic stream gap);
+  `--dirt … --cut` models the touge variant (stream cut dead at the line);
+  `--wta … --cut` dies inside the crossing circle at the final line (the
+  pending geometric crossing is finalized at session end, flagged `cutoff`).
+- [tools/inspect_session.py](tools/inspect_session.py) — dumps every
+  segmentation-relevant signal transition of a stored session straight from
+  the DB (`--list` to enumerate). The capture-diagnosis workflow is in the
+  README ("an event type isn't being recorded").
+- [tools/export_track_catalog.py](tools/export_track_catalog.py) — regenerates
+  [app/track_catalog.json](app/track_catalog.json) from a database where the
+  official routes have been driven and named. Opens the source **read-only**;
+  recomputes bounding boxes from stored frames for routes recorded before the
+  span term (so no reprocess is needed first); collapses same-name rows; and
+  **fails rather than emit two differently-named entries that would both match
+  one lap**. `--dry-run` reports without writing.
+
+## Tests (`tests/`, pytest — no container, no game)
+
+| File | Responsibility |
+|---|---|
+| [tests/harness.py](tests/harness.py) | `FakeSocket` parses each packet the simulator "sends" and feeds it straight into a real `SessionTracker` + temp-file `Store`; the simulator's clock is stubbed (`_FastClock`) so a 3-minute scenario runs in milliseconds. `run(scenario, tmp_path, …)` plays a scenario and returns the closed store; `sessions()` / `completed_laps()` / `flags_of()` are assertion helpers. |
+| [tests/test_packet.py](tests/test_packet.py) | Packet invariants: `_STRUCT.size == PACKET_SIZE`, `FIELDS`↔`_STRUCT` value-count lockstep, scalar + wheel-array round trip. |
+| [tests/test_scenarios.py](tests/test_scenarios.py) | The AGENTS.md event-detection matrix as headless assertions (free-roam discard, dirty flags, race finish, sprint/dirt/touge point-to-point, WTA geometric laps, jumps). |
+| [tests/test_tracker.py](tests/test_tracker.py) | Direct-drive tracker regressions the scenarios can't stage: flag hygiene across lap re-anchors, `race_mode` dropping at a LastLap-change finish, the listener's crash-fallback frame shape, and a store that can't write (the buffer stays capped, the failure is logged once, and it heals itself). |
+| [tests/test_api.py](tests/test_api.py) | Endpoint functions run directly against a harness-produced store (stub request, no HTTP server): the `lap_time` channel fallback for dead lap clocks, the `max_points` budget, `_LapScan` streaming (a rewind trims the same whatever the window; peak allocation is flat in lap length), the CSV import's range/size/content-type rejections, and the host + `/ws/live` origin guards. |
+| [tests/test_store.py](tests/test_store.py) | Store without a recording: the upgrade every existing user runs on install day (a SCHEMA-only, `user_version` 0 database migrates in place, keeps its rows, and gets stamped), that a non-duplicate-column migration error propagates, that deleting only frees pages while `vacuum()` returns the bytes, the startup `cleanup_sessions()` pass (what it deletes, what it repairs, and that a second run is a no-op), and that excluding an orphaned open lap leaves the previous lap's time alone. |
+| [tests/test_cars.py](tests/test_cars.py), [tests/test_tracks.py](tests/test_tracks.py) | The two reference lists' refresh layers, with `SOURCE_URL` pointed at `file://` URLs — the real code path minus the socket. `test_tracks.py` also covers naming: created/backfilled/legacy-adopt paths, `kind` promotion, and that a user rename is never overwritten. `test_bundled_catalogue_is_unambiguous` asserts every shipped entry still resolves to itself, so a regenerated catalogue can't silently ship a colliding pair. |
+| [conftest.py](conftest.py), [pyproject.toml](pyproject.toml) | Put the repo root + `tests/` on `sys.path`; `pytest` testpaths and `ruff` lint config (defaults: pyflakes F + E4/E7/E9, line length 100). |
+
+Run `pytest -q` and `ruff check .` from the repo root (tooling in
+[requirements-dev.txt](requirements-dev.txt)); CI ([.github/workflows/ci.yml](.github/workflows/ci.yml))
+runs both plus the `packet.py` self-test on every push and PR. The harness reuses
+the **simulator's** scenario code, so the frames under test are byte-identical to
+the real UDP stream — keep new detection scenarios in `tools/simulator.py` and
+assert them here.
+
+## Configuration & deployment
+
+- Env vars: `TELEMETRY_UDP_PORT` (9999), `DATA_DIR` (/app/data),
+  `LS_KEEP_DISCARDED` (0; 1 keeps no-lap sessions — compose passes it through,
+  a repo-root `.env` file works too; read at **import** time in laps.py, so it
+  is process-global and needs a restart), `LS_CAR_LIST_URL` / `LS_TRACK_LIST_URL`
+  (where the two reference lists refresh from — this repo's `main` by default;
+  for forks and for pointing the tests at `file://` URLs), `LS_ALLOWED_HOSTS`
+  (comma-separated extra `Host` names to answer to, for a reverse proxy or a
+  hostname the box is known by; read at **import** time in main.py), `LS_OFFLINE`
+  (0; 1 = this install never contacts the internet — read at **import** time in
+  `app/__init__.py`, reported on `/api/version` so the frontend skips its own
+  GitHub call, and enforced by `_require_online()` on the two refresh endpoints,
+  which 403 rather than 502 because nothing failed). All seven are in the
+  README's config table — they are public config keys.
+- Outbound calls, all optional and all fail-soft: the update check (browser →
+  `api.github.com`) and the car / track list refreshes (server →
+  `raw.githubusercontent.com`), each at most once a day per browser. Two
+  independent switches gate every one of them and either being off means nothing
+  leaves: the per-browser `onlineChecks` setting and `LS_OFFLINE`, resolved
+  together by `onlineAllowed()` in common.js **before** the call. A privacy-first
+  project that offers no way to decline is the actual problem (issue #76) — so
+  **any new outbound call goes through `onlineAllowed()` and gets a line in the
+  README's "What LapScope contacts"**.
+- [Dockerfile](Dockerfile): python:3.12-slim, `COPY app ./app` — **code and
+  static files are baked in**; changing anything under `app/` requires
+  `docker compose build`. [docker-compose.yml](docker-compose.yml): ports
+  8000/tcp + 9999/udp, `./data` bind mount, and a bounded `logging:` block —
+  the default json-file driver never rotates, and a recorder that starts failing
+  logs at telemetry rate, which would fill the disk that caused it.
+- Dependencies: `fastapi`, `uvicorn[standard]` — that's all
+  ([requirements.txt](requirements.txt)).
+- [.claude/launch.json](.claude/launch.json): preview server runs
+  `docker compose up` and owns the process.
+- [.github/workflows/wiki.yml](.github/workflows/wiki.yml): mirrors
+  [docs/wiki/](docs/wiki/) to the GitHub wiki on every merge to `main` that
+  touches it (plus manual dispatch). `docs/wiki/` is the source of truth —
+  direct wiki edits get overwritten by the next sync.
+
+### Windows exe (plug-and-play build for normal users)
+
+- Entry point [run_desktop.py](run_desktop.py): defaults `DATA_DIR` to
+  `%LOCALAPPDATA%\LapScope`, installs logging, then hands the app to the
+  launcher window. It imports the `app.main:app` object by reference (not the
+  string form) so PyInstaller statically follows the whole `app` package, and
+  it does so *after* `DATA_DIR` is set.
+- [desktop/](desktop/): the launcher — a small tkinter control panel that owns
+  the server. `paths.py` (the repo's only `sys.frozen`/`_MEIPASS` helper),
+  `state.py` (a pure function from `/api/status` fields to the one line the
+  window shows), `logs.py` (a bounded in-memory handler for the pane plus a
+  `RotatingFileHandler`), `server.py` (`ServerController`), `ui.py`, and
+  `selftest.py`. **Only `ui.py` may import tkinter** — the rest stay importable
+  on a headless Linux CI box so they can be tested there, which is locked by
+  `tests/test_desktop_no_tkinter.py`. It is a top-level package rather than
+  `app/desktop/` because `Dockerfile` does `COPY app ./app`, and a GUI has no
+  business in the container.
+- Server lifecycle (`desktop/server.py`) — four non-obvious choices, each
+  load-bearing:
+  - The **listening socket is bound by the launcher**, on the main thread, and
+    passed in as `sockets=[sock]`. uvicorn's own `Config.bind_socket()` calls
+    `sys.exit()` on a busy port, and `threading.excepthook` ignores
+    `SystemExit`, so on a background thread the server would vanish with no
+    traceback and nothing to show the user.
+  - `log_config=None`. `uvicorn.Config.__init__` configures logging, whose
+    formatter calls `sys.stdout.isatty()` — and a windowed build has no
+    `sys.stdout`. Without this the exe dies in the constructor, before the
+    window appears.
+  - `lifespan="on"`. Under the default `"auto"`, uvicorn catches lifespan
+    exceptions, logs `ASGI 'lifespan' protocol appears unsupported` at INFO
+    *without the traceback*, and serves on with no `app.state.store` — every
+    request 500s. A failed migration has to be loud.
+  - Stopping sets `should_exit` and waits; **never `force_exit`**, which skips
+    the lifespan shutdown and with it `SessionTracker.shutdown()` — i.e. the
+    lap in progress. Closing the window therefore saves the session, and the
+    window stays up and repainting while it happens rather than freezing on a
+    join.
+  - The port doubles as a single-instance guard: the launcher holds it even
+    while the server is stopped, so a second copy cannot open the same
+    `telemetry.db` with its own `SessionTracker`.
+- What a **Restart** can change: `DATA_DIR` and `TELEMETRY_UDP_PORT` (read
+  inside `lifespan()`). What it cannot: `LS_OFFLINE`, `LS_KEEP_DISCARDED`,
+  `LS_ALLOWED_HOSTS` (read at module import, before the app object existed) —
+  those need the process restarted, and the docs say so.
+- [LapScope.spec](LapScope.spec): PyInstaller **onedir**, **windowed**
+  (`console=False`) build. Bundles the full `app/static/` tree via `Tree(...)`
+  (HTML/CSS/JS **plus** the binary `fonts/*.woff2`, `css/uplot.min.css`,
+  `js/vendor/uplot.iife.min.js`) to `app/static`, `app/car_ordinals.json` to
+  `app/`, and `assets/lapscope.ico` to `assets/` (the window's title-bar icon,
+  resolved at runtime through `desktop/paths.py`), matching the runtime paths
+  in [app/main.py](app/main.py) and [app/api/routes.py](app/api/routes.py).
+  Windowed means `sys.stdout`/`sys.stderr` are `None`: nothing in the bundled
+  code may `print()`, and `run_desktop.py` redirects both to `os.devnull`
+  defensively. tkinter pulls tcl/tk in, adding ~10 MB to the zip.
+  `hiddenimports` cover uvicorn/websockets submodules that are imported lazily.
+  Build locally: `pip install -r requirements.txt -r requirements-build.txt &&
+  pyinstaller LapScope.spec` -> `dist/LapScope/LapScope.exe`. For a
+  release-faithful build (pinned Python + hash-locked deps) and download
+  verification, see [docs/BUILDING.md](docs/BUILDING.md); CI installs from the
+  hash-pinned [requirements-build.lock](requirements-build.lock) with
+  `--require-hashes`.
+- Brand artwork: `assets/logo-alone.png` (the speedometer + road mark) and
+  `assets/logo-with-brand.png` (mark + wordmark, used on the README hero). Both
+  are raster (gradients + glow), so they stay PNG rather than being traced to
+  SVG. The derived exe icon `assets/lapscope.ico` and web
+  `app/static/img/logo.png` (favicon + header mark) are committed directly — the
+  mark is used as-is (centered on a transparent square, only downscaled; no
+  crop/round/distortion). The build/CI never rasterizes, they just consume the
+  committed files.
+- `app.__version__` ([app/\_\_init\_\_.py](app/__init__.py)) is `0.0.0` in source
+  and stamped with the git tag at release-build time.
+- [.github/workflows/release.yml](.github/workflows/release.yml): fires **only on
+  `v*` tags** (separate from PR CI in [.github/workflows/ci.yml](.github/workflows/ci.yml)),
+  builds on `windows-latest`, optionally code-signs via SignPath Foundation
+  (inert unless the `SIGNPATH_API_TOKEN` secret is set), zips `dist/LapScope`,
+  writes SHA256 `checksums.txt` over the final (signed) zip, and publishes a
+  GitHub Release with both attached (notes templated on whether it was signed).
+  Between the build and signing it runs the exe once with
+  `LS_DESKTOP_SELFTEST=server` (`desktop/selftest.py`): start the real server,
+  fetch `/api/status`, stop, write PASS/FAIL to a file. That is the only place
+  a `LapScope.exe` is ever executed before a user executes it — PR CI is Linux
+  and never builds one — so it is what catches a missing `datas` entry or the
+  `None`-stdout traps above. It never opens a Tk window, and the verdict is
+  read from a file because a windowed exe has no stdout to capture.
+
+## Cross-file invariants (change one → change all)
+
+- Route shapes: `ROUTE_KINDS` (store.py, re-exported by api/routes.py) = the
+  shape picker's options (`renameRoute`, analysis.js) = the branches of
+  `lapWord` / `lapLabel` (common.js), which every "lap"/"run" string on the
+  analysis page goes through (locked by a test in test_api.py).
+- Route fingerprint: `ROUTE_START_RADIUS_M`, `ROUTE_LENGTH_TOLERANCE` and
+  `_spans_match` (store.py) are imported by `tracks.match()`, not reimplemented
+  — matching a catalogue entry has to accept exactly the drift matching an
+  existing route does, or a course would be recognized on one lap and not the
+  next. `tools/export_track_catalog.py` imports the same three to prove a
+  generated catalogue is unambiguous.
+- Bundled data files: anything read as `Path(__file__).parent / "<file>"` from
+  the `app` package (`car_ordinals.json`, `track_catalog.json`), **or resolved
+  through `desktop.paths.asset()`** (`lapscope.ico`), needs a `datas` entry in
+  `LapScope.spec`, or it is missing from the Windows exe. Files under
+  `app/static/` are covered by the `Tree(...)` in `COLLECT` and need nothing.
+- Stale-stream threshold: `STALE_S` (desktop/state.py) = the 2500 ms after
+  which `dashboard.js` flips its chip to "paused". The launcher window and the
+  live page describe the same moment; if they drift, one says *Recording* while
+  the other says *paused* (locked by a test in test_desktop_state.py).
+- Log format: `LOG_FORMAT` (desktop/logs.py) = the format string in
+  `app/main.py`'s `basicConfig`. The launcher installs the handlers first,
+  which makes that call a no-op, but Docker still runs it — the same line must
+  not look different depending on how LapScope was started (locked by a test in
+  test_desktop_logs.py).
+- Track-type set: `TRACK_TYPES` (api/routes.py) = `TRACK_META` (common.js)
+  = `#track-select` options (analysis.html); everything `suggest_track_type`
+  (laps.py) can return must be a member of `TRACK_TYPES` (locked by a test
+  in test_api.py).
+- Settings map options: the `defaultMapMode` / `defaultColor` values offered by
+  the panel (`settings.js`) must match the `#map-mode` (`2d`/`3d`) and
+  `#color-mode` (`speed`/`slip`) options in analysis.html; `analysis.js` seeds
+  `state.mapMode`/`state.colorMode` from them and writes changes back via
+  `saveSettings`. The `ls_settings` schema (`speed` kmh/mph, `temp` c/f, `dist`
+  km/mi, `power` kw/hp/ps, `boost` psi/bar, `accent` — a key into `ACCENTS`,
+  `freeroamMap`, `contactLayer`, `defaultMapMode`, `defaultColor`, `rawLive`,
+  `rawAnalysis`) lives in `settings.js` and migrates the legacy
+  `fc_mph` / `fc_mapmode` keys on first load. **A new key needs an entry in
+  `SETTINGS_DEFAULTS` and, unless it is a boolean, in `SETTINGS_VALUES`** —
+  `coerceSettings` falls anything unrecognized back to the default, which is
+  what keeps the panel from opening with no chip selected in a row (#72).
+  Stored objects carry `v: SETTINGS_V`; bump it and add a migration if the
+  shape (not just the values) ever changes.
+- Accent theme: CSS derives every accent-tinted style from `--accent`
+  (style.css), which `applyAccent()` (settings.js) sets from `ACCENTS`; canvas
+  renderers can't use `var()` and re-read `accentDef()` on settings change
+  (`refreshCanvasTheme` in gauges.js, `accentPickPalette` in analysis.js) —
+  keep new accent-colored drawing code on one of those two paths.
+- Conditions set: `CONDITIONS` (api/routes.py) = `CONDITION_META` (common.js)
+  = `#cond-select` options (analysis.html).
+- Car classes / colors: `CAR_CLASSES` (api/routes.py) = `CLASS_LETTERS` +
+  `CLASS_COLORS` (common.js).
+- Teleport threshold 250 m: `WTA_TELEPORT_JUMP` (laps.py) = live-map jump reset
+  (dashboard.js) = `POS_JUMP` (inspect_session.py).
+- Contact spike threshold + landing discrimination: `IMPACT_ACCEL`,
+  `IMPACT_JERK`, `IMPACT_JERK_DT_MAX`, `IMPACT_PEAK`, `AIRBORNE_SUSP_MAX`,
+  `AIRBORNE_SLIP_MAX`, `AIRBORNE_MIN_S` and
+  `LANDING_GRACE_S` (laps.py) drive the per-lap `contact` flag and the map
+  collision markers (spikes while airborne / just after touchdown are jump
+  landings, not contact; everything else must also pass `impulsive()`, or it
+  is a downforce car cornering rather than a wall — issue #49) — the
+  `/laps/{id}/data` endpoint imports them **and `impulsive()` itself**, so the
+  live flag and the markers can't drift; `dashboard.js` duplicates all
+  eight constants *and* re-implements `impulsive()` for the live map (keep the
+  two in lockstep). The same
+  airborne classifier also yields explicit jump segments (takeoff →
+  touchdown): `/laps/{id}/data` returns them as `jumps`, `dashboard.js`
+  tracks them live in `feedCollision`, and both maps render them through the
+  shared `drawJump` glyph (common.js): dashed flight line, takeoff circle,
+  touchdown arrowhead, glow + impact ring on hard landings.
+- `RT_FREEZE_SECONDS` (laps.py) = the same constant in inspect_session.py.
+- Packet layout: `_STRUCT` and `FIELDS` in packet.py must stay in lockstep
+  (asserted by the module self-test).
+- Raw field list: `RAW_FIELDS` (common.js) mirrors `FIELDS` (packet.py)
+  name-for-name and in order (wheel groups FL FR RL RR); both raw views and the
+  `raw_*` channel names the analysis page requests are built from it. The
+  backend generates its `raw_*` channels from `FIELDS` directly (locked by a
+  test in test_api.py), so only the JS copy can drift — update it with any
+  packet change.

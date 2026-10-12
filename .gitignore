@@ -1,10 +1,25 @@
-.venv/
-__pycache__/
-*.pyc
-.pytest_cache/
-.ruff_cache/
+# recorded telemetry (bind-mounted into the container)
 data/
 *.db
 *.db-wal
 *.db-shm
+
+# local compose overrides (LS_KEEP_DISCARDED capture toggle)
 .env
+
+# python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# build output
+build/
+dist/
+
+# editors / os
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store

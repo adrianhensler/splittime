@@ -4,8 +4,9 @@ Private, self-hosted Forza Horizon 6 telemetry site for two drivers who play at
 different times. Each driver's game streams Data Out UDP to the server; the site
 records events automatically and lets both compare laps afterwards.
 
-**Status: planning complete, no code yet.** Next:
-[work/WP-001-import-baseline.md](work/WP-001-import-baseline.md).
+**Status: building.** The LapScope baseline is imported
+([WP-001](work/WP-001-import-baseline.md)); see
+[docs/PARALLEL_BUILD.md](docs/PARALLEL_BUILD.md) for who is doing what.
 
 ## Documents
 
@@ -24,4 +25,6 @@ records events automatically and lets both compare laps afterwards.
 | [AGENTS.md](AGENTS.md) | Rules for any coding agent or person working here |
 | [docs/WORKPACKET_TAKEAWAYS.md](docs/WORKPACKET_TAKEAWAYS.md) | Notes for the separate Workpacket project |
 | [docs/REVIEW_HANDOFF_2026-10-12.md](docs/REVIEW_HANDOFF_2026-10-12.md) | Independent design review, corrections and coding-agent handoff |
+| [docs/upstream/](docs/upstream/) | LapScope's own documents, unchanged. Read `ARCHITECTURE.md` and `wiki/Event-Detection.md` before touching the recorder. |
+| [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) | Licences of the code this includes |
 | [docs/archive/](docs/archive/) | Original concept PDF (superseded by DESIGN.md) |

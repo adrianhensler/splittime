@@ -1,0 +1,1268 @@
+"""REST API: stream status, recorded sessions, laps, routes, cars, lap channel data."""
+
+from __future__ import annotations
+
+import csv
+import io
+import json
+import logging
+import math
+import re
+import sqlite3
+import time
+from collections import deque
+
+from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi.concurrency import run_in_threadpool
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
+
+from .. import OFFLINE, __version__, cars, tracks
+from ..cars import CAR_NAMES
+from ..recorder.laps import (AIRBORNE_MIN_S, AIRBORNE_SLIP_MAX,
+                             AIRBORNE_SUSP_MAX, IMPACT_ACCEL, LANDING_GRACE_S,
+                             impulsive)
+from ..recorder.reprocess import reprocess_session
+from ..recorder.store import (ROUTE_KINDS as store_kinds, ROUTE_OUTLINE_BOX,
+                              ROUTE_OUTLINE_DETAIL, lap_anchor, lap_span)
+from ..telemetry.packet import FIELDS, empty_fields, pack, parse
+
+log = logging.getLogger("lapscope.api")
+router = APIRouter()
+
+# FH6 CarClass indices; 6 = R (new class, 901-998 PI), 7 = X (999 only).
+# Verified on a real R-class car: PI 998 reports CarClass 6.
+CAR_CLASSES = ["D", "C", "B", "A", "S1", "S2", "R", "X"]
+CONDITIONS = {"dry", "wet", "snow"}
+TRACK_TYPES = {"road", "street", "touge", "dirt", "cross", "drag", "wtc"}
+# a course either comes back to its start or it doesn't; decides whether the
+# UI says "lap" or "run" (store.ROUTE_KINDS is the source of truth)
+ROUTE_KINDS = set(store_kinds)
+DRIVETRAINS = ["FWD", "RWD", "AWD"]
+
+# channel name -> extractor over a parsed frame; used by /laps/{id}/data
+CHANNELS = {
+    "speed_kmh": lambda p: p["speed"] * 3.6,
+    "rpm": lambda p: p["current_engine_rpm"],
+    "gear": lambda p: p["gear"],
+    "throttle": lambda p: p["accel"] / 2.55,
+    "brake": lambda p: p["brake"] / 2.55,
+    "steer": lambda p: p["steer"] / 1.27,
+    "lat_g": lambda p: p["accel_x"] / 9.80665,
+    "lon_g": lambda p: p["accel_z"] / 9.80665,
+    "slip_front": lambda p: (p["tire_combined_slip"][0] + p["tire_combined_slip"][1]) / 2,
+    "slip_rear": lambda p: (p["tire_combined_slip"][2] + p["tire_combined_slip"][3]) / 2,
+    "slip_max": lambda p: max(p["tire_combined_slip"]),
+    "boost": lambda p: p["boost"],
+    # falls back to time-since-lap-start when the lap clock never ran (WTA /
+    # bare sprints keep CurrentLap at 0) - see the post-pass in lap_data()
+    "lap_time": lambda p: p["current_lap"],
+    "pos_x": lambda p: p["pos_x"],
+    "pos_y": lambda p: p["pos_y"],   # elevation (world up-axis, meters)
+    "pos_z": lambda p: p["pos_z"],
+}
+
+# raw_* channels: every packet field verbatim, generated from packet.FIELDS so the
+# two can never drift; namespaced raw_ so the curated channels above (throttle/brake
+# scaled to %, steer to +-100) keep their meaning. Wheel groups split into
+# _fl/_fr/_rl/_rr (packet order FL FR RL RR). The frontend mirror of this list is
+# RAW_FIELDS in app/static/js/common.js.
+for _name, _count in FIELDS:
+    if _count == 1:
+        CHANNELS[f"raw_{_name}"] = lambda p, n=_name: p[n]
+    else:
+        for _i, _w in enumerate(("fl", "fr", "rl", "rr")):
+            CHANNELS[f"raw_{_name}_{_w}"] = lambda p, n=_name, i=_i: p[n][i]
+
+
+def _class_letter(v) -> str:
+    return CAR_CLASSES[v] if isinstance(v, int) and 0 <= v < len(CAR_CLASSES) else "?"
+
+
+def _car_name(ordinal, override=None) -> str:
+    if ordinal is None:  # imported sessions carry no car metadata at all
+        return override or "Unknown car"
+    return override or CAR_NAMES.get(ordinal) or f"Car #{ordinal}"
+
+
+def _session_out(row: dict) -> dict:
+    row["car_class_letter"] = _class_letter(row.get("car_class"))
+    override = row.pop("car_name_override", None)
+    row["car_name"] = _car_name(row.get("car_ordinal"), override)
+    # a NULL ordinal (imported session) counts as known: there is no ordinal
+    # to name or report, so the unknown-car affordances must not appear
+    row["car_known"] = (row.get("car_ordinal") is None or override is not None
+                        or row.get("car_ordinal") in CAR_NAMES)
+    # conditions / track_type stay None until tagged (or auto-detected):
+    # defaulting them to dry/road made every untagged session look tagged
+    dt = row.get("drivetrain_type")
+    row["drivetrain"] = DRIVETRAINS[dt] if isinstance(dt, int) and 0 <= dt < 3 else "?"
+    started = time.strftime("%Y-%m-%d %H:%M", time.localtime(row["started_at"]))
+    row["display_name"] = row.get("name") or row.get("route_name") or started
+    return row
+
+
+@router.get("/status")
+async def status(request: Request):
+    hub = request.app.state.hub
+    tracker = request.app.state.tracker
+    now = time.time()
+    return {
+        "version": __version__,
+        "udp_port": request.app.state.udp_port,
+        "udp_error": getattr(request.app.state, "udp_error", None),
+        "packets_total": hub.packets_total,
+        "bad_packets": hub.bad_packets,
+        "last_packet_age": None if hub.last_packet_time is None else round(now - hub.last_packet_time, 3),
+        "last_packet_size": hub.last_packet_size,
+        "session_active": tracker.session_id is not None,
+        "session_id": tracker.session_id,
+        "session_best": tracker.best_lap_time,
+        # non-null while the recorder cannot write (disk full, database
+        # locked): packets keep arriving and the dashboard keeps animating,
+        # so without this the UI shows a healthy recording that isn't being
+        # stored. frames_dropped counts what the capped buffer had to shed.
+        "write_error": tracker.write_error,
+        "frames_dropped": tracker.frames_dropped,
+    }
+
+
+def _require_online() -> None:
+    """Guard for the two endpoints that reach the internet. 403, not 502: the
+    download didn't fail, this install isn't allowed to make it. The message
+    names the switch, because the person clicking "Refresh now" in a browser is
+    often not the person who set the env var on the container."""
+    if OFFLINE:
+        raise HTTPException(
+            403, "Online refresh is turned off on this install (LS_OFFLINE). "
+                 "The bundled list is still in use.")
+
+
+@router.get("/version")
+def version():
+    """The running app version. The frontend compares this against the latest
+    GitHub Release (client-side) to surface a dismissible update notice.
+    "0.0.0" marks an unversioned dev/source run and suppresses the check.
+
+    `offline` is LS_OFFLINE: it tells the page not to make the GitHub call at
+    all, rather than making it and having the server refuse the half it owns.
+    The frontend asks for this once per load and every online path waits on
+    it."""
+    return {"version": __version__, "offline": OFFLINE}
+
+
+@router.get("/storage")
+def storage(request: Request):
+    """What the recordings cost on disk and how much of that a compaction
+    would give back (Settings panel). See `Store.storage_stats`."""
+    return request.app.state.store.storage_stats()
+
+
+@router.post("/storage/compact")
+async def compact_storage(request: Request):
+    """Shrink the database file (VACUUM) and report the bytes reclaimed.
+
+    Deleting sessions frees pages *inside* the file and nothing else, so a
+    user who deletes half their history to recover disk space gets zero bytes
+    back until this runs. `async def` on purpose: the rebuild goes through the
+    Store's event-loop connection and holds an exclusive lock the whole time,
+    so - like reprocess and import - it must not run while a session is
+    recording, or live telemetry stalls behind it."""
+    if request.app.state.tracker.session_id is not None:
+        raise HTTPException(409, "a session is recording; retry after it ends")
+    try:
+        return {"ok": True, **request.app.state.store.vacuum()}
+    except sqlite3.OperationalError as exc:
+        # the usual cause is no room for the rebuild: VACUUM writes a full
+        # second copy before replacing the original
+        raise HTTPException(
+            503, f"compact failed ({exc}) - it needs free disk space equal to "
+                 "the size of the database")
+
+
+@router.get("/sessions")
+def sessions(request: Request):
+    return [_session_out(s) for s in request.app.state.store.list_sessions()]
+
+
+class SessionPatch(BaseModel):
+    name: str | None = None
+    conditions: str | None = None
+    track_type: str | None = None
+
+
+@router.patch("/sessions/{session_id}")
+def patch_session(session_id: int, body: SessionPatch, request: Request):
+    store = request.app.state.store
+    if store.get_session(session_id) is None:
+        raise HTTPException(404, "session not found")
+    if body.name is not None:  # "" clears back to the route/date fallback
+        store.rename_session(session_id, body.name.strip()[:80] or None)
+    if body.conditions is not None:  # "" clears the tag back to not-set
+        if body.conditions and body.conditions not in CONDITIONS:
+            raise HTTPException(400, f"conditions must be one of {sorted(CONDITIONS)}")
+        store.set_session_conditions(session_id, body.conditions or None)
+    if body.track_type is not None:
+        if body.track_type and body.track_type not in TRACK_TYPES:
+            raise HTTPException(400, f"track_type must be one of {sorted(TRACK_TYPES)}")
+        store.set_session_track_type(session_id, body.track_type or None)
+    return {"ok": True}
+
+
+@router.post("/sessions/{session_id}/reprocess")
+async def reprocess(session_id: int, request: Request):
+    """Rebuild the session's laps from its stored frames with the current
+    detection logic. async on purpose: the replay writes laps through the
+    Store's event-loop connection — which also means it blocks the loop for
+    the whole replay, so it must not run while ANY session is recording
+    (a long replay would freeze live telemetry and the dashboard mid-race).
+    Manual edits survive on purpose (they're user intent, keyed by frame time
+    - see store.py); DELETE /sessions/{id}/edits is the way to drop them."""
+    store = request.app.state.store
+    if store.get_session(session_id) is None:
+        raise HTTPException(404, "session not found")
+    if request.app.state.tracker.session_id is not None:
+        raise HTTPException(409, "a session is recording; retry after it ends")
+    try:
+        return {"ok": True, "laps": reprocess_session(store, session_id)}
+    except Exception:
+        # the replay rolled back, so the session still has its original laps -
+        # say so, because a bare 500 here used to mean they were gone (#60)
+        log.exception("Reprocess of session %d failed", session_id)
+        raise HTTPException(
+            500, "reprocess failed; the session's laps were left unchanged")
+
+
+@router.delete("/sessions/{session_id}")
+def delete_session(session_id: int, request: Request):
+    store = request.app.state.store
+    if store.get_session(session_id) is None:
+        raise HTTPException(404, "session not found")
+    if request.app.state.tracker.session_id == session_id:
+        raise HTTPException(409, "session is currently recording")
+    store.delete_session(session_id)
+    return {"ok": True}
+
+
+class NameBody(BaseModel):
+    name: str
+
+
+class RoutePatch(BaseModel):
+    name: str | None = None
+    track_type: str | None = None
+    kind: str | None = None
+
+
+@router.patch("/routes/{route_id}")
+def patch_route(route_id: int, body: RoutePatch, request: Request):
+    """Rename a route, correct its shape, and/or retag every session recorded
+    on it in one go (the analysis page offers the retag when a session's type
+    is changed - a route's surface doesn't change, so the tag belongs to all
+    of them)."""
+    store = request.app.state.store
+    if not store.route_exists(route_id):
+        raise HTTPException(404, "route not found")
+    if body.name is not None:
+        if not body.name.strip():
+            raise HTTPException(400, "name must not be empty")
+        store.rename_route(route_id, body.name.strip()[:80])
+    if body.kind is not None:  # "" clears the override back to the detected value
+        if body.kind and body.kind not in ROUTE_KINDS:
+            raise HTTPException(400, f"kind must be one of {sorted(ROUTE_KINDS)}")
+        store.set_route_kind_user(route_id, body.kind or None)
+    if body.track_type is not None:  # "" clears the tag on every session
+        if body.track_type and body.track_type not in TRACK_TYPES:
+            raise HTTPException(400, f"track_type must be one of {sorted(TRACK_TYPES)}")
+        store.set_route_sessions_track_type(route_id, body.track_type or None)
+    return {"ok": True}
+
+
+def _outline_points(rows: list[tuple[float, bytes]]) -> list[int] | None:
+    """Flatten a lap's frames into the compact polyline described next to
+    ROUTE_OUTLINE_BOX in store.py: (x, -z) like the 2D track map projects it,
+    so a thumbnail and the big map are the same way up.
+
+    Spacing is by distance, not by frame: laps start with the car sitting on
+    the line, and an evenly-strided sample would spend a tenth of its points
+    there and then cut corners where the car is quick."""
+    pts = []
+    for _, raw in rows:
+        p = parse(raw)
+        pts.append((p["pos_x"], -p["pos_z"]))
+    if len(pts) < 8:
+        return None
+    xs = [p[0] for p in pts]
+    ys = [p[1] for p in pts]
+    min_x, min_y = min(xs), min(ys)
+    span = max(max(xs) - min_x, max(ys) - min_y)
+    if span < 1.0:  # a lap that never went anywhere (stationary capture)
+        return None
+
+    step = span / ROUTE_OUTLINE_DETAIL
+    kept = [pts[0]]
+    for p in pts[1:]:
+        if math.dist(p, kept[-1]) >= step:
+            kept.append(p)
+    if kept[-1] != pts[-1]:
+        kept.append(pts[-1])
+
+    k = ROUTE_OUTLINE_BOX / span
+    out: list[int] = []
+    for x, y in kept:
+        out.extend((round((x - min_x) * k), round((y - min_y) * k)))
+    return out
+
+
+@router.get("/routes/{route_id}/outline")
+def route_outline(route_id: int, request: Request):
+    """The course as a polyline, for the route thumbnails in the browse bar.
+
+    Computed from one lap's frames on first request and cached on the route
+    row. A miss is NOT cached: a route whose only capture was deleted has no
+    frames to draw today but may be driven again tomorrow, and an empty
+    lookup costs one indexed query."""
+    store = request.app.state.store
+    route = store.get_route(route_id)
+    if route is None:
+        raise HTTPException(404, "route not found")
+    if route.get("outline"):
+        return {"id": route_id, "outline": json.loads(route["outline"]),
+                "box": ROUTE_OUTLINE_BOX}
+
+    lap = store.route_outline_lap(route_id)
+    points = _outline_points(store.lap_frames(lap)) if lap else None
+    if points:
+        store.set_route_outline(route_id, json.dumps(points))
+    return {"id": route_id, "outline": points, "box": ROUTE_OUTLINE_BOX}
+
+
+@router.get("/tracks")
+def tracks_info():
+    """Track-catalogue metadata for the Settings panel: size + last refresh
+    time (null while still on the bundled copy)."""
+    return tracks.info()
+
+
+@router.post("/tracks/refresh")
+async def refresh_tracks(request: Request):
+    """Re-download the official-route catalogue from the repo's main branch and
+    re-run the naming backfill, so tracks added since this build was made get
+    named without a restart. Blocking urllib fetch, hence the threadpool; the
+    backfill writes through the Store's event-loop connection, so it stays on
+    this thread (same reason /reprocess is async)."""
+    _require_online()
+    try:
+        total, added = await run_in_threadpool(tracks.refresh)
+    except tracks.RefreshError as exc:
+        raise HTTPException(502, str(exc))
+    named = request.app.state.store.backfill_route_names()
+    return {"ok": True, "total": total, "added": added, "named": named}
+
+
+@router.get("/cars")
+def cars_info():
+    """Car-list metadata for the Settings panel: size + last refresh time
+    (null while still on the bundled copy)."""
+    return cars.info()
+
+
+# NOTE: registered before /cars/{ordinal} so "refresh" isn't parsed as an ordinal.
+@router.post("/cars/refresh")
+async def refresh_cars():
+    """Re-download the community car list from the repo's main branch and
+    hot-swap it in (bundled copy stays as the offline fallback, per-user DB
+    overrides always win). Blocking urllib fetch, hence the threadpool."""
+    _require_online()
+    try:
+        total, added = await run_in_threadpool(cars.refresh)
+    except cars.RefreshError as exc:
+        raise HTTPException(502, str(exc))
+    return {"ok": True, "total": total, "added": added}
+
+
+@router.get("/cars/{ordinal}")
+def car_name(ordinal: int, request: Request):
+    override = request.app.state.store.get_car_override(ordinal)
+    return {"ordinal": ordinal, "name": _car_name(ordinal, override),
+            "known": override is not None or ordinal in CAR_NAMES}
+
+
+@router.patch("/cars/{ordinal}")
+def set_car_name(ordinal: int, body: NameBody, request: Request):
+    name = body.name.strip()
+    if name:
+        request.app.state.store.set_car_name(ordinal, name[:80])
+    else:  # "" reverts to the bundled name (or "Car #<ordinal>")
+        request.app.state.store.clear_car_name(ordinal)
+    return {"ok": True}
+
+
+@router.get("/sessions/{session_id}/laps")
+def session_laps(session_id: int, request: Request):
+    store = request.app.state.store
+    session = store.get_session(session_id)
+    if session is None:
+        raise HTTPException(404, "session not found")
+    laps = store.session_laps(session_id)
+    # excluded laps (manual edit) stay listed but never score: no best, no gap
+    best = min((lap["lap_time"] for lap in laps
+                if lap["lap_time"] and not lap["excluded"]), default=None)
+    for lap in laps:
+        timed = bool(lap["lap_time"]) and not lap["excluded"]
+        lap["is_best"] = timed and lap["lap_time"] == best
+        lap["gap_to_best"] = (lap["lap_time"] - best) if timed and best else None
+    session = _session_out(session)
+    # drives the "Reset edits" affordance on the analysis page
+    session["edit_count"] = len(store.session_edits(session_id))
+    return {"session": session, "laps": laps}
+
+
+# ------------------------- merged run groups -------------------------
+# A point-to-point route can only be re-attempted by restarting the event, so a
+# grind is N one-run sessions. A group browses and scores them as one thing
+# without touching a single stored row - see the session_groups note in store.py.
+
+
+def _group_out(group: dict, members: list[dict]) -> dict:
+    """Group + the aggregate the sidebar card and detail header show. Mirrors
+    _session_out; members arrive oldest first."""
+    out = dict(group)
+    lead = members[0] if members else {}
+    bests = [m["best_lap"] for m in members if m["best_lap"]]
+    started = group["created_at"] if not members else members[0]["started_at"]
+    out["session_count"] = len(members)
+    out["run_count"] = sum(m["lap_count"] for m in members)
+    out["best_lap"] = min(bests, default=None)
+    out["started_at"] = started
+    out["ended_at"] = max((m["ended_at"] or m["started_at"] for m in members),
+                          default=None)
+    out["route_name"] = lead.get("route_name")
+    out["route_kind"] = lead.get("route_kind")
+    out["car_name"] = lead.get("car_name")
+    out["car_class_letter"] = lead.get("car_class_letter")
+    out["car_pi"] = lead.get("car_pi")
+    out["drivetrain"] = lead.get("drivetrain")
+    out["display_name"] = (
+        group["name"] or lead.get("route_name")
+        or time.strftime("%Y-%m-%d %H:%M", time.localtime(started)))
+    # membership is only validated on write: a reprocess can re-fingerprint a
+    # member onto another route, and a group the user can't open is worse than
+    # one that says so
+    out["mixed"] = (len({m["route_id"] for m in members}) > 1
+                    or len({m["car_ordinal"] for m in members}) > 1)
+    return out
+
+
+def _check_members(store, session_ids: list[int], group: dict | None = None):
+    """Same route and same car, both known, and nothing already grouped.
+    Returns (route_id, car_ordinal)."""
+    if not session_ids:
+        raise HTTPException(400, "no sessions given")
+    rows = []
+    for sid in session_ids:
+        s = store.get_session(sid)
+        if s is None:
+            raise HTTPException(404, f"session {sid} not found")
+        if s["group_id"] is not None and (group is None
+                                          or s["group_id"] != group["id"]):
+            raise HTTPException(409, f"session {sid} is already in a group")
+        rows.append(s)
+    routes = {s["route_id"] for s in rows} | (
+        {group["route_id"]} if group else set())
+    cars = {s["car_ordinal"] for s in rows} | (
+        {group["car_ordinal"]} if group else set())
+    if None in routes:
+        raise HTTPException(400, "every session must be on an identified route")
+    if None in cars:
+        raise HTTPException(400, "every session must have a known car")
+    if len(routes) > 1:
+        raise HTTPException(400, "sessions must be on the same route")
+    if len(cars) > 1:
+        raise HTTPException(400, "sessions must use the same car")
+    return routes.pop(), cars.pop()
+
+
+class GroupCreate(BaseModel):
+    name: str | None = None
+    session_ids: list[int]
+
+
+class GroupPatch(BaseModel):
+    name: str | None = None
+
+
+class GroupMember(BaseModel):
+    session_id: int
+
+
+@router.post("/groups")
+def create_group(body: GroupCreate, request: Request):
+    """Merge attempts at one route into a single browsable run group."""
+    store = request.app.state.store
+    route_id, car_ordinal = _check_members(store, body.session_ids)
+    name = (body.name or "").strip()[:80] or None
+    gid = store.create_group(name, route_id, car_ordinal, body.session_ids)
+    return {"ok": True, "group": _group_out(store.get_group(gid),
+                                            store.group_sessions(gid))}
+
+
+@router.get("/groups/{group_id}/laps")
+def group_laps(group_id: int, request: Request):
+    """The group's runs as one scored list. Mirrors GET /sessions/{id}/laps:
+    the best is the best of the whole group, so gaps compare attempts against
+    each other. `run_index` is added for display and `lap_number` is left
+    alone - it names the CSV column and the export filename, and every sprint
+    member's is 0, so numbering by it would print "Run 1" for every row."""
+    store = request.app.state.store
+    group = store.get_group(group_id)
+    if group is None:
+        raise HTTPException(404, "group not found")
+    members = [_session_out(s) for s in store.group_sessions(group_id)]
+    laps = store.group_laps(group_id)
+    best = min((lap["lap_time"] for lap in laps
+                if lap["lap_time"] and not lap["excluded"]), default=None)
+    edits = 0
+    for i, lap in enumerate(laps):
+        lap["run_index"] = i + 1
+        timed = bool(lap["lap_time"]) and not lap["excluded"]
+        lap["is_best"] = timed and lap["lap_time"] == best
+        lap["gap_to_best"] = (lap["lap_time"] - best) if timed and best else None
+    for s in members:
+        s["edit_count"] = len(store.session_edits(s["id"]))
+        edits += s["edit_count"]
+    out = _group_out(group, members)
+    out["edit_count"] = edits
+    return {"group": out, "sessions": members, "laps": laps}
+
+
+@router.patch("/groups/{group_id}")
+def patch_group(group_id: int, body: GroupPatch, request: Request):
+    store = request.app.state.store
+    if store.get_group(group_id) is None:
+        raise HTTPException(404, "group not found")
+    if body.name is not None:  # "" clears back to the route/date fallback
+        store.set_group_name(group_id, body.name.strip()[:80] or None)
+    return {"ok": True}
+
+
+@router.post("/groups/{group_id}/sessions")
+def add_group_session(group_id: int, body: GroupMember, request: Request):
+    store = request.app.state.store
+    group = store.get_group(group_id)
+    if group is None:
+        raise HTTPException(404, "group not found")
+    _check_members(store, [body.session_id], group)
+    store.set_session_group(body.session_id, group_id)
+    return {"ok": True}
+
+
+@router.delete("/groups/{group_id}/sessions/{session_id}")
+def remove_group_session(group_id: int, session_id: int, request: Request):
+    """Take one session back out. The group goes with it if it was the last."""
+    store = request.app.state.store
+    if store.get_group(group_id) is None:
+        raise HTTPException(404, "group not found")
+    if not store.remove_session_from_group(session_id, group_id):
+        raise HTTPException(404, "session is not in this group")
+    return {"ok": True, "pruned": store.prune_empty_groups() > 0}
+
+
+@router.delete("/groups/{group_id}")
+def delete_group(group_id: int, request: Request):
+    """Ungroup. The sessions survive untouched - a group never owned them."""
+    store = request.app.state.store
+    if store.get_group(group_id) is None:
+        raise HTTPException(404, "group not found")
+    store.delete_group(group_id)
+    return {"ok": True}
+
+
+LAP_FLAGS = {"rewind", "contact", "cutoff"}
+
+
+class LapPatch(BaseModel):
+    flags: str | None = None
+    excluded: bool | None = None
+
+
+@router.patch("/laps/{lap_id}")
+def patch_lap(lap_id: int, body: LapPatch, request: Request):
+    """Manual lap curation, stored as read-time edits keyed by frame time so
+    a reprocess keeps them (see the edits table in store.py). flags: the full
+    CSV the lap should carry ("" = none); a value equal to what the recorder
+    detected removes the override instead, reverting the lap to auto.
+    excluded: drop/restore the lap from bests and session counts."""
+    store = request.app.state.store
+    lap = store.get_lap(lap_id)
+    if lap is None:
+        raise HTTPException(404, "lap not found")
+    t0, t1 = lap_span(lap)
+    if body.flags is not None:
+        tokens = {f.strip() for f in body.flags.split(",") if f.strip()}
+        if not tokens <= LAP_FLAGS:
+            raise HTTPException(400, f"flags must be from {sorted(LAP_FLAGS)}")
+        value = ",".join(sorted(tokens))  # same format the recorder writes
+        store.remove_edits(lap["session_id"], "flags", t0, t1)
+        if value != (lap["flags"] or ""):
+            store.add_edit(lap["session_id"], "flags", lap_anchor(lap), value)
+    if body.excluded is not None:
+        store.remove_edits(lap["session_id"], "exclude_lap", t0, t1)
+        if body.excluded:
+            store.add_edit(lap["session_id"], "exclude_lap", lap_anchor(lap))
+    return {"ok": True}
+
+
+class DismissBody(BaseModel):
+    t: float
+
+
+@router.post("/laps/{lap_id}/dismiss_contact")
+def dismiss_contact(lap_id: int, body: DismissBody, request: Request):
+    """"Not a contact": dismiss the collision whose peak frame time is t
+    (from the collision list of /laps/{id}/data). The marker is tagged
+    dismissed at read time; when no real (non-landing, non-dismissed)
+    contact remains on the lap, its contact flag is lifted through a flags
+    override. Flags are only ever removed here, never added. Only a real
+    contact qualifies: a landing spike never counted, so it is a 404 like
+    any other non-marker t, and re-dismissing an already-dismissed marker
+    is an idempotent no-op, not another edit row (issue #42)."""
+    store = request.app.state.store
+    lap = store.get_lap(lap_id)
+    if lap is None:
+        raise HTTPException(404, "lap not found")
+    collisions, _ = _LapScan(store.lap_frames(lap),
+                             lap["start_distance"] or 0.0).events()
+    _apply_dismissals(collisions, store.session_edits(lap["session_id"]))
+    matched = [c for c in collisions
+               if abs(c["t"] - body.t) <= DISMISS_MATCH_S and not c["landing"]]
+    if not matched:
+        raise HTTPException(404, "no contact marker at that time")
+    if any(not c["dismissed"] for c in matched):
+        store.add_edit(lap["session_id"], "dismiss_contact", body.t)
+    edits = store.session_edits(lap["session_id"])
+    _apply_dismissals(collisions, edits)
+    remaining = sum(1 for c in collisions if not c["landing"] and not c["dismissed"])
+    # effective flags: an existing user override wins over the detected CSV
+    t0, t1 = lap_span(lap)
+    flags = lap["flags"] or ""
+    for e in edits:
+        if e["kind"] == "flags" and t0 <= e["anchor_t"] < t1:  # see lap_span
+            flags = e["value"] or ""
+    if remaining == 0 and "contact" in flags.split(","):
+        flags = ",".join(f for f in flags.split(",") if f and f != "contact")
+        store.remove_edits(lap["session_id"], "flags", t0, t1)
+        if flags != (lap["flags"] or ""):
+            store.add_edit(lap["session_id"], "flags", lap_anchor(lap), flags)
+    return {"ok": True, "remaining_contacts": remaining, "flags": flags or None}
+
+
+@router.delete("/sessions/{session_id}/edits")
+def reset_edits(session_id: int, request: Request):
+    """The escape hatch: drop every manual edit of the session (contact
+    dismissals, flag overrides, lap exclusions) so it shows exactly what the
+    recorder detected again."""
+    store = request.app.state.store
+    if store.get_session(session_id) is None:
+        raise HTTPException(404, "session not found")
+    return {"ok": True, "removed": store.clear_edits(session_id)}
+
+
+# dismissed-contact edits match a collision by its peak frame time within
+# this tolerance: retuning the detection constants can shift a burst's peak
+# by a frame or two across a reprocess, never further (bursts are grouped)
+DISMISS_MATCH_S = 0.5
+
+
+# How far back a rewind can still reach. The scan hands frames to its caller
+# as it goes, so only the ones still inside this window can be trimmed - and
+# a frame this old is one the game can no longer undo. In-game rewind covers
+# a few seconds, and chaining rewinds only adds the frames driven in between,
+# so 30 s of telemetry is a wide margin (issue #65).
+REWIND_WINDOW = 1800  # frames (~30 s at 60 Hz)
+
+
+class _LapScan:
+    """One lap's kept trace + collision/jump events, from its raw frames.
+    Shared by lap_data and the contact-dismissal endpoint so both always see
+    the exact same events.
+
+    Iterating yields the kept frames as `(t, distance, parsed frame)`, in
+    order; `collisions` and `jumps` are complete once iteration ends (or use
+    `events()`, which consumes the trace without keeping any of it). It
+    streams because it used to return the whole trace as a list: a 28.9-minute
+    lap of 119k frames retained 506 MB of parsed frames, per request, in the
+    threadpool - three tabs on three long laps was 1.5 GB (issue #65). Only
+    REWIND_WINDOW frames are held now, whatever the lap's length.
+
+    Rewind safety: when the in-game rewind scrubs DistanceTraveled backwards,
+    drop the samples it rewound over so only the finally-driven pass remains
+    (otherwise charts and the map draw the same stretch twice). This also
+    cleans up reversing after a spin.
+
+    Collision points: ground-plane acceleration spikes past the contact
+    threshold (the same test the recorder uses for the per-lap "contact"
+    flag). A single impact spans several frames over the threshold, so group
+    consecutive over-threshold frames into one event and keep its peak. Run
+    on the full-resolution kept trace so a one-frame spike is never decimated
+    away. World coords are returned so the map projects them like any point;
+    the peak's frame time t is the handle a dismissal edit anchors to.
+    Spikes while airborne or right after touchdown are jump landings, not
+    contact (same classification as the recorder) - tagged, not dropped, so
+    the map can still show where a jump bottomed out. Every other burst must
+    also look like an impact rather than aero load (impulsive(), laps.py) or
+    it is dropped: downforce cars cross the threshold in fast corners and
+    used to bury the map in false markers (issue #49).
+
+    Jump segments: the same airborne classifier also yields explicit flights
+    (every wheel unloaded for >= AIRBORNE_MIN_S). Each is returned as a
+    takeoff -> touchdown segment so the map can draw where the car left the
+    ground and where it came down; a landing-classified spike marks the
+    segment "hard" with its peak g."""
+
+    def __init__(self, rows: list[tuple[float, bytes]], start_dist: float) -> None:
+        self._rows = rows
+        self._start_dist = start_dist
+        self.collisions: list[dict] = []
+        self.jumps: list[dict] = []
+
+    def events(self) -> tuple[list[dict], list[dict]]:
+        """Only the events: runs the scan through and keeps none of the trace."""
+        for _ in self:
+            pass
+        return self.collisions, self.jumps
+
+    def __iter__(self):
+        start_dist = self._start_dist
+        collisions = self.collisions
+        jumps = self.jumps
+        collisions.clear()  # a second pass rebuilds them rather than doubling
+        jumps.clear()
+        peak: tuple | None = None  # (g, t, d, frame) of the current impact burst
+        burst_landing = True       # all frames of the burst classified as landing
+        burst_impact = False       # some frame of the burst looked like an impact
+        prev_g: tuple[float, float] | None = None  # previous frame's (t, g)
+        air_since: float | None = None
+        air_start: tuple | None = None  # (t, d, frame) of the first airborne frame
+        grace_until = 0.0
+        pending_hard: float | None = None  # mid-flight landing peak (g) waiting for
+                                           # its own segment to be emitted
+        last: tuple | None = None  # last frame handed out (a trailing flight ends there)
+
+        def emit(peak: tuple, landing: bool) -> None:
+            nonlocal pending_hard
+            g0, t0, d0, p0 = peak
+            collisions.append({"x": round(p0["pos_x"], 2), "y": round(p0["pos_y"], 2),
+                               "z": round(p0["pos_z"], 2),
+                               "dist": round(d0 - start_dist, 2), "t": round(t0, 3),
+                               "g": round(g0 / 9.80665, 2), "landing": landing})
+            if landing:
+                peak_g = round(g0 / 9.80665, 2)
+                if air_since is not None:
+                    # the burst resolved while still airborne (clipping something
+                    # mid-flight): this flight's segment isn't emitted until
+                    # touchdown, so hold the peak for emit_jump instead of
+                    # marking the PREVIOUS jump hard (issue #41)
+                    pending_hard = max(pending_hard or 0.0, peak_g)
+                elif jumps:
+                    jumps[-1]["hard"] = True
+                    jumps[-1]["g"] = max(jumps[-1]["g"] or 0.0, peak_g)
+
+        def emit_burst() -> None:
+            """Close the burst that just ended. Landings are always emitted (the
+            map draws them amber and they mark their jump hard); a non-landing
+            burst only counts when it looked like an impact rather than a
+            downforce car leaning on its aero - see impulsive() in laps.py.
+            Rejected bursts are dropped outright: they are ordinary cornering,
+            not an event with anything to inspect (issue #49)."""
+            if burst_landing or burst_impact:
+                emit(peak, burst_landing)
+
+        def emit_jump(start: tuple, land: tuple) -> None:
+            nonlocal pending_hard
+            (t0, d0, p0), (t1, d1, p1) = start, land
+            jumps.append({"x0": round(p0["pos_x"], 2), "y0": round(p0["pos_y"], 2),
+                          "z0": round(p0["pos_z"], 2), "dist0": round(d0 - start_dist, 2),
+                          "x1": round(p1["pos_x"], 2), "y1": round(p1["pos_y"], 2),
+                          "z1": round(p1["pos_z"], 2), "dist1": round(d1 - start_dist, 2),
+                          "air_s": round(t1 - t0, 2), "hard": False, "g": None})
+            if pending_hard is not None:  # a mid-flight spike waited for this segment
+                jumps[-1]["hard"] = True
+                jumps[-1]["g"] = pending_hard
+                pending_hard = None
+
+        def step(frame: tuple) -> None:
+            """Fold one finalized frame into the event state machine. Reads
+            only this frame and the running state, which is what lets the
+            trace stream past instead of piling up."""
+            nonlocal peak, burst_landing, burst_impact, prev_g
+            nonlocal air_since, air_start, grace_until, last
+            t, d, p = frame
+            airborne = (all(s < AIRBORNE_SUSP_MAX for s in p["norm_susp_travel"])
+                        and all(s < AIRBORNE_SLIP_MAX for s in p["tire_combined_slip"]))
+            if airborne:
+                if air_since is None:
+                    air_since = t
+                    air_start = frame
+            else:
+                if air_since is not None and t - air_since >= AIRBORNE_MIN_S:
+                    grace_until = t + LANDING_GRACE_S
+                    emit_jump(air_start, frame)  # this frame is the touchdown
+                air_since = None
+            flying = air_since is not None and t - air_since >= AIRBORNE_MIN_S
+            g = math.hypot(p["accel_x"], p["accel_z"])
+            if g >= IMPACT_ACCEL:
+                if peak is None:
+                    peak, burst_landing, burst_impact = (g, t, d, p), True, False
+                elif g > peak[0]:
+                    peak = (g, t, d, p)
+                burst_landing = burst_landing and (flying or t < grace_until)
+                burst_impact = burst_impact or impulsive(t, g, prev_g)
+            elif peak is not None:
+                emit_burst()
+                peak = None
+            prev_g = (t, g)
+            last = frame
+
+        # frames wait in `pending` until a rewind can no longer take them
+        # back, then they are folded in and handed to the caller for good
+        pending: deque[tuple[float, float, dict]] = deque()
+        for t, raw in self._rows:
+            p = parse(raw)
+            d = p["distance_traveled"]
+            if pending and d < pending[-1][1] - 0.5:
+                while pending and pending[-1][1] >= d:
+                    pending.pop()
+            pending.append((t, d, p))
+            if len(pending) > REWIND_WINDOW:
+                frame = pending.popleft()
+                step(frame)
+                yield frame
+        while pending:
+            frame = pending.popleft()
+            step(frame)
+            yield frame
+
+        # resolve a trailing burst BEFORE a trailing flight: a trace ending
+        # mid-burst mid-flight must hand its peak to the segment emitted next
+        if peak is not None:  # impact ran to the last kept frame
+            emit_burst()
+        if air_since is not None and last is not None and last[0] - air_since >= AIRBORNE_MIN_S:
+            emit_jump(air_start, last)  # lap trace ended mid-flight
+
+
+def _apply_dismissals(collisions: list[dict], edits: list[dict]) -> None:
+    """Tag the collisions the user dismissed ("not a contact"). Dismissed
+    markers are returned tagged rather than dropped: the count and the map
+    skip them, but the data stays inspectable."""
+    anchors = [e["anchor_t"] for e in edits if e["kind"] == "dismiss_contact"]
+    for c in collisions:
+        c["dismissed"] = any(abs(c["t"] - a) <= DISMISS_MATCH_S for a in anchors)
+
+
+def _fix_dead_lap_clock(lap_time: list[float], t_rel: list[float]) -> list[float]:
+    """World Time Attack and bare sprints broadcast no lap clock at all
+    (CurrentLap stays 0 for the whole event), which made the A/B delta-time
+    chart a flat zero line for exactly those events. Fall back to time since
+    the lap's first frame - restart_lap re-anchors geometric laps at launch,
+    so it counts from the line like a live lap clock would."""
+    if any(v > 0.5 for v in lap_time):
+        return lap_time
+    return list(t_rel)
+
+
+@router.get("/laps/{lap_id}/data")
+def lap_data(
+    lap_id: int,
+    request: Request,
+    channels: str = Query("speed_kmh,throttle,brake"),
+    max_points: int = Query(2000, ge=50, le=20000),
+):
+    store = request.app.state.store
+    lap = store.get_lap(lap_id)
+    if lap is None:
+        raise HTTPException(404, "lap not found")
+
+    names = [c.strip() for c in channels.split(",") if c.strip()]
+    unknown = [n for n in names if n not in CHANNELS]
+    if unknown:
+        raise HTTPException(400, f"unknown channels: {unknown}; available: {sorted(CHANNELS)}")
+
+    rows = store.lap_frames(lap)
+    scan = _LapScan(rows, lap["start_distance"] or 0.0)
+
+    # rounded up, or the budget is only an approximation: len(kept)//max_points
+    # is 1 for anything under 2x max_points, so a 2562-frame lap answered a
+    # request for 1500 points with all 2562 of them (issue #65). len(rows) is
+    # the bound on kept frames - a rewind only ever drops some of them.
+    stride = -(-len(rows) // max_points) if rows else 1
+    start_dist = lap["start_distance"] or 0.0
+    dist: list[float] = []
+    t_rel: list[float] = []
+    out: dict[str, list[float]] = {n: [] for n in names}
+    t0 = 0.0
+    for i, (t, d, p) in enumerate(scan):
+        if i == 0:
+            t0 = t
+        if i % stride:
+            continue
+        dist.append(round(d - start_dist, 2))
+        t_rel.append(round(t - t0, 3))
+        for n in names:
+            out[n].append(round(CHANNELS[n](p), 4))
+    collisions, jumps = scan.collisions, scan.jumps  # complete once it ran dry
+    _apply_dismissals(collisions, store.session_edits(lap["session_id"]))
+
+    if "lap_time" in out:
+        out["lap_time"] = _fix_dead_lap_clock(out["lap_time"], t_rel)
+
+    return {"lap": lap, "n_frames": len(rows), "dist": dist, "t": t_rel,
+            "channels": out, "collisions": collisions, "jumps": jumps}
+
+
+# CSV export column -> CHANNELS key. Headers carry the canonical unit
+# (issue #29: exports are always metric/psi, whatever the display settings)
+_EXPORT_CHANNELS = [
+    ("speed_kmh", "speed_kmh"), ("rpm", "rpm"), ("gear", "gear"),
+    ("throttle_pct", "throttle"), ("brake_pct", "brake"), ("steer_pct", "steer"),
+    ("lat_g", "lat_g"), ("lon_g", "lon_g"), ("slip_front", "slip_front"),
+    ("slip_rear", "slip_rear"), ("slip_max", "slip_max"), ("boost_psi", "boost"),
+    ("lap_time_s", "lap_time"),
+    ("pos_x_m", "pos_x"), ("pos_y_m", "pos_y"), ("pos_z_m", "pos_z"),
+]
+_EXPORT_HEADER = ["lap", "t_s", "dist_m"] + [h for h, _ in _EXPORT_CHANNELS]
+# the one column filled in only after the whole lap is known (see _lap_csv_rows)
+_LAP_TIME_COL = _EXPORT_HEADER.index("lap_time_s")
+
+# The all-fields export (issue #90): every raw_* channel appended after the
+# curated ones, in packet order. Same names the /data endpoint and the raw
+# panels use, prefix and all - raw_speed (m/s) and raw_boost sit next to the
+# converted speed_kmh / boost_psi rather than colliding with them.
+#
+# Curated columns stay first and unchanged, so a raw file is a superset: the
+# importer, a spreadsheet template and _LAP_TIME_COL all keep working on the
+# same leading columns whichever variant they are handed.
+_RAW_EXPORT_CHANNELS = [(n, n) for n in CHANNELS if n.startswith("raw_")]
+_RAW_EXPORT_HEADER = _EXPORT_HEADER + [h for h, _ in _RAW_EXPORT_CHANNELS]
+
+
+def _export_columns(raw: bool):
+    """(header, [(column, channel)…]) for the requested export variant."""
+    if raw:
+        return _RAW_EXPORT_HEADER, _EXPORT_CHANNELS + _RAW_EXPORT_CHANNELS
+    return _EXPORT_HEADER, _EXPORT_CHANNELS
+
+
+_FILENAME_UNSAFE = re.compile(r"[^A-Za-z0-9._ -]+")
+
+
+def _safe_filename(name: str) -> str:
+    """A Content-Disposition-safe ASCII filename part (also Windows-safe:
+    no \\ / : * ? " < > |). Leading/trailing dots and spaces are trimmed -
+    Windows silently strips them, which would desync the name we promised."""
+    return _FILENAME_UNSAFE.sub("_", name).strip(" .") or "export"
+
+
+def _export_filename(display_name: str, lap: dict | None = None,
+                     raw: bool = False) -> str:
+    """The two variants get different names on purpose: a curated and an
+    all-fields export of the same lap are both plausible things to keep, and
+    silently overwriting one with the other is the worst way to find out."""
+    parts = ["lapscope", _safe_filename(display_name)]
+    if lap is None:
+        parts.append("session")
+    else:
+        parts.append(f"lap{lap['lap_number'] + 1}")
+        if lap["lap_time"]:
+            t = lap["lap_time"]
+            parts.append(f"{int(t // 60)}-{t % 60:06.3f}")
+    if raw:
+        parts.append("raw")
+    return "_".join(parts) + ".csv"
+
+
+def _lap_csv_rows(lap: dict, rows: list[tuple[float, bytes]], raw: bool = False):
+    """One lap's telemetry as CSV rows, full resolution - /data's decimation
+    is for charts, an export must keep every kept frame. Same rewind-trimmed
+    trace and rounding as /data, so the two never disagree.
+
+    `raw` appends every packet field after the curated columns (issue #90):
+    the app already holds all of it, and until now the raw panels were the
+    only way to read it - one frame at a time.
+
+    The whole lap is still built before the first row is yielded, because
+    _fix_dead_lap_clock cannot tell a dead lap clock from a live one until it
+    has seen every sample. What is held is the finished rows - numbers - and
+    not the parsed frames behind them, which is roughly a tenth of the cost
+    (issue #65); the scan itself streams."""
+    _, channels = _export_columns(raw)
+    start_dist = lap["start_distance"] or 0.0
+    built: list[list] = []
+    t_rel: list[float] = []
+    lap_times: list[float] = []
+    t0 = 0.0
+    for i, (t, d, p) in enumerate(_LapScan(rows, start_dist)):
+        if i == 0:
+            t0 = t
+        t_rel.append(round(t - t0, 3))
+        row: list = [lap["lap_number"] + 1, t_rel[-1], round(d - start_dist, 2)]
+        row += [round(CHANNELS[ch](p), 4) for _, ch in channels]
+        lap_times.append(row[_LAP_TIME_COL])
+        built.append(row)
+    for row, lap_time in zip(built, _fix_dead_lap_clock(lap_times, t_rel)):
+        row[_LAP_TIME_COL] = lap_time
+        yield row
+
+
+def _csv_stream(store, laps: list[dict], raw: bool = False):
+    """One CSV document: header row, then every lap's frames in lap order.
+    Chunked per lap: a long session never materializes at once, though one
+    lap's rows do - see _lap_csv_rows for why that last bit can't stream."""
+    buf = io.StringIO()
+    writer = csv.writer(buf, lineterminator="\n")
+    writer.writerow(_export_columns(raw)[0])
+    yield buf.getvalue()
+    for lap in laps:
+        buf.seek(0)
+        buf.truncate(0)
+        for row in _lap_csv_rows(lap, store.lap_frames(lap), raw):
+            writer.writerow(row)
+        yield buf.getvalue()
+
+
+def _csv_response(store, laps: list[dict], filename: str,
+                  raw: bool = False) -> StreamingResponse:
+    return StreamingResponse(
+        _csv_stream(store, laps, raw), media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'})
+
+
+# `raw: bool = False`, not `Query(False)`: FastAPI infers the query param
+# either way, and the tests drive these handlers as plain functions - a Query
+# default is an object, and a truthy one, so every direct call would export
+# the wide file.
+@router.get("/laps/{lap_id}/export.csv")
+def export_lap_csv(lap_id: int, request: Request, raw: bool = False):
+    """The lap's full-resolution telemetry as a CSV download (issue #29).
+    Deliberately works on excluded laps too: exclusion is a session-level
+    statement (bests/counts), exporting one lap is an explicit ask.
+
+    `raw=1` adds every packet field (issue #90) - roughly five times the
+    bytes, which is why the frontend asks rather than guessing."""
+    store = request.app.state.store
+    lap = store.get_lap(lap_id)
+    if lap is None:
+        raise HTTPException(404, "lap not found")
+    session = _session_out(store.get_session(lap["session_id"]))
+    return _csv_response(store, [lap],
+                         _export_filename(session["display_name"], lap, raw), raw)
+
+
+@router.get("/sessions/{session_id}/export.csv")
+def export_session_csv(session_id: int, request: Request, raw: bool = False):
+    """The session's timed laps in one CSV, told apart by the lap column.
+    Laps the user excluded are skipped - the export honors manual edits the
+    same way bests and counts do - and so are untimed laps (the post-finish
+    coast): the CSV has no way to mark a lap incomplete, so a re-import
+    would mint a lap time for it. Either kind can still be exported on its
+    own through /laps/{id}/export.csv. `raw=1` as on the per-lap route."""
+    store = request.app.state.store
+    session = store.get_session(session_id)
+    if session is None:
+        raise HTTPException(404, "session not found")
+    laps = [lap for lap in store.session_laps(session_id)
+            if lap["lap_time"] and not lap["excluded"]]
+    return _csv_response(
+        store, laps,
+        _export_filename(_session_out(session)["display_name"], raw=raw), raw)
+
+
+# columns an import can't do without; everything else defaults to 0
+_IMPORT_REQUIRED = {"lap", "t_s", "dist_m", "speed_kmh", "lap_time_s",
+                    "pos_x_m", "pos_z_m"}
+
+# The packet's LapNumber is a uint16 and the CSV's lap column is 1-based, so
+# this is every lap an export can name.
+IMPORT_MAX_LAP = 65535
+
+# The whole upload becomes a str, then row dicts, then synthesized packets.
+# Unbounded, that is a 500 MB file turning into gigabytes with nothing to stop
+# it (issue #66) - 200 MB is still ~40x the biggest real export.
+IMPORT_MAX_BYTES = 200 * 1024 * 1024
+
+# NormalizedSuspensionTravel for synthesized frames: the CSV carries no
+# suspension channel, and all four wheels below AIRBORNE_SUSP_MAX reads as
+# airborne - park them at a firmly grounded mid-travel value so the jump
+# classifier never fires on imported data
+_GROUNDED_SUSP = 0.5
+
+
+def _synth_frame(row: dict, global_dist: float, global_t: float,
+                 lap_index: int, last_lap: float = 0.0) -> bytes:
+    """One Data Out packet from one CSV row. Only the channels the CSV
+    carries are real; the rest is neutral filler. The inverse of the
+    CHANNELS extractors, so an exported value round-trips exactly."""
+    f = empty_fields()
+    f["is_race_on"] = 1
+    # last_lap is 0 on every frame except each lap group's final one, which
+    # carries the group's lap time: the LastLap-change finish signal a
+    # reprocess needs to re-time the lap (issue #39). Firing it per group
+    # also works for a lone lap and for identical consecutive lap times,
+    # which the LapNumber-increment path couldn't tell apart.
+    f["last_lap"] = last_lap
+    # synthesized suspension is flat, so a replay must see no surface
+    # evidence at all - |NormalizedDrivingLine| saturated means "off the
+    # course" to the track-type classifier, keeping a reprocess from
+    # auto-tagging every imported session "road"
+    f["normalized_driving_line"] = 127
+    f["current_engine_rpm"] = row.get("rpm", 0.0)
+    f["accel_x"] = row.get("lat_g", 0.0) * 9.80665
+    f["accel_z"] = row.get("lon_g", 0.0) * 9.80665
+    f["norm_susp_travel"] = [_GROUNDED_SUSP] * 4
+    front, rear = row.get("slip_front", 0.0), row.get("slip_rear", 0.0)
+    f["tire_combined_slip"] = [front, front, rear, rear]
+    f["pos_x"] = row.get("pos_x_m", 0.0)
+    f["pos_y"] = row.get("pos_y_m", 0.0)
+    f["pos_z"] = row.get("pos_z_m", 0.0)
+    f["speed"] = row.get("speed_kmh", 0.0) / 3.6
+    f["boost"] = row.get("boost_psi", 0.0)
+    f["distance_traveled"] = global_dist
+    f["current_lap"] = row.get("lap_time_s", 0.0)
+    f["current_race_time"] = global_t
+    f["lap_number"] = max(0, lap_index)
+    f["accel"] = int(round(min(100.0, max(0.0, row.get("throttle_pct", 0.0))) * 2.55))
+    f["brake"] = int(round(min(100.0, max(0.0, row.get("brake_pct", 0.0))) * 2.55))
+    f["gear"] = max(0, min(255, int(row.get("gear", 0))))
+    f["steer"] = int(round(min(100.0, max(-100.0, row.get("steer_pct", 0.0))) * 1.27))
+    return pack(f)
+
+
+def _parse_import_csv(body: str) -> list[tuple[int, list[dict]]]:
+    """LapScope-export CSV -> lap groups in file order. 400s carry the line
+    number - an import failing silently or half-way would be worse than no
+    import at all (nothing is written until parsing succeeded)."""
+    reader = csv.reader(io.StringIO(body))
+    header = next(reader, None)
+    if not header or not _IMPORT_REQUIRED <= set(header):
+        missing = sorted(_IMPORT_REQUIRED - set(header or []))
+        raise HTTPException(400, f"not a LapScope CSV export: missing columns {missing}")
+    idx = {c: i for i, c in enumerate(header)}
+    groups: list[tuple[int, list[dict]]] = []
+    for ln, cells in enumerate(reader, start=2):
+        if not cells or not any(c.strip() for c in cells):
+            continue
+        try:
+            row = {c: float(cells[i]) for c, i in idx.items()
+                   if i < len(cells) and cells[i].strip() != ""}
+            lap_no = int(row.pop("lap"))
+        except (KeyError, ValueError):
+            raise HTTPException(400, f"line {ln}: malformed row")
+        if not 1 <= lap_no <= IMPORT_MAX_LAP:
+            # 70000 used to reach _synth_frame and die in struct.pack ("H"),
+            # an opaque 500 from an endpoint whose contract is that parse
+            # errors carry their line. 0 was the quiet version: it stored
+            # lap_number -1, exported as lap 0, and re-imported as -2 (#66)
+            raise HTTPException(
+                400, f"line {ln}: lap {lap_no} out of range (1-{IMPORT_MAX_LAP})")
+        if not _IMPORT_REQUIRED - {"lap"} <= row.keys():
+            raise HTTPException(400, f"line {ln}: a required value is empty")
+        if not groups or groups[-1][0] != lap_no:
+            groups.append((lap_no, []))
+        rows = groups[-1][1]
+        if rows and row["t_s"] < rows[-1]["t_s"]:
+            raise HTTPException(400, f"line {ln}: samples out of order (t_s)")
+        rows.append(row)
+    if not groups:
+        raise HTTPException(400, "no data rows")
+    return groups
+
+
+def _synth_session(groups: list[tuple[int, list[dict]]], base: float):
+    """Lay the lap groups end to end on fresh time / distance axes: exported
+    t_s and dist_m are lap-relative, frames need session-global values.
+    Returns (frames, laps) ready to write. Pure CPU - runs in the threadpool."""
+    t_off, d_off = 0.0, 0.0
+    frames: list[tuple[float, bytes]] = []
+    laps: list[dict] = []
+    for lap_no, rows in groups:
+        # the clock's high-water mark, not the last sample: a lap's trace may
+        # end on the crossing frame, where the game already reset the clock
+        clock = max(r["lap_time_s"] for r in rows)
+        for i, r in enumerate(rows):
+            frames.append((base + t_off + r["t_s"],
+                           _synth_frame(r, d_off + r["dist_m"],
+                                        t_off + r["t_s"], lap_no - 1,
+                                        last_lap=clock if i == len(rows) - 1
+                                        else 0.0)))
+        laps.append({"number": lap_no - 1,
+                     "started_t": base + t_off + rows[0]["t_s"],
+                     "ended_t": base + t_off + rows[-1]["t_s"],
+                     "start_distance": d_off,
+                     "lap_time": clock or None})
+        step = (rows[-1]["t_s"] - rows[0]["t_s"]) / max(1, len(rows) - 1)
+        t_off += rows[-1]["t_s"] + max(step, 1 / 60)
+        d_off += rows[-1]["dist_m"] + 1.0
+    return frames, laps
+
+
+async def _read_import_body(request: Request) -> str:
+    """The uploaded file, refused rather than swallowed when it is too big or
+    isn't a CSV at all.
+
+    The content type is required for a second reason beyond catching the
+    wrong file: without it this endpoint is a CORS-simple request, which any
+    page the user happens to visit can POST to cross-origin and use to write
+    sessions into their database (issue #67). The size is checked twice -
+    Content-Length refuses before the transfer, and the running total catches
+    a chunked upload that declared nothing, or lied."""
+    if request.headers.get("content-type", "").split(";")[0].strip() != "text/csv":
+        raise HTTPException(415, "send the CSV file as text/csv")
+    limit_mb = IMPORT_MAX_BYTES // (1024 * 1024)
+    declared = request.headers.get("content-length", "")
+    if declared.isdigit() and int(declared) > IMPORT_MAX_BYTES:
+        raise HTTPException(413, f"CSV too large (limit {limit_mb} MB)")
+    chunks: list[bytes] = []
+    total = 0
+    async for chunk in request.stream():
+        total += len(chunk)
+        if total > IMPORT_MAX_BYTES:
+            raise HTTPException(413, f"CSV too large (limit {limit_mb} MB)")
+        chunks.append(chunk)
+    return b"".join(chunks).decode("utf-8", "replace")
+
+
+@router.post("/import/csv")
+async def import_csv(request: Request, name: str = Query("", max_length=120)):
+    """Recreate a session from a LapScope CSV export (a lap's or a whole
+    session's). async def on purpose: imports write through the Store's
+    event-loop connection, same rule as reprocess - and the same 409 while
+    recording, since parsing a big file on the loop would stall live
+    telemetry. The CSV carries a subset of the packet (that is the point of
+    the export), so the synthesized frames hold neutral filler for the rest;
+    every lap group becomes a completed lap timed by its clock's last sample,
+    and car/route metadata is unknown (the session shows "Unknown car").
+    The raw body IS the file (text/csv) - no multipart, no new dependency."""
+    store = request.app.state.store
+    if request.app.state.tracker.session_id is not None:
+        raise HTTPException(409, "a session is recording; retry after it ends")
+    body = await _read_import_body(request)
+    # off the loop: parsing and synthesizing a large file used to run right
+    # here, and for its whole duration the kernel dropped incoming UDP and
+    # the live dashboard sat frozen (issue #66). Only the writes have to be
+    # on this thread - that is the Store's rule, and why this is `async def`.
+    groups = await run_in_threadpool(_parse_import_csv, body)
+    base = time.time()
+    frames, laps = await run_in_threadpool(_synth_session, groups, base)
+
+    sid = store.create_session(base, {"car_ordinal": None, "car_class": None,
+                                      "car_pi": None, "drivetrain_type": None})
+    store.add_frames(sid, frames)
+    for lap in laps:
+        lap_id = store.add_lap(sid, lap["number"], lap["started_t"],
+                               lap["start_distance"])
+        store.complete_lap(lap_id, lap["ended_t"], lap["lap_time"])
+    store.end_session(sid, frames[-1][0], len(frames))
+    store.mark_session_kept(sid)  # survives cleanup even if all laps untimed
+    store.rename_session(sid, name.strip()[:80] or "Imported session")
+    return {"ok": True, "session_id": sid, "laps": len(laps),
+            "frames": len(frames)}

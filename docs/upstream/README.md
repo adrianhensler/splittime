@@ -1,0 +1,321 @@
+<div align="center">
+
+<img src="assets/logo-with-brand.png" alt="LapScope" width="220" />
+
+<!-- # LapScope -->
+
+**A self-hosted telemetry dashboard and lap analyzer for Forza Horizon 6.**
+
+Runs on your own PC, reads the game's official "Data Out" UDP stream, and turns it
+into a live driving dashboard plus a searchable history of every lap you drive — so
+you can see *where* you're losing time and *why*.
+
+[![Release](https://img.shields.io/github/v/release/darcane/LapScope?sort=semver)](../../releases)
+[![CI](https://github.com/darcane/LapScope/actions/workflows/ci.yml/badge.svg)](../../actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+![LapScope live dashboard](docs/media/hero.gif)
+
+</div>
+
+---
+
+## What it is
+
+LapScope listens for Forza Horizon 6's "Data Out" telemetry, shows it live in your
+browser, and records timed drives to a local database so you can analyze and compare
+laps afterwards. It's a single app you run locally — no cloud, no account, your data
+stays on your machine.
+
+The game only broadcasts *your* car (no rival data), so LapScope measures you against
+your own best lap and the tires' grip limit — which is exactly what makes you faster
+in Rivals.
+
+## Features
+
+- **Live dashboard** — speed / RPM / gear gauges, a friction circle (G-forces),
+  per-tire grip (green = grip, red = sliding), an understeer/oversteer indicator,
+  throttle/brake/steering traces, a lap timer with a **live delta vs. your
+  session-best lap**, and a **track map that draws itself as you drive** — it survives
+  a mid-race pause (photo mode included) and marks contacts and jumps as they happen.
+  An optional **raw telemetry panel** (off by default, ⚙ Settings) shows every packet
+  field live in game-native units, with a ⏸ Hold button to freeze the values mid-drive.
+- **Lap analysis** — every timed drive is stored. Browse sessions, see lap times, draw
+  your **racing line colored by speed or tire slip**, and **compare two laps (A vs. B)**
+  with distance-aligned charts: time delta, speed, inputs, steering, and slip. The map
+  has a **2D/3D toggle** (3D uses elevation and is drag-to-rotate). **Drag-zoom any
+  chart** and every chart follows while the map **highlights exactly that stretch of
+  road** (double-click to reset).
+- **Jumps, drawn as jumps** — airborne stretches are detected from suspension + tire
+  load and drawn as an explicit **takeoff ○ → touchdown ▸ flight line** on both maps;
+  a hard landing gets an amber glow + impact ring instead of being mistaken for a crash.
+- **Dirty-lap flags** — the packet has no "lap invalidated" field, so LapScope infers
+  it: ⏪ **rewind** (the lap clock ran backwards) and 💥 **contact** (a G-spike beyond
+  what tires can generate). Rewound stretches are trimmed from the charts and map.
+- **You have the final say** — detection wrong on a recording? Right-click a contact
+  marker on the map to dismiss it, edit a lap's flags, or exclude junk laps from the
+  bests — all reversible (**Reset edits**), and kept across a **Reprocess**.
+- **Take it with you** — export any lap (⬇ in the lap table) or the whole session
+  (**Export CSV…**) as full-rate telemetry CSV for spreadsheets or MoTeC-style
+  tools. Each download asks which columns: the 19 curated channels, or **every
+  packet field** — all 107, tire temps and per-wheel slip and suspension included,
+  exactly as the game sends them (about 5× the file size). **Save PNG** turns the
+  track map as drawn — colors, 2D/3D, A + B overlay — into
+  a shareable image with a title / car / lap-time caption. **Import CSV** (above the
+  session list) closes the loop: send a friend your lap's CSV and they can open it
+  like a recording — laps, charts, and map rebuilt from the file.
+- **Automatic event detection** — races, Rivals, sprints, drags, touge,
+  cross-country, and **World Time Attack** are each detected and timed correctly, even
+  though the game never labels them (it doesn't even count the last lap of a race).
+  Free-roam cruising is discarded automatically, so the list stays clean.
+- **Session metadata** — Forza-colored class/PI ribbons (incl. the new **R class**),
+  drivetrain badges, car names (bundled community ordinal list + your overrides),
+  auto-detected wet conditions, and a track-type tag that fills itself in
+  (road/dirt/cross-country/WTC read from the telemetry, your override always wins —
+  and can be applied to a whole route in one click).
+- **Routes** — the game never sends route names, so circuits are fingerprinted from lap
+  geometry. LapScope ships a catalogue of the official courses, so most routes name
+  themselves on your first completed lap. Anything it doesn't recognize — a blueprint,
+  a custom route, a track added after your build — you name once, and every past and
+  future session on it picks it up. Your name always wins over the catalogue.
+- **Settings** — a ⚙ **Settings** panel (top-right on both pages) to switch units —
+  **speed** (km/h ↔ mph), **tire temp** (°C ↔ °F), **distance** (km ↔ mi),
+  **power** (kW / hp / PS), **boost** (psi / bar) — pick an **accent theme**
+  (six curated presets; gauges, maps, and charts follow along) — plus map
+  preferences (draw the live map in free roam, show/hide analysis contact markers,
+  default 2D/3D view and color-by) and **raw data** toggles: a live panel with every
+  packet field as the game sends it, and a **raw-data-at-cursor table** on the analysis
+  page — hover any chart to read every channel of every compared lap at that exact
+  spot. Preferences are saved in your browser.
+- **Works when things go wrong** — the dashboard stays usable when the game pauses
+  (FH6 stops sending telemetry the moment it loses focus, so alt-tabbing to a second
+  screen just shows an amber **paused** chip instead of covering the page), and the
+  Analysis page tells you when the server has gone away instead of quietly ignoring
+  your clicks. Every control is reachable by keyboard, and looping animations —
+  including the shift lights on the limiter — stop if your system asks for reduced
+  motion.
+
+**Analysis — lap comparison** (distance-aligned delta, speed, inputs, steering, slip —
+overlay up to 6 laps, even from different sessions, each in its own color):
+
+![Analysis lap comparison](docs/media/analysis-compare.png)
+
+**Track map**, colored by speed — the same real circuit in 2D and in 3D. The 3D view uses
+the packet's elevation and is drag-to-rotate; the ✦ markers are detected contacts:
+
+![Track map in 2D, colored by speed](docs/media/track-map.png)
+
+![Track map in 3D, drag-to-rotate](docs/media/track-map-3d-animated.gif)
+
+**Jumps, drawn as jumps** — takeoff ○, dashed flight line, touchdown ▸, an amber
+glow + impact ring on hard landings; the red ✦ is a real contact:
+
+![Jump glyphs on the 3D track map](docs/media/track-map-3d-jumps.png)
+
+**Lap list with dirty-lap flags** (💥 contact, ⏪ rewind) and compare tags:
+
+![Lap list with dirty-lap flags](docs/media/session-list.png)
+
+**Session list** — every drive with Forza-colored class/PI, drivetrain, track-type, and
+conditions ribbons, plus the auto-named route:
+
+![Session list with ribbons](docs/media/session-sidebar.png)
+
+**Settings** — units, accent theme, and map preferences, saved in your browser:
+
+![Settings panel](docs/media/settings.png)
+
+**Accent themes** — six curated presets; every gauge, map, and chart follows along
+(the live dashboard in Sunset, showing hp / bar power and boost units):
+
+![Live dashboard in the Sunset accent](docs/media/accent-live-sunset.png)
+
+## Quick start
+
+### Windows (recommended — plug and play)
+
+1. Download the latest **`LapScope-<version>-win64.zip`** from the
+   [Releases page](../../releases).
+2. Unzip it anywhere and double-click **`LapScope.exe`**.
+3. The LapScope window opens and your browser follows at **http://127.0.0.1:8000**.
+   Leave the window open while you play — it is the server.
+
+The window is a small control panel, not the dashboard: it shows one line telling
+you what the recorder is doing (*Waiting for telemetry*, *Recording — session 12*,
+*Telemetry port blocked*), a live log, and four buttons — **Open Dashboard**,
+**Stop**, **Restart**, **Open Data Folder**. Closing it stops the server cleanly
+and saves the lap you were on.
+
+> If the build isn't code-signed yet, Windows SmartScreen may warn on first run —
+> click **More info → Run anyway**. Every release lists SHA256 checksums, and you
+> can rebuild and verify the download yourself: see [docs/BUILDING.md](docs/BUILDING.md).
+>
+> LapScope also shows a dismissible "newer version available" notice in the
+> dashboard when a newer GitHub release exists (it never auto-downloads). That
+> check, and the two reference-list refreshes, are the only things it ever sends
+> anywhere — see [What LapScope contacts](#what-lapscope-contacts) to turn them off.
+
+### Docker (power / cross-platform users)
+
+```bash
+docker compose up --build -d
+```
+
+Then open **http://localhost:8000**.
+
+> ⚠️ Compose publishes port 8000 on **every** interface, and LapScope has no
+> accounts or passwords — anyone who can reach that port can read your sessions
+> and delete them. That's fine on a home LAN; don't publish it to an untrusted
+> network or forward it through your router. To keep it on the machine itself,
+> change the port mapping to `"127.0.0.1:8000:8000"`.
+
+### In Forza Horizon 6 (required either way)
+
+Turn on Data Out under **`Settings → HUD and Gameplay`**:
+
+| Setting             | Value       |
+|---------------------|-------------|
+| Data Out            | `ON`        |
+| Data Out IP Address | `127.0.0.1` |
+| Data Out IP Port    | `9999`      |
+
+Then just drive. Telemetry is only sent while you're driving (not in menus). You'll see
+**"Waiting for telemetry…"** until the first packet arrives.
+
+> ⚠️ Do **not** use ports **5200–5300** — the game binds its own socket in that range.
+
+![FH6 Data Out settings](docs/media/fh6-settings.png)
+
+## Try it without the game
+
+No FH6 handy? A built-in simulator replays realistic telemetry so you can see the whole
+app work end to end. It needs a source checkout (`git clone`) and Python — it's a
+single stdlib script — and works against the exe or Docker alike:
+
+```bash
+python tools/simulator.py                                   # ~3.5 laps, 1 event
+python tools/simulator.py --freeroam 20 --events 2 --wet    # full feature test
+python tools/simulator.py --duration 180 --dirty            # contact + rewind flags
+python tools/simulator.py --race 3 --duration 200           # a race with a real finish
+python tools/simulator.py --sprint 75 --jumps               # point-to-point + jumps
+```
+
+The live dashboard moves immediately; a session with laps appears on the Analysis page
+~15 s after the simulator finishes.
+
+## Troubleshooting
+
+**No packets arriving?** Most common on Microsoft Store / Xbox-app (UWP) builds, which
+can be blocked from sending to `127.0.0.1`:
+
+1. Try `127.0.0.1:9999` first — it's officially supported by FH6.
+2. If nothing arrives, use your PC's **LAN IP** instead (`ipconfig` → e.g.
+   `192.168.1.20`), keeping port `9999`.
+3. Check the server actually sees packets at **http://localhost:8000/api/status**.
+
+The full flow — UWP loopback exemptions, the Docker IPv6-proxy port bug, busy ports,
+wrong-size packets — lives in **[Troubleshooting](../../wiki/Troubleshooting)** on the
+Wiki. Diagnosing an **event type that isn't being recorded** (with `LS_KEEP_DISCARDED`
+and `tools/inspect_session.py`) has its own page:
+**[Capturing an Unrecognized Event](../../wiki/Capturing-an-Unrecognized-Event)**.
+
+## Configuration
+
+| Env var              | Default          | Meaning                                    |
+|----------------------|------------------|--------------------------------------------|
+| `TELEMETRY_UDP_PORT` | `9999`           | UDP port the listener binds                |
+| `DATA_DIR`           | `/app/data`      | Where `telemetry.db` is written            |
+| `LS_KEEP_DISCARDED`  | `0`              | `1` = keep sessions with no completed laps |
+| `LS_CAR_LIST_URL`    | this repo's list | Where "Refresh car names" downloads from   |
+| `LS_TRACK_LIST_URL`  | this repo's list | Where "Refresh tracks" downloads from      |
+| `LS_OFFLINE`         | `0`              | `1` = never contact the internet (see below) |
+| `LS_ALLOWED_HOSTS`   | *(empty)*        | Extra `Host` names to answer to (see below) |
+
+`LS_KEEP_DISCARDED`, `LS_OFFLINE` and `LS_ALLOWED_HOSTS` are read once when the app
+starts, so they have to be set before launch. On the exe that means closing the
+LapScope window and opening it again — the **Restart** button restarts the *server*,
+which is enough for `DATA_DIR` and `TELEMETRY_UDP_PORT` but not for these three. The
+two list URLs point at this repo's `main` branch by default and only exist so a fork
+can serve its own lists.
+
+### What LapScope contacts
+
+Your telemetry never leaves the machine: no account, no upload, no analytics, and
+nothing about your driving is sent anywhere. LapScope does make three *optional*
+requests, all to GitHub, all fail-soft, none of them more than once a day:
+
+- **the browser → `api.github.com`** — is there a newer release? (that's the
+  dismissible update notice; it never downloads anything)
+- **the server → `raw.githubusercontent.com`** — the community car-name list
+- **the server → `raw.githubusercontent.com`** — the official-route catalogue
+
+They are plain GETs for public files, so the only thing they reveal is that some IP
+asked for one. Turn all three off in **Settings → Privacy**, which covers that
+browser; set **`LS_OFFLINE=1`** to cover the whole install (a headless container, an
+air-gapped box), which also stops the server serving the refreshes at all. The
+bundled car and track lists keep working either way, and **Refresh now** stays a
+manual button you can press whenever you like — unless `LS_OFFLINE` is set, in which
+case nothing reaches out at all.
+
+LapScope answers to `localhost`, any `.local` name, and any IP address —
+loopback, the exe, and reaching a Docker host by its LAN IP all work untouched.
+Other hostnames get a `400 Invalid host header`, which is what stops a web page
+you happen to visit from pointing its own domain at your machine and driving the
+API from there. If you front LapScope with a reverse proxy or reach it by some
+other name, list those names in `LS_ALLOWED_HOSTS` (comma-separated).
+
+Recordings are raw 324-byte packets (~70 MB per hour of driving). Deleting a session
+from the Analysis page frees that space *inside* the database file for future
+recordings, but the file itself never shrinks on its own — use **Settings → Storage →
+Compact now** to hand the space back to the drive (it needs as much free disk space as
+the database currently uses, and can't run while a session is recording). The Windows
+exe stores its DB in `%LOCALAPPDATA%\LapScope` and serves on `127.0.0.1:8000`; its
+log is written alongside, in `%LOCALAPPDATA%\LapScope\logs\lapscope.log` (rotated,
+2 MB × 4), which is the file to attach to a bug report.
+
+## How it works
+
+```
+FH6 ──UDP 9999──▶ asyncio listener ──▶ parser (324-byte Data Out packet)
+                                      ├──▶ WebSocket /ws/live ──▶ live dashboard
+                                      └──▶ session/lap tracker ──▶ SQLite ──▶ REST /api ──▶ analysis page
+```
+
+It's a single FastAPI app with a vanilla-JS frontend (no build step). Packet layout
+reference: [FH6 Data Out documentation](https://support.forza.net/hc/en-us/articles/51744149102611-Forza-Horizon-6-Data-Out-Documentation).
+
+The interesting part is that FH6 gives *no* explicit event boundaries, no lap-invalidated
+flag, and no route names, and `DistanceTraveled` isn't even in meters on real circuits —
+so LapScope infers all of it from packet behavior. The deep dives live on the Wiki:
+**[FH6 Data Out Packet](../../wiki/FH6-Data-Out-Packet)** (the 324-byte layout and its
+quirks) and **[Event Detection](../../wiki/Event-Detection)** (how sessions, laps,
+finishes, and dirty-lap flags are inferred, with the real captures that proved each
+rule) — plus [AGENTS.md](AGENTS.md) for the dev-facing summary.
+
+## Contributing
+
+[Issues](../../issues) and PRs welcome — especially **captures of event types that
+aren't detected yet** and **car-ordinal additions**. Start with
+[CONTRIBUTING.md](CONTRIBUTING.md) (workflow, branch rules, how to file a capture);
+see [ARCHITECTURE.md](ARCHITECTURE.md) for the code map, [AGENTS.md](AGENTS.md) for
+the dev workflow, and our [Code of Conduct](CODE_OF_CONDUCT.md).
+
+## License
+
+[MIT](LICENSE) © 2026 Erdem Darcan.
+
+### Third-party assets
+
+- **[Rajdhani](https://fonts.google.com/specimen/Rajdhani)** display font — SIL Open
+  Font License 1.1 (vendored in `app/static/fonts`).
+- **[uPlot](https://github.com/leeoniya/uPlot)** charting library — MIT (vendored for
+  the analysis page).
+
+### Code signing
+
+Windows releases are code-signed with a free code-signing certificate generously
+provided by [SignPath Foundation](https://signpath.org/), using code-signing
+infrastructure by [SignPath.io](https://about.signpath.io/).
+
+> LapScope is an unofficial, fan-made tool and is not affiliated with or endorsed by
+> Playground Games, Turn 10, or Microsoft. "Forza Horizon" is a trademark of Microsoft.
