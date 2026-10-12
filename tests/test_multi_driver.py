@@ -80,3 +80,80 @@ def test_old_single_driver_database_retains_identity(tmp_path):
     with sqlite3.connect(filename) as con:
         assert con.execute("PRAGMA user_version").fetchone()[0] == 2
     store.close()
+
+
+def test_two_ports_same_source_and_size_counter(tmp_path):
+    """Source address cannot choose driver; destination listener instance does."""
+    from app.telemetry.hub import Hub
+    from app.telemetry.listener import TelemetryProtocol
+
+    store = Store(str(tmp_path / "duo.db"))
+    store.register_drivers(specs())
+    hubs = {d.id: Hub() for d in specs()}
+    trackers = {d.id: SessionTracker(DriverScopedStore(store, d.id)) for d in specs()}
+    listeners = {ident: TelemetryProtocol(hubs[ident], trackers[ident], ident)
+                 for ident in ("alpha", "beta")}
+    f = empty_fields()
+    f.update(is_race_on=1, car_ordinal=11, car_class=3, car_pi=800,
+             drivetrain_type=1)
+    raw = pack(f)
+    src = ("203.0.113.9", 40222)
+    listeners["alpha"].datagram_received(raw, src)
+    listeners["beta"].datagram_received(raw, src)
+    listeners["beta"].datagram_received(b"bad", src)
+    assert hubs["alpha"].packets_total == hubs["beta"].packets_total == 1
+    assert hubs["beta"].bad_packets == 1 and hubs["alpha"].bad_packets == 0
+    found = {row["driver_id"]: row for row in store.list_sessions()}
+    assert set(found) == {"alpha", "beta"}
+    assert found["alpha"]["source_addr"] == found["beta"]["source_addr"] == "203.0.113.9:40222"
+
+    # The second driver's source port changes, but its driver identity does not.
+    listeners["beta"].datagram_received(raw, ("203.0.113.9", 40223))
+    found = {row["driver_id"]: row for row in store.list_sessions()}
+    assert found["beta"]["source_addr"] == "203.0.113.9:40223"
+    assert found["beta"]["id"] != found["alpha"]["id"]
+    assert found["alpha"]["source_addr"] == "203.0.113.9:40222"
+    for tracker in trackers.values():
+        tracker.shutdown(999.0)
+    store.close()
+
+
+def test_status_lists_each_driver_and_protects_when_second_is_recording(tmp_path):
+    import asyncio
+    from types import SimpleNamespace
+    from app.api.routes import status, sessions, _any_session_active
+    from app.telemetry.hub import Hub
+
+    store = Store(str(tmp_path / "status.db"))
+    specs_now = specs()
+    store.register_drivers(specs_now)
+    trackers = {d.id: SessionTracker(DriverScopedStore(store, d.id)) for d in specs_now}
+    hubs = {d.id: Hub() for d in specs_now}
+    first = specs_now[0]
+    state = SimpleNamespace(
+        store=store, hub=hubs[first.id], tracker=trackers[first.id],
+        udp_port=first.udp_port, udp_error=None, udp_errors={},
+        drivers=specs_now, trackers=trackers, hubs=hubs,
+    )
+    request = SimpleNamespace(app=SimpleNamespace(state=state))
+    data = asyncio.run(status(request))
+    assert [row["udp_port"] for row in data["drivers"]] == [19999, 20000]
+
+    f = empty_fields()
+    f.update(is_race_on=1, car_ordinal=22, car_class=3, car_pi=800, drivetrain_type=1)
+    raw = pack(f)
+    trackers["beta"].on_frame(100.0, raw, parse(raw))
+    assert trackers["alpha"].session_id is None
+    assert _any_session_active(request)  # must not silently permit reprocess/VACUUM
+    listed = sessions(request, driver_id="beta")
+    assert len(listed) == 1 and listed[0]["driver_id"] == "beta"
+    assert sessions(request, driver_id="alpha") == []
+    for tracker in trackers.values():
+        tracker.shutdown(150.0)
+    store.close()
+
+
+def test_websocket_host_gate_rejects_rebinding_name():
+    from app.main import host_allowed, origin_allowed
+    assert origin_allowed("https://attacker.invalid", "attacker.invalid")
+    assert not host_allowed("attacker.invalid")
