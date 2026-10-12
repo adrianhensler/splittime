@@ -56,14 +56,14 @@ Fields read from `frame`: `distance_traveled`, `current_lap`,
   "corners": [
     {
       "n": 1,
-      "direction": "L",
-      "kind": "hairpin",
-      "heading_change_deg": 179.2,
-      "s_entry": 598.1,
-      "s_apex": 787.0,
-      "s_exit": 978.6,
-      "radius_m": 120.4,
-      "length_m": 380.5
+      "direction": "R",
+      "kind": "sweeper",
+      "heading_change_deg": 176.7,
+      "s_entry": 603.2,
+      "s_apex": 788.6,
+      "s_exit": 973.3,
+      "radius_m": 120.0,
+      "length_m": 370.1
     }
   ],
   "warnings": []
@@ -76,6 +76,13 @@ Fields read from `frame`: `distance_traveled`, `current_lap`,
   change are not corners.
 - `version` changes whenever detection thresholds change, so cached results
   can be invalidated.
+- Boundaries sit where the heading has changed by 1.5° from the corner's start
+  or end, so they fall a few metres inside the geometric bend (about 3 m for a
+  120 m radius, 8 m for 300 m).
+- `kind` uses the reference lap's speed, so it can differ between cars. Number,
+  direction and boundaries do not.
+- A corner that straddles the start/finish line of a circuit is not joined up:
+  it appears as a part at the end of the lap and a part at the start.
 
 ## 4. Two-lap comparison
 
@@ -89,14 +96,14 @@ Fields read from `frame`: `distance_traveled`, `current_lap`,
   "a": {"lap_id": 12, "timing_source": "game_lap_clock", "capture_quality": "continuous", "samples": 2569},
   "b": {"lap_id": 31, "timing_source": "game_lap_clock", "capture_quality": "unknown", "samples": 2552},
   "segments": [
-    {"kind": "straight", "n": null, "s_from": 0.0, "s_to": 598.1, "time_a": 8.412, "time_b": 8.377, "dt": -0.035},
-    {"kind": "corner", "n": 1, "s_from": 598.1, "s_to": 978.6, "time_a": 10.03, "time_b": 10.21, "dt": 0.18,
-     "a": {"entry_kmh": 136.2, "min_kmh": 136.0, "s_min": 760.2, "exit_kmh": 136.4, "brake_onset_s": 512.0, "throttle_on_s": 801.5},
-     "b": {"entry_kmh": 135.1, "min_kmh": 133.9, "s_min": 771.0, "exit_kmh": 134.8, "brake_onset_s": 498.3, "throttle_on_s": 822.9}}
+    {"kind": "straight", "n": null, "s_from": 0.0, "s_to": 603.48, "time_a": 11.77, "time_b": 11.167, "dt": -0.603},
+    {"kind": "corner", "n": 1, "s_from": 603.48, "s_to": 973.33, "time_a": 9.869, "time_b": 9.983, "dt": 0.114,
+     "a": {"entry_kmh": 134.9, "min_kmh": 134.8, "s_min": 651.9, "exit_kmh": 134.8, "brake_onset_s": 381.8, "throttle_on_s": 977.6},
+     "b": {"entry_kmh": 133.5, "min_kmh": 133.4, "s_min": 652.1, "exit_kmh": 133.4, "brake_onset_s": 381.6, "throttle_on_s": 978.2}}
   ],
-  "totals": {"time_a": 42.817, "time_b": 42.533, "dt": -0.284},
-  "sum_check": {"segments_dt": -0.284, "lap_time_dt": -0.284, "residual": 0.0},
-  "largest": [1, 2]
+  "totals": {"time_a": 42.783, "time_b": 42.51, "dt": -0.273},
+  "sum_check": {"segments_dt": -0.273, "lap_time_dt": -0.283, "residual": -0.01},
+  "largest": [2, 1]
 }
 ```
 
@@ -107,12 +114,21 @@ Fields read from `frame`: `distance_traveled`, `current_lap`,
   segments do not explain.
 - `capture_quality` is `continuous`, `discontinuous` or `unknown`, from gaps in
   the packet timestamp. `unknown` when the timestamp does not advance.
-- `comparable` is `false`, with `reasons`, when the two laps do not cover the
-  same stretch of route. Segments are still returned where they can be.
+- `comparable` is `false`, with `reasons`, when the laps should not be scored
+  against each other. Segments are still returned where they can be, for an
+  exploratory look. Reasons: `too_few_samples`, `no_shared_distance`,
+  `laps_cover_different_distance`, `different_start_position`,
+  `different_timing_source`.
+- A corner cut off by the end of a lap carries `"partial": true`.
+- Each lap misses up to one frame at each end, so `residual` is normally a few
+  hundredths of a second, not zero.
 - `largest` lists corner numbers by absolute `dt`, biggest first.
-- `brake_onset_s` and `throttle_on_s` are positions, `null` when the driver
-  never braked for the corner or never got back to throttle before the next
-  one.
+- `brake_onset_s`: first position, from up to 300 m before the corner to its
+  apex, where brake stays at 10% or more for three samples. `null` when the
+  driver never braked for the corner.
+- `throttle_on_s`: first position at or after the slowest point where throttle
+  stays at 50% or more for three samples, looking up to 300 m past the exit.
+  `null` when that never happens before the next corner.
 - There is no text explaining why a driver was faster. The page may phrase the
   numbers; it must not add causes.
 

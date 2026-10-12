@@ -38,9 +38,11 @@ SOFTWARE.
 
 - Source: https://github.com/ClickClickMedia/Forza-6-telemetry
 - Commit: `523e8ba188d0f7c0a5540139174db286198e851c` (2026-07-28)
-- Use: none yet. Corner-detection code from `app/sections.py` is planned to be
-  adapted (WP-005). This notice is here in advance; update it when that code
-  lands.
+- Use: `app/corners/detect.py` adapts the corner-detection approach of its
+  `app/sections.py`: the lateral-g cornering criterion, the minimum heading
+  change for a corner, and the hairpin / turn / sweeper classification with
+  their thresholds. No file was copied whole; the code is rewritten without
+  numpy and reorganised around route-fixed corners.
 
 ```
 MIT License

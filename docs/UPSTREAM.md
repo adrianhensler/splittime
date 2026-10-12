@@ -63,6 +63,12 @@ corners fixed to a route and numbered, so the same corner can be compared
 between two drivers. That part is new work. Adapting `sections.py` adds numpy
 as a dependency.
 
+**Adapted so far** (WP-005): into `app/corners/detect.py`, from `app/sections.py`
+at `523e8ba`: `CORNER_LAT_G` (0.30), `TURN_MIN_HEADING_DEG` (25), and the
+hairpin, switchback and sweeper thresholds with their classification rule.
+Rewritten, not copied; numpy not used (ADR 19). `session_data.py` and
+`comparison.py` were read for reference only.
+
 ## Licence duties
 
 MIT requires the copyright and permission notice to travel with the code.
