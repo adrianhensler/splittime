@@ -24,6 +24,7 @@ One entry per decision. Status is **Accepted** (the owner decided),
 | 16 | The app works under a URL prefix; browser update check removed | Accepted |
 | 17 | The owner's deployment is documented separately from the software | Accepted |
 | 18 | Workpacket-light, POC-first development | Accepted |
+| 19 | Corner analysis uses the standard library only, not numpy | Proposed |
 
 Each entry lists what it **rests on**, so that reversing one decision shows
 which others to revisit.
@@ -220,3 +221,18 @@ least privilege or separation of verification from acceptance.
 
 *Consequence:* the implementation handoff and workflow guidance live in
 `docs/REVIEW_HANDOFF_2026-10-12.md`, `AGENTS.md` and `docs/WORKPACKETS.md`.
+
+## 19. Corner analysis uses the standard library only, not numpy
+
+**Proposed, 2026-10-12** (Opus 5.5, with the corner module).
+ADR 3 expected numpy to arrive with the corner code. It was not needed: a lap
+is a few thousand samples, and the comparison endpoint takes about 150 ms for
+three simulated laps, most of it reading and parsing frames. Upstream runs on
+two runtime dependencies and its Docker image installs only those; keeping it
+that way avoids a Dockerfile and requirements change.
+
+The detection approach and thresholds still come from Forza-6-telemetry's
+`sections.py` (ADR 3); only the array library differs.
+
+*Rests on:* 3. *Revisit if* laps of tens of thousands of samples make the
+pure-Python pass slow.
