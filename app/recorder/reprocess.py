@@ -1,0 +1,92 @@
+"""Rebuild a session's laps by replaying its stored raw frames through a
+fresh SessionTracker.
+
+Recordings are lossless (every 324-byte packet is kept), so any session can
+be re-segmented after a detection fix without redriving the event - e.g.
+World Time Attack sessions captured before geometric lap detection existed,
+or races recorded before final-lap finish detection.
+"""
+
+from __future__ import annotations
+
+import logging
+
+from ..telemetry.packet import parse
+from .laps import RACE_OFF_GRACE, SessionTracker
+
+log = logging.getLogger("lapscope.recorder")
+
+
+class _ReplayStore:
+    """Store facade for replays: laps and routes are written for real, but
+    the session row itself is left alone - no create/end/discard, and the
+    frames are not rewritten. The one exception: auto-detected tags (wet,
+    suggested track type) do apply, so a reprocess back-fills sessions
+    recorded before the detection existed - their COALESCE writes never
+    overwrite a tag the user set."""
+
+    def __init__(self, store, session_id: int) -> None:
+        self._store = store
+        self._sid = session_id
+        self._starts = 0
+
+    def create_session(self, started_at: float, frame: dict) -> int:
+        self._starts += 1
+        if self._starts > 1:
+            log.warning("Replay of session %d wanted to split into a new"
+                        " session; keeping everything in one", self._sid)
+        return self._sid
+
+    def add_frames(self, session_id: int, frames) -> None:
+        pass
+
+    def end_session(self, session_id: int, ended_at: float, frame_count: int,
+                    conditions: str | None = None,
+                    track_type: str | None = None) -> None:
+        if conditions or track_type:  # timing/frame_count stay untouched
+            self._store.auto_tag_session(self._sid, conditions, track_type)
+
+    def discard_session(self, session_id: int) -> None:
+        pass  # never delete the real session from a replay
+
+    def mark_session_kept(self, session_id: int) -> None:
+        pass  # handled once by reprocess_session
+
+    def __getattr__(self, name):
+        # add_lap / complete_lap / restart_lap / delete_lap / routes...
+        return getattr(self._store, name)
+
+
+def reprocess_session(store, session_id: int) -> int:
+    """Replay stored frames through current lap detection; returns the
+    number of completed laps found. Existing lap rows are replaced, atomically:
+    either the session ends up fully re-segmented or exactly as it was.
+
+    Must run on the event-loop thread: lap/route writes go through the
+    Store's main connection.
+    """
+    frames = store.session_frames(session_id)
+    if not frames:
+        return 0
+    # All-or-nothing: the old laps are deleted at the start, so anything that
+    # raises before the rebuild finishes must put them back. A tracker crash
+    # on a given session is deterministic, so without the rollback a retry
+    # can't recover the times either - they're simply gone (issue #60).
+    with store.transaction():
+        store.delete_session_laps(session_id)
+        tracker = SessionTracker(_ReplayStore(store, session_id))
+        last_t = frames[0][0]
+        for t, raw in frames:
+            try:
+                frame = parse(raw)
+            except Exception:
+                continue  # tolerate a corrupt frame rather than losing the replay
+            tracker.on_frame(t, raw, frame)
+            last_t = t
+        tracker.shutdown(last_t + RACE_OFF_GRACE + 1.0)
+        store.mark_session_kept(session_id)  # survives cleanup even with 0 laps
+    # after the commit: session_laps reads through its own connection, which
+    # can't see anything the transaction was still holding
+    laps = sum(1 for lap in store.session_laps(session_id) if lap["lap_time"])
+    log.info("Session %d reprocessed: %d completed laps", session_id, laps)
+    return laps

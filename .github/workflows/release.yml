@@ -1,0 +1,156 @@
+name: Release
+
+# Builds the plug-and-play Windows exe and publishes it to a GitHub Release.
+# Fires ONLY on version tags (e.g. v1.2.0) — never on branch pushes or PRs, so
+# the exe exists exactly once per tagged release. Cut a tag with:
+#   git tag v1.2.0 && git push origin v1.2.0   (owner does the push)
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write        # needed to create the Release and upload assets
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          # Pinned patch (not just "3.12") so the build inputs are reproducible;
+          # keep in step with requirements-build.lock (regenerate the lock under
+          # this interpreter — see docs/BUILDING.md).
+          python-version: "3.12.8"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install --require-hashes -r requirements-build.lock
+
+      - name: Stamp version from tag
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}" -replace '^v', ''
+          $init = "app/__init__.py"
+          (Get-Content $init) -replace '^__version__ = .*', "__version__ = `"$version`"" | Set-Content $init
+          Write-Host "Stamped __version__ = $version"
+
+      - name: Build exe (PyInstaller onedir)
+        run: pyinstaller LapScope.spec
+
+      # The only place a LapScope.exe is ever run before a user runs it. CI
+      # tests on Linux from source and never builds the exe, so this is what
+      # catches the failures only the frozen windowed build has: a missing
+      # `datas` entry, or the None sys.stdout that takes uvicorn's default
+      # logging config down before the window appears.
+      #
+      # Mechanics matter here. A windowed (console=False) exe has no stdout to
+      # capture and returns immediately when invoked normally, so the run must
+      # be waited on explicitly and the verdict read from a file. Placed before
+      # signing so a broken build never reaches SignPath or the Release.
+      - name: Smoke-test the exe (headless)
+        shell: pwsh
+        run: |
+          $env:DATA_DIR = Join-Path $env:RUNNER_TEMP "lapscope-selftest"
+          $env:LS_DESKTOP_SELFTEST = "server"
+          $p = Start-Process .\dist\LapScope\LapScope.exe -Wait -PassThru
+          $result = Join-Path $env:DATA_DIR "logs\selftest.txt"
+          if (Test-Path $result) { Get-Content $result } else { Write-Host "no result file written" }
+          $log = Join-Path $env:DATA_DIR "logs\lapscope.log"
+          if (Test-Path $log) { Write-Host "--- lapscope.log ---"; Get-Content $log }
+          if ($p.ExitCode -ne 0) { throw "Self-test failed (exit $($p.ExitCode))" }
+
+      # --- Code signing (SignPath Foundation, free for OSS) ---
+      # Inert until enrolled: with no SIGNPATH_API_TOKEN secret set, every step
+      # below is skipped and the release ships unsigned exactly as before. Once
+      # the OSS grant lands, add the SIGNPATH_API_TOKEN secret and the
+      # SIGNPATH_ORGANIZATION_ID variable (repo Settings -> Secrets and
+      # variables -> Actions) and adjust the project/policy slugs to match your
+      # SignPath project. See docs/BUILDING.md.
+      - name: Check signing availability
+        id: signing
+        shell: bash
+        run: echo "enabled=${{ secrets.SIGNPATH_API_TOKEN != '' }}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload unsigned build for signing
+        if: steps.signing.outputs.enabled == 'true'
+        id: unsigned
+        uses: actions/upload-artifact@v4
+        with:
+          name: LapScope-unsigned
+          path: dist/LapScope
+
+      - name: Submit signing request (SignPath)
+        if: steps.signing.outputs.enabled == 'true'
+        uses: signpath/github-action-submit-signing-request@v1
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: lapscope
+          signing-policy-slug: release-signing
+          github-artifact-id: ${{ steps.unsigned.outputs.artifact-id }}
+          wait-for-completion: true
+          # Signed PEs come back in the same tree layout; overwrite the build so
+          # the zip + checksum below cover the signed exe.
+          output-artifact-directory: dist/LapScope
+
+      - name: Package zip + checksum
+        shell: pwsh
+        run: |
+          $zip = "LapScope-${{ github.ref_name }}-win64.zip"
+          Compress-Archive -Path dist/LapScope -DestinationPath $zip
+          (Get-FileHash $zip -Algorithm SHA256).Hash + "  " + $zip | Out-File -Encoding ascii checksums.txt
+          Get-Content checksums.txt
+
+      # Static header only (install + verify instructions). The per-release
+      # changelog is appended automatically by generate_release_notes below.
+      - name: Compose release notes
+        shell: pwsh
+        run: |
+          $signed = "${{ steps.signing.outputs.enabled }}" -eq "true"
+          $verify = if ($signed) {
+            "SHA256 checksums are in ``checksums.txt``. This build is code-signed" +
+            " (SignPath Foundation), so Windows SmartScreen should recognise it." +
+            " You can still confirm the download independently at" +
+            " https://www.virustotal.com/ and rebuild it yourself (see" +
+            " docs/BUILDING.md)."
+          } else {
+            "SHA256 checksums are in ``checksums.txt``. This is an unsigned" +
+            " binary, so Windows SmartScreen may warn (`"More info`" -> `"Run" +
+            " anyway`"); you can confirm it independently by uploading the exe to" +
+            " https://www.virustotal.com/ or rebuild it yourself (see" +
+            " docs/BUILDING.md)."
+          }
+          @"
+          ## LapScope ${{ github.ref_name }} — Windows
+
+          Plug-and-play build for normal users: download the zip, unzip, and
+          double-click **LapScope.exe**. The LapScope window opens and your
+          browser follows at http://127.0.0.1:8000; telemetry records to
+          ``%LOCALAPPDATA%\LapScope``. Leave the window open while you play —
+          it shows what the recorder is doing, keeps a log, and closing it saves
+          the lap you were on. Power/cross-platform users: see the Docker path
+          in the README.
+
+          **In-game:** enable FH6 "Data Out" to your PC's IP on UDP port 9999.
+
+          ### Verify your download
+          $verify
+          "@ | Out-File -Encoding utf8 release_notes.md
+          Get-Content release_notes.md
+
+      - name: Publish Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            LapScope-${{ github.ref_name }}-win64.zip
+            checksums.txt
+          body_path: release_notes.md
+          # Appends GitHub's auto-generated "What's Changed" (merged PRs since
+          # the previous tag + full-changelog link) below the static body above,
+          # so each release actually describes what changed in it.
+          generate_release_notes: true

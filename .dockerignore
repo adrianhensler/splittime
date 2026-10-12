@@ -1,0 +1,12 @@
+data/
+tools/
+tests/
+desktop/
+.github/
+*.md
+.git/
+conftest.py
+pyproject.toml
+requirements-dev.txt
+__pycache__/
+*.pyc

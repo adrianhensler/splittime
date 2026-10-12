@@ -1,0 +1,1678 @@
+/* LapScope UI — dark motorsport-telemetry theme.
+   Display type: Rajdhani (vendored, css/fonts.css); body text: system UI. */
+
+:root {
+  --bg: #06080c;
+  --panel-hi: #12171f;
+  --panel-lo: #0b0f15;
+  --panel-edge: #1d2634;
+  --panel-edge-soft: #171f2b;
+  --text: #e8eef6;
+  --muted: #8494a7;
+  --accent: #00d4ff;
+  --accent2: #ff3d7f;
+  --good: #2fe6a8;
+  --warn: #ffbe3d;
+  --bad: #ff5d5d;
+  --display: "Rajdhani", "Segoe UI", system-ui, sans-serif;
+  font-size: 15px;
+}
+
+* { box-sizing: border-box; }
+
+::selection { background: var(--accent); color: #001018; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+body {
+  margin: 0;
+  color: var(--text);
+  font-family: "Segoe UI", system-ui, sans-serif;
+  /* four soft color fields leaning toward the center — the first follows the
+     Settings accent, the rest stay violet, magenta, teal for a multi-hue glow */
+  background:
+    radial-gradient(1000px 640px at 16% 6%, color-mix(in srgb, var(--accent) 8%, transparent), transparent 62%),
+    radial-gradient(880px 600px at 88% 20%, rgba(124, 92, 255, 0.06), transparent 60%),
+    radial-gradient(1000px 660px at 82% 96%, rgba(255, 61, 127, 0.065), transparent 62%),
+    radial-gradient(860px 580px at 8% 84%, rgba(47, 230, 168, 0.05), transparent 60%),
+    var(--bg);
+  background-attachment: fixed;
+  min-height: 100vh;
+}
+
+/* ---------- header ---------- */
+
+header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--panel-edge-soft);
+  background: linear-gradient(180deg, rgba(18, 23, 31, 0.85), rgba(11, 15, 21, 0.4));
+  backdrop-filter: blur(6px);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.brand {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 1.12rem;
+  letter-spacing: 0.09em;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.brand span { color: var(--accent); }
+.brand i {
+  width: 24px; height: 24px;
+  background: center/contain no-repeat url("../img/logo.png");
+}
+
+nav { display: flex; gap: 4px; }
+nav a {
+  font-family: var(--display);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  text-decoration: none;
+  padding: 5px 14px;
+  border-radius: 999px;
+  text-transform: uppercase;
+  font-size: 0.82rem;
+}
+nav a.active {
+  color: #001018;
+  background: var(--accent);
+}
+nav a:hover:not(.active) { color: var(--text); background: var(--panel-hi); }
+
+.update-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 8px 20px;
+  font-size: 0.85rem;
+  color: #001018;
+  background: linear-gradient(90deg, var(--accent), var(--good));
+  border-bottom: 1px solid var(--panel-edge-soft);
+}
+.update-banner a {
+  color: #001018;
+  font-weight: 700;
+  text-decoration: underline;
+}
+.update-banner-x {
+  background: transparent;
+  border: none;
+  color: #001018;
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+  opacity: 0.7;
+}
+.update-banner-x:hover { opacity: 1; }
+
+/* recording write failure: same top-of-page slot as the update notice, but
+   a live condition rather than a notice - no dismiss button, because the
+   only way out is fixing the disk (issue #64) */
+.rec-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 8px 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-align: center;
+  color: #1a0406;
+  background: var(--bad);
+  border-bottom: 1px solid var(--panel-edge-soft);
+}
+
+.chip {
+  margin-left: auto;
+  background: var(--panel-lo);
+  border: 1px solid var(--panel-edge);
+  border-radius: 999px;
+  padding: 4px 13px;
+  font-size: 0.85rem;
+  color: var(--muted);
+  cursor: default;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+.chip.clickable { cursor: pointer; }
+.chip.clickable:hover { border-color: var(--accent); color: var(--text); }
+.chip .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+.chip.ok { color: var(--good); border-color: #1d4c3b; }
+.chip.ok .dot { background: var(--good); box-shadow: 0 0 8px var(--good); animation: pulse 2s infinite; }
+.chip.err { color: var(--bad); border-color: #5b2a2a; }
+.chip.err .dot { background: var(--bad); }
+/* the stream stalled but the socket is fine — FH6 pausing, not a fault (#69) */
+.chip.warn { color: var(--warn); border-color: #5b4a1f; }
+.chip.warn .dot { background: var(--warn); box-shadow: 0 0 8px var(--warn); }
+#conn { margin-left: 0; }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+/* ---------- panels & grid ---------- */
+
+main.grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 14px;
+  padding: 14px 20px 28px;
+  max-width: 1500px;
+  margin: 0 auto;
+}
+
+.panel {
+  background: linear-gradient(165deg, var(--panel-hi), var(--panel-lo));
+  border: 1px solid var(--panel-edge);
+  border-radius: 14px;
+  padding: 14px 16px;
+  min-width: 0;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035), 0 4px 18px rgba(0, 0, 0, 0.35);
+}
+.panel h2 {
+  margin: 0 0 10px;
+  font-family: var(--display);
+  font-size: 0.76rem;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.panel h2::before {
+  content: "";
+  width: 14px;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent), transparent);
+  border-radius: 2px;
+  transform: skewX(-18deg);
+  flex: none;
+}
+.panel h2 .lg-th { color: var(--good); }
+.panel h2 .lg-br { color: var(--bad); }
+.panel h2 .lg-st { color: #93a3b8; }
+
+.span5 { grid-column: span 5; }
+.span4 { grid-column: span 4; }
+.span3 { grid-column: span 3; }
+.span7 { grid-column: span 7; }
+.span12 { grid-column: span 12; }
+@media (max-width: 1100px) {
+  .span5, .span4, .span3, .span7 { grid-column: span 6; }
+}
+@media (max-width: 700px) {
+  .span5, .span4, .span3, .span7 { grid-column: span 12; }
+}
+
+canvas { display: block; }
+
+/* live page: panels are flex columns so gauges center in the leftover space */
+main.grid .panel { display: flex; flex-direction: column; }
+main.grid .panel h2 { flex: none; }
+main.grid .cluster-flex { flex: 1; }
+main.grid .inputs-flex { flex: 1; }
+#friction, #grip { margin: auto; }
+main.grid #delta { margin-top: auto; }
+main.grid .lap-grid { margin-bottom: auto; }
+
+/* ---------- cluster (rpm + speed) ---------- */
+
+.cluster { position: relative; padding-top: 10px; }
+
+#shift-lights {
+  display: flex;
+  justify-content: center;
+  gap: 9px;
+  margin: 0 0 12px;
+}
+#shift-lights i {
+  width: 13px; height: 13px;
+  border-radius: 50%;
+  background: #161e2a;
+  border: 1px solid #202a38;
+  transition: background 60ms linear;
+}
+#shift-lights i.on:nth-child(-n+4) { background: var(--good); box-shadow: 0 0 9px var(--good); border-color: transparent; }
+#shift-lights i.on:nth-child(n+5):nth-child(-n+7) { background: var(--warn); box-shadow: 0 0 9px var(--warn); border-color: transparent; }
+#shift-lights i.on:nth-child(n+8) { background: var(--bad); box-shadow: 0 0 9px var(--bad); border-color: transparent; }
+#shift-lights.limiter i { animation: blink 0.14s steps(1) infinite; }
+@keyframes blink { 50% { filter: brightness(0.25); } }
+
+.cluster-flex {
+  display: flex;
+  align-items: center;
+  justify-content: space-evenly;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.speed-block { text-align: center; min-width: 170px; }
+#speed {
+  font-family: var(--display);
+  font-size: clamp(3.4rem, 5.5vw, 5.6rem);
+  font-weight: 700;
+  line-height: 0.95;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 26px color-mix(in srgb, var(--accent) 28%, transparent);
+}
+#speed-unit {
+  font-family: var(--display);
+  color: var(--muted);
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  font-size: 0.85rem;
+  margin-top: 2px;
+}
+.mini-row {
+  display: flex;
+  justify-content: center;
+  gap: 22px;
+  margin-top: 14px;
+  color: var(--muted);
+}
+.mini-row b {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 1.35rem;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.mini-row em {
+  font-style: normal;
+  font-size: 0.75rem;
+  margin-left: 4px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* ---------- lap panel ---------- */
+
+.lap-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 16px;
+  font-variant-numeric: tabular-nums;
+}
+.lap-grid .label {
+  color: var(--muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-family: var(--display);
+  font-weight: 600;
+}
+.lap-grid .value {
+  font-family: var(--display);
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+#delta {
+  font-family: var(--display);
+  font-size: 3.4rem;
+  font-weight: 700;
+  text-align: center;
+  margin: 6px 0 14px;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+#delta.pos { color: var(--bad); text-shadow: 0 0 22px rgba(255, 93, 93, 0.35); }
+#delta.neg { color: var(--good); text-shadow: 0 0 22px rgba(47, 230, 168, 0.35); }
+
+.balance {
+  text-align: center;
+  margin-top: 8px;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 0.9rem;
+  letter-spacing: 0.22em;
+  color: var(--muted);
+}
+.balance.understeer { color: var(--warn); }
+.balance.oversteer { color: var(--bad); }
+
+.g-readout {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin-top: 8px;
+}
+.g-readout b {
+  font-family: var(--display);
+  font-size: 1.05rem;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- inputs panel ---------- */
+
+.inputs-flex {
+  display: flex;
+  justify-content: space-evenly;
+  align-items: center;
+  gap: 14px;
+  padding: 6px 4px 2px;
+}
+.vbar { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+.vbar-track {
+  width: 34px; height: 170px;
+  background: #0a0e14;
+  border: 1px solid var(--panel-edge);
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  align-items: flex-end;
+}
+.vbar-fill { width: 100%; height: 0%; border-radius: 6px 6px 0 0; transition: height 40ms linear; }
+.vbar-fill.th { background: linear-gradient(180deg, #6ffcc9, var(--good)); box-shadow: 0 0 12px rgba(47, 230, 168, 0.35); }
+.vbar-fill.br { background: linear-gradient(180deg, #ff9d9d, var(--bad)); box-shadow: 0 0 12px rgba(255, 93, 93, 0.35); }
+.vbar b {
+  font-family: var(--display);
+  font-size: 1.15rem;
+  font-variant-numeric: tabular-nums;
+}
+.vbar span, .steer-col > span {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 0.68rem;
+  letter-spacing: 0.2em;
+  color: var(--muted);
+}
+.steer-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  align-self: center;
+  flex: 1;
+  max-width: 220px;
+}
+.steer-track {
+  position: relative;
+  width: 100%;
+  height: 14px;
+  background: #0a0e14;
+  border: 1px solid var(--panel-edge);
+  border-radius: 999px;
+}
+.steer-track .notch {
+  position: absolute;
+  left: 50%; top: -3px; bottom: -3px;
+  width: 1px;
+  background: var(--panel-edge);
+}
+#steer-ind {
+  position: absolute;
+  top: 1px;
+  left: calc(50% - 9px);
+  width: 18px; height: 10px;
+  border-radius: 999px;
+  background: #9fb3c8;
+  box-shadow: 0 0 8px rgba(159, 179, 200, 0.5);
+  transition: left 40ms linear;
+}
+.gear-mini { color: var(--muted); font-size: 0.8rem; margin-top: 10px; }
+.gear-mini b {
+  font-family: var(--display);
+  font-size: 1.6rem;
+  color: var(--accent);
+  margin-left: 6px;
+}
+
+/* ---------- overlay ---------- */
+
+.overlay {
+  position: fixed; inset: 0;
+  background: rgba(4, 6, 10, 0.9);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 10; /* below the sticky header (20): nav must stay clickable */
+}
+.overlay.hidden { display: none; }
+.overlay .box {
+  background: linear-gradient(165deg, var(--panel-hi), var(--panel-lo));
+  border: 1px solid var(--panel-edge);
+  border-radius: 16px;
+  padding: 30px 38px;
+  max-width: 580px;
+  line-height: 1.55;
+  text-align: center;
+  box-shadow: 0 10px 50px rgba(0, 0, 0, 0.5);
+}
+.overlay h3 {
+  margin: 14px 0 8px;
+  font-family: var(--display);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+.overlay code {
+  background: #0a0d12;
+  padding: 2px 8px;
+  border-radius: 5px;
+  color: var(--accent);
+  font-size: 0.95em;
+}
+.setup-lines { line-height: 2; }
+.overlay .stat { color: var(--muted); font-size: 0.85rem; margin-top: 16px; }
+.overlay .stat.error {
+  color: var(--bad);
+  font-size: 0.95rem;
+  font-weight: 600;
+  max-width: 42ch;
+  border: 1px solid #5b2a2a;
+  border-radius: 8px;
+  padding: 10px 14px;
+}
+
+.pulse-ring { display: flex; justify-content: center; }
+.pulse-ring i {
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: var(--accent);
+  position: relative;
+}
+.pulse-ring i::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  animation: ring 1.6s ease-out infinite;
+}
+@keyframes ring {
+  0% { transform: scale(0.6); opacity: 1; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+
+/* ---------- modal dialogs (rename / confirm / notice) ---------- */
+
+@keyframes fade-in { from { opacity: 0; } }
+
+/* a real <dialog>: the browser centers it, traps focus in it, closes it on
+   Escape and hands focus back to whatever opened it (issue #70) */
+dialog.modal {
+  margin: auto;
+  color: var(--text);
+  background: linear-gradient(165deg, var(--panel-hi), var(--panel-lo));
+  border: 1px solid var(--panel-edge);
+  border-radius: 14px;
+  padding: 20px 22px;
+  width: min(440px, calc(100vw - 40px));
+  max-height: calc(100vh - 40px);
+  overflow: auto;
+  box-shadow: 0 14px 60px rgba(0, 0, 0, 0.6);
+  animation: modal-in 0.15s ease-out;
+}
+dialog.modal::backdrop {
+  background: rgba(4, 6, 10, 0.72);
+  backdrop-filter: blur(3px);
+  animation: fade-in 0.12s ease-out;
+}
+@keyframes modal-in { from { opacity: 0; transform: translateY(10px) scale(0.97); } }
+
+/* for dialogs that list rows rather than ask one question */
+.modal-wide { width: min(580px, calc(100vw - 40px)); }
+
+.modal h3 {
+  margin: 0 0 10px;
+  font-family: var(--display);
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  display: flex; align-items: center; gap: 8px;
+}
+.modal h3::before {
+  content: "";
+  width: 14px; height: 3px;
+  background: linear-gradient(90deg, var(--accent), transparent);
+  border-radius: 2px;
+  transform: skewX(-18deg);
+  flex: none;
+}
+.modal.danger h3::before { background: linear-gradient(90deg, var(--bad), transparent); }
+
+.modal p { margin: 0 0 14px; color: var(--muted); line-height: 1.5; font-size: 0.92rem; }
+
+/* the type selector is load-bearing: showModal's own field is the only text
+   input, and a bare `.modal input` also stretched every checkbox a caller
+   puts in `extra` to full width - which is what squashed the merge list and
+   the lap-flag editor into a centred box with wrapped labels */
+.modal input[type="text"] {
+  width: 100%;
+  background: #0a0e14;
+  border: 1px solid var(--panel-edge);
+  border-radius: 8px;
+  color: var(--text);
+  font: inherit;
+  padding: 9px 12px;
+  margin-bottom: 16px;
+}
+.modal input[type="checkbox"],
+.modal input[type="radio"] { flex: none; accent-color: var(--accent); margin: 0; }
+.modal input[type="text"]:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.12);
+}
+
+/* lap flag editor (analysis page): checkbox per dirty-lap marker */
+.flag-editor { margin: 0 0 12px; }
+.flag-editor label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 2px;
+  cursor: pointer;
+}
+/* CSV export chooser (issue #90): two variants, each with the sentence that
+   makes it the right one — the file-size cost is stated next to the option
+   that carries it, not in a footnote under both. */
+.export-choice { display: flex; flex-direction: column; gap: 8px; margin: 0 0 16px; }
+.export-choice label {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--panel-edge);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.export-choice label:hover { border-color: var(--accent); }
+.export-choice input[type="radio"] { margin-top: 3px; }
+.export-choice-text { display: flex; flex-direction: column; gap: 3px; }
+.export-choice-name { font-weight: 600; }
+.export-choice-hint { color: var(--muted); font-size: 0.8rem; line-height: 1.45; }
+
+.modal-hint { color: var(--muted); font-size: 0.8rem; margin: 8px 0 0; }
+
+.modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
+/* the opposite verdict, parked at the far end so a bulk dismissal is never
+   the button next to the one you were aiming for */
+.modal-actions .modal-alt { margin-right: auto; }
+.modal-actions button:disabled { opacity: 0.4; cursor: default; }
+.modal-actions button:disabled:hover { border-color: var(--panel-edge); }
+.modal-actions button {
+  padding: 7px 16px;
+  font-family: var(--display);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+.modal-actions .primary { background: var(--accent); border-color: var(--accent); color: #001018; }
+.modal-actions .primary:hover { filter: brightness(1.12); }
+.modal-actions .danger-solid { background: var(--bad); border-color: var(--bad); color: #1a0505; }
+.modal-actions .danger-solid:hover { filter: brightness(1.1); border-color: var(--bad); color: #1a0505; }
+
+/* ---------- settings panel ---------- */
+
+.settings-modal { width: min(460px, calc(100vw - 40px)); }
+.settings-body { display: flex; flex-direction: column; gap: 4px; margin-bottom: 16px; }
+.settings-group-title {
+  font-family: var(--display);
+  font-size: 0.7rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 12px 0 4px;
+}
+.settings-group-title:first-child { margin-top: 0; }
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+}
+.settings-label { font-size: 0.92rem; color: var(--text); }
+
+.settings-seg {
+  display: inline-flex;
+  border: 1px solid var(--panel-edge);
+  border-radius: 8px;
+  overflow: hidden;
+  background: #0a0e14;
+  flex: none;
+}
+.settings-seg button {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  padding: 6px 14px;
+  cursor: pointer;
+  min-width: 52px;
+}
+.settings-seg button + button { border-left: 1px solid var(--panel-edge); }
+.settings-seg button:hover { color: var(--text); }
+.settings-seg button.active { background: var(--accent); color: #001018; }
+
+.settings-switch {
+  position: relative;
+  width: 42px;
+  height: 22px;
+  border-radius: 999px;
+  border: 1px solid var(--panel-edge);
+  background: #0a0e14;
+  cursor: pointer;
+  flex: none;
+  padding: 0;
+  transition: background 0.15s, border-color 0.15s;
+}
+.settings-switch::after {
+  content: "";
+  position: absolute;
+  top: 2px; left: 2px;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: var(--muted);
+  transition: transform 0.15s, background 0.15s;
+}
+.settings-switch.on { background: var(--accent); border-color: var(--accent); }
+.settings-switch.on::after { transform: translateX(20px); background: #001018; }
+/* only LS_OFFLINE disables one: the server has already answered, so the
+   switch is showing a decision rather than offering one */
+.settings-switch:disabled { cursor: not-allowed; opacity: 0.45; }
+
+/* the explanatory paragraph under a settings group (Privacy) */
+.settings-note {
+  margin: 2px 0 4px;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+/* accent swatches (Theme group): one dot per preset; the active one wears a
+   white ring + its own glow. --sw is set per-button from ACCENTS in JS. */
+.settings-swatches { display: inline-flex; gap: 9px; flex: none; }
+.settings-swatch {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  background: var(--sw);
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.12s, box-shadow 0.12s, border-color 0.12s;
+}
+.settings-swatch:hover { transform: scale(1.15); }
+.settings-swatch.active { border-color: var(--text); box-shadow: 0 0 10px var(--sw); }
+
+.settings-refresh-status { color: var(--muted); font-size: 0.85rem; }
+.settings-refresh {
+  background: #0a0e14;
+  border: 1px solid var(--panel-edge);
+  border-radius: 8px;
+  color: var(--text);
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  padding: 6px 14px;
+  cursor: pointer;
+  flex: none;
+}
+.settings-refresh:hover { border-color: var(--accent); }
+.settings-refresh:disabled { color: var(--muted); cursor: default; border-color: var(--panel-edge); }
+
+/* ---------- unknown car (ordinal missing from the community list) ---------- */
+
+.car-unknown { color: var(--warn); }
+.car-unknown-hint {
+  background: none;
+  border: 1px dashed var(--warn);
+  border-radius: 6px;
+  color: var(--warn);
+  font: inherit;
+  font-size: 0.8rem;
+  margin-left: 10px;
+  padding: 1px 8px;
+  cursor: pointer;
+}
+.car-unknown-hint:hover { background: rgba(255, 190, 61, 0.12); }
+
+/* ---------- badges (shared) ---------- */
+
+.class-badge {
+  display: inline-flex;
+  border-radius: 6px;
+  overflow: hidden;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 0.8rem;
+  line-height: 1;
+  vertical-align: middle;
+}
+.class-badge .cls { padding: 4px 8px; color: #10141a; }
+.class-badge .pi { padding: 4px 8px; background: #10141a; color: #fff; font-variant-numeric: tabular-nums; }
+
+.cond-badge {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--panel-edge);
+  background: #0d1218;
+  font-size: 0.78rem;
+  color: var(--text);
+  vertical-align: middle;
+}
+.cond-badge.cond-wet { border-color: #2c5d82; }
+.cond-badge.cond-snow { border-color: #55788f; }
+.cond-badge.cond-dirt { border-color: #6e522c; }
+
+.dt-badge {
+  display: inline-flex;
+  padding: 4px 7px;
+  border-radius: 6px;
+  border: 1px solid var(--panel-edge);
+  background: #0d1218;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 0.72rem;
+  line-height: 1;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  vertical-align: middle;
+}
+.dt-badge.dt-AWD { color: var(--accent); border-color: #14424f; }
+.dt-badge.dt-RWD { color: var(--accent2); border-color: #522034; }
+.dt-badge.dt-FWD { color: var(--warn); border-color: #4f3d18; }
+
+#car-chip { display: inline-flex; align-items: center; gap: 8px; color: var(--text); }
+
+/* Each name is edited where it is shown — the title renames the session,
+   the chips below name the place and the car — which is what stops three
+   similar-sounding verbs from being a choice made in the abstract. The ✎ is
+   dimmed rather than hidden until hover: revealing it would reflow the row
+   it sits in, and an affordance nobody ever sees is not an affordance.
+
+   Declared BEFORE the chips: `font: inherit` is what makes the title button
+   look like an h1, but it also resets weight and size, and it would beat an
+   equally specific .car-nm coming after it. */
+.name-edit {
+  background: none;
+  border: 0;
+  border-bottom: 1px dashed transparent;
+  border-radius: 0;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  letter-spacing: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.name-edit::after {
+  content: "✎";
+  margin-left: 5px;
+  font-size: 0.8em;
+  color: var(--accent);
+  opacity: 0.3;
+}
+.name-edit:hover, .name-edit:focus-visible { border-bottom-color: var(--accent); }
+.name-edit:hover::after, .name-edit:focus-visible::after { opacity: 1; }
+
+/* ---------- identity chips: the car, and the place ----------
+
+   Class, PI, name and drivetrain are four facts about one car, so they read
+   as one thing and the name carries the weight — it is the part a human
+   actually reads. It used to be var(--muted) at 0.8rem, on its own line
+   below its own badges with a row of buttons in between.
+
+   Inline flow, not flex: in a 275 px sidebar card a flex chip wraps at item
+   boundaries and parks the class plate on a line of its own, away from the
+   name it qualifies. Inline, it wraps like a sentence and the plate stays
+   where the name starts. */
+.car-chip, .route-chip { min-width: 0; line-height: 1.7; }
+.car-chip .class-badge { margin-right: 7px; }
+.car-chip .dt-badge { margin-left: 7px; }
+/* scoped to the chips: the Live page builds its own #car-chip with a
+   .car-nm inside it, and its typography is not this change's business */
+.car-chip .car-nm, .route-chip .route-nm {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--text);
+}
+.route-chip .route-nm { font-weight: 500; }
+.route-chip .route-untitled { color: var(--muted); font-style: italic; }
+.car-chip .car-unknown { color: var(--warn); }
+.group-count { color: var(--muted); font-size: 0.8rem; margin-left: 10px; }
+
+.lap-flag { margin-right: 4px; cursor: help; }
+
+/* live page: race-mode chip in the lap panel header */
+.race-flag {
+  margin-left: auto;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--panel-edge);
+  background: #0d1218;
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  color: var(--muted);
+}
+.race-flag.on {
+  color: var(--good);
+  border-color: #1d5c46;
+  text-shadow: 0 0 8px rgba(47, 230, 168, 0.55);
+}
+
+/* ---------- analysis browse bar ---------- *
+
+   Full width under the header, in normal flow. Deliberately not sticky: the
+   header already is, and it wraps at narrow widths, so a second sticky
+   element with a hardcoded top would overlap or gap as the header's height
+   changes. --browse-h is measured by browse.js so the sidebar's viewport
+   math below stays right whatever the chip row does. */
+
+.browse-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 10px 20px;
+  max-width: 1500px;
+  margin: 0 auto;
+  border-bottom: 1px solid var(--panel-edge-soft);
+}
+.browse-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+/* the bar is chrome: the only thing in it worth a text caret is the search
+   box, so the caret is granted back there rather than left on by default */
+.browse-bar { cursor: default; user-select: none; }
+.browse-search input { cursor: text; user-select: text; }
+.browse-search {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 11px;
+  border: 1px solid var(--panel-edge);
+  border-radius: 999px;
+  background: var(--panel-lo);
+  color: var(--muted);
+  min-width: 260px;
+}
+.browse-search:focus-within { border-color: var(--accent); }
+.browse-search input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.85rem;
+  padding: 2px 0;
+}
+.browse-search input::-webkit-search-cancel-button { filter: invert(0.6); }
+
+.browse-facets { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+.browse-facets button {
+  font-family: var(--display);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  padding: 4px 11px;
+  border-radius: 999px;
+}
+.browse-facets button .caret { color: var(--muted); margin-left: 5px; font-size: 0.7rem; }
+/* a pill, not a suffix: "Route 2" would read as a route number */
+.browse-facets button .facet-n:not(:empty) {
+  display: inline-block;
+  min-width: 15px;
+  margin-left: 6px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #001018;
+  font-size: 0.68rem;
+  line-height: 15px;
+  text-align: center;
+}
+.browse-facets button.on {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--panel-lo));
+}
+.browse-facets button.on .caret { color: inherit; }
+.browse-facets button.open { border-color: var(--accent); }
+.browse-sort { flex: none; }
+
+/* only rendered when something is filtered; an always-present empty row is
+   the same wasted line */
+.browse-chips { gap: 6px; }
+.fchip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px 2px 10px;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  font-size: 0.8rem;
+}
+.fchip b { font-weight: 500; }
+.fchip button {
+  background: none;
+  border: none;
+  padding: 0 3px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1;
+}
+.fchip button:hover { color: var(--bad); }
+/* the count rides at the right end of the FIRST row, next to the sort: given
+   a row of its own it doubles the bar's height for one short string */
+.browse-status {
+  color: var(--muted);
+  font-size: 0.8rem;
+  margin-left: auto;
+  white-space: nowrap;
+}
+.browse-status.warn { color: var(--warn); cursor: help; }
+.browse-clear { padding: 2px 10px; font-size: 0.8rem; }
+
+/* facet menus: one floating list per button, above the sticky header */
+.facet-pop {
+  position: fixed;
+  z-index: 30;
+  min-width: 210px;
+  max-width: 320px;
+  padding: 6px;
+  border: 1px solid var(--panel-edge);
+  border-radius: 10px;
+  background: var(--panel-hi);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55);
+  animation: fade-in 0.12s ease;
+  /* a menu is chrome, not prose: without this the popover's own padding
+     inherits cursor:auto and draws a text caret between the rows, and a
+     double-click on a value selects the label instead of ticking it */
+  cursor: default;
+  user-select: none;
+}
+.facet-search { display: block; padding: 2px 4px 6px; }
+.facet-search input {
+  width: 100%;
+  border: 1px solid var(--panel-edge);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.82rem;
+  padding: 3px 8px;
+  outline: none;
+  cursor: text;
+  user-select: text;
+}
+.facet-search input:focus { border-color: var(--accent); }
+.facet-body { max-height: 320px; overflow-y: auto; }
+.facet-group {
+  font-family: var(--display);
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 8px 6px 3px;
+}
+.facet-group:first-child { padding-top: 2px; }
+.facet-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 4px 7px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.85rem;
+}
+.facet-row:hover { background: var(--panel-lo); }
+.facet-row.on { background: #131c27; color: var(--accent); }
+.facet-row.on .facet-label::before { content: "✓ "; }
+.facet-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* route thumbnails: one flat stroke in the row's own color, so a selected
+   route's outline turns accent with its label and nothing else has to know */
+.route-outline {
+  /* a bare inline span ignores width/height, and the svg's 100%/100% then
+     resolves against nothing and renders the outline full-page tall */
+  display: block;
+  flex: none;
+  width: 48px;
+  height: 30px;
+  border-radius: 4px;
+  background: #0a0e14;
+  border: 1px solid var(--panel-edge);
+}
+.route-outline svg { display: block; width: 100%; height: 100%; }
+.route-outline path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  opacity: 0.85;
+}
+/* still loading, or a route whose captures were deleted: hold the space so
+   the list doesn't jump when the outlines land */
+.route-outline.empty { opacity: 0.35; }
+.route-outline.big {
+  width: 100%;
+  height: 130px;
+  margin-bottom: 12px;
+  color: var(--accent);
+}
+.route-outline.big path { stroke-width: 2; }
+/* a dialog showing an empty frame for a route with no frames left to draw
+   from says less than showing nothing at all */
+.route-outline.big.empty { display: none; }
+.facet-count { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 0.78rem; }
+.facet-clear { width: 100%; margin-top: 6px; font-size: 0.8rem; }
+.cls-only {
+  display: inline-block;
+  min-width: 22px;
+  text-align: center;
+  border-radius: 4px;
+  padding: 1px 5px;
+  color: #160a1e;
+  font-weight: 700;
+  font-size: 0.75rem;
+}
+
+/* ---------- analysis page ---------- */
+
+.analysis-layout {
+  display: grid;
+  grid-template-columns: 290px 1fr;
+  gap: 14px;
+  padding: 14px 20px 28px;
+  max-width: 1500px;
+  margin: 0 auto;
+  align-items: start;
+}
+/* 92px = header + layout padding; --browse-h is the browse bar, measured by
+   browse.js because the chip row wraps at narrow widths */
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: calc(100vh - 92px - var(--browse-h, 0px));
+}
+
+/* Below this the two columns don't fit: the sidebar stayed pinned at 290px
+   and the detail column was squeezed to 356px while the map still rendered
+   at 547px, so the page scrolled sideways (issue #74). One column, and the
+   session list takes a slice of the viewport rather than all of it. Must
+   stay after .sidebar — same specificity, so source order decides. */
+@media (max-width: 900px) {
+  .analysis-layout { grid-template-columns: 1fr; padding: 14px 12px 28px; }
+  .sidebar { max-height: 45vh; }
+  .detail-header { gap: 6px; }
+  /* nowrap, and long enough to hold the page open on its own */
+  #hint { display: none; }
+}
+/* the lap table is intrinsically wide (up to 8 columns); it scrolls inside
+   its own box rather than dragging the whole page sideways */
+.laps-scroll { overflow-x: auto; }
+.sidebar-actions { display: flex; }
+.sidebar-actions button { flex: 1; }
+#session-list { display: flex; flex-direction: column; gap: 8px; overflow-y: auto; }
+/* the card is a <button>, so the ＋ quick-add has to be a sibling rather
+   than nested inside it — this is what it is positioned against (#70) */
+.card-wrap { position: relative; display: flex; }
+.session-card {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  background: linear-gradient(165deg, var(--panel-hi), var(--panel-lo));
+  border: 1px solid var(--panel-edge);
+  border-left: 3px solid var(--panel-edge);
+  border-radius: 10px;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+/* the card's rows are spans (phrasing content inside a <button>), so the
+   column they used to get from being divs is spelled out here */
+.card-body { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.card-body .sub { margin-top: 0; }
+/* a 199 px column fits maybe fourteen characters of car name per line, so
+   every point of leading and padding here is a line of card height across
+   a list that is meant to be scanned */
+.card-body .car-chip { line-height: 1.45; }
+.card-body .car-nm { font-size: 0.85rem; }
+.card-body .class-badge, .card-body .dt-badge { font-size: 0.7rem; }
+.card-body .class-badge .cls, .card-body .class-badge .pi { padding: 3px 6px; }
+.card-body .dt-badge { padding: 3px 5px; }
+.card-body .cond-badge { padding: 2px 8px; font-size: 0.72rem; }
+/* the race type rides with the track's name; it must not inherit the title's
+   weight, or it reads as part of the name rather than as a tag on it */
+.card-body .title .cond-badge { margin-left: 8px; font-weight: 400; vertical-align: middle; }
+/* the conditions get their own line under the car — a flex child would
+   otherwise stretch to the full card width */
+.card-body > .cond-badge { align-self: flex-start; }
+.session-card:hover { border-color: var(--accent); }
+.session-card.active { border-color: var(--panel-edge); border-left-color: var(--accent); background: #131c27; }
+.session-card .title { font-family: var(--display); font-weight: 600; font-size: 1rem; padding-right: 26px; }
+.card-wrap .card-add {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  line-height: 1;
+  border-radius: 6px;
+  color: var(--muted);
+  background: #0d1218;
+}
+.card-wrap .card-add:hover { color: var(--accent); }
+.session-card .sub { color: var(--muted); font-size: 0.8rem; margin-top: 3px; }
+
+/* merged run groups: several attempts at one route, browsed as one card */
+.session-card.group-card { border-left-color: var(--good); }
+.session-card.group-card.active { border-left-color: var(--accent); }
+.session-card .title { display: flex; align-items: baseline; gap: 6px; }
+.group-mark { color: var(--good); font-size: 0.85rem; }
+.group-badge {
+  margin-left: 6px;
+  border: 1px solid #1d5c46;
+  border-radius: 999px;
+  padding: 1px 9px;
+  font-size: 0.75rem;
+  color: var(--good);
+  white-space: nowrap;
+}
+table.laps .run-when { white-space: nowrap; }
+table.laps .run-when .lap-act {
+  opacity: 0.75;
+  padding: 1px 4px;
+  font-variant-numeric: tabular-nums;
+}
+.merge-list { display: flex; flex-direction: column; gap: 2px; max-height: 320px; overflow-y: auto; }
+.merge-list label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 6px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.merge-list label:hover { background: var(--panel-lo); }
+.merge-list label span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.merge-list + input { margin-top: 12px; }
+
+/* every pending suggestion at once: one row per sitting, ticked = included in
+   whichever verdict you press */
+.merge-review {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: min(46vh, 420px);
+  overflow-y: auto;
+  margin-bottom: 16px;
+  user-select: none;
+}
+.merge-review label {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 5px 7px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.merge-review label:hover { background: var(--panel-lo); }
+.merge-review .rv-all {
+  color: var(--muted);
+  font-size: 0.8rem;
+  border-bottom: 1px solid var(--panel-edge);
+  border-radius: 8px 8px 0 0;
+  margin-bottom: 2px;
+  padding-bottom: 7px;
+}
+.merge-review .rv-text { flex: 1; min-width: 0; }
+.merge-review .rv-title { display: flex; align-items: baseline; gap: 8px; font-size: 0.86rem; }
+.merge-review .rv-title > span:first-child {
+  flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.merge-review .rv-count { color: var(--muted); font-size: 0.78rem; white-space: nowrap; }
+.merge-review .rv-sub {
+  display: block;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.merge-review .rv-edit { flex: none; font-size: 0.75rem; padding: 3px 9px; opacity: 0.75; }
+.merge-review label:hover .rv-edit { opacity: 1; }
+
+/* the merge suggestion sits above the list, amber like every other "we
+   noticed something, you decide" surface */
+.merge-hint {
+  border: 1px solid #3b3016;
+  border-radius: 10px;
+  background: var(--panel-hi);
+  padding: 9px 11px;
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+.merge-hint-more { color: var(--muted); font-size: 0.8rem; margin-top: 3px; }
+.merge-hint-actions { display: flex; gap: 6px; margin-top: 7px; }
+.merge-hint-actions button { flex: 1; font-size: 0.8rem; }
+.merge-hint-actions button:first-child { border-color: var(--warn); color: var(--warn); }
+
+.detail { display: flex; flex-direction: column; gap: 14px; min-width: 0; position: relative; }
+/* the next session's payload is in flight: what is on screen stays readable
+   but goes visibly stale rather than looking like a dead click (issue #74) */
+.detail.busy { opacity: 0.45; pointer-events: none; }
+.detail.busy::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  animation: busy-sweep 1.1s linear infinite;
+}
+@keyframes busy-sweep {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
+}
+/* Two rows: what this IS on top, what you can DO to it on the right of the
+   first one. They used to share a single wrapping row of twelve controls. */
+.detail-header { display: flex; flex-direction: column; gap: 8px; }
+.detail-title-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.detail-title-row h1 {
+  font-family: var(--display);
+  font-size: 1.35rem;
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+  letter-spacing: 0.02em;
+}
+/* pairs, spaced further apart than their own contents, so "Road" reads as a
+   tag on the track and "Dry" as a tag on the drive */
+.detail-identity {
+  display: flex;
+  align-items: center;
+  gap: 8px 22px;
+  flex-wrap: wrap;
+}
+.ident-pair { display: inline-flex; align-items: center; gap: 9px; flex-wrap: wrap; min-width: 0; }
+
+/* ---------- overflow menu (common.js menuButton) ---------- */
+
+.menu-wrap { position: relative; display: inline-flex; }
+.menu-trigger { font-size: 1rem; line-height: 1.2; padding: 5px 11px; }
+.menu-wrap.open .menu-trigger { border-color: var(--accent); color: var(--accent); }
+.menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  /* above the page's own content, below the sticky app header (20) */
+  z-index: 15;
+  min-width: 268px;
+  max-width: min(340px, calc(100vw - 24px));
+  padding: 6px;
+  border: 1px solid var(--panel-edge);
+  border-radius: 10px;
+  background: var(--panel-lo);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.55);
+}
+.menu-group + .menu-group {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--panel-edge);
+}
+.menu-heading {
+  display: block;
+  padding: 4px 10px 2px;
+  font-family: var(--display);
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: 0;
+  border-radius: 7px;
+  padding: 7px 10px;
+  color: var(--text);
+}
+.menu-item:hover, .menu-item:focus-visible { background: #16202c; }
+.menu-label { display: block; font-size: 0.88rem; }
+/* the muted second line is what tells the three naming actions apart: their
+   labels all start with a naming verb, but one touches this session and the
+   others touch every session ever driven at that place or in that car */
+.menu-hint { display: block; margin-top: 2px; color: var(--muted); font-size: 0.75rem; }
+.menu-item.danger .menu-label { color: var(--bad); }
+.menu-item.danger:hover, .menu-item.danger:focus-visible { background: rgba(239, 68, 68, 0.12); }
+
+/* the tags are values, not actions: pill-shaped like the badges they set,
+   and muted while they still read "— race type —" */
+.tag-select { border-radius: 999px; padding: 4px 10px; font-size: 0.78rem; }
+.tag-select.unset { color: var(--muted); }
+button {
+  background: var(--panel-lo);
+  color: var(--text);
+  border: 1px solid var(--panel-edge);
+  border-radius: 7px;
+  padding: 5px 12px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-family: inherit;
+}
+button:hover { border-color: var(--accent); }
+button.danger:hover { border-color: var(--bad); color: var(--bad); }
+
+.seg { display: inline-flex; }
+.seg button {
+  border-radius: 0;
+  padding: 4px 12px;
+  font-family: var(--display);
+  font-weight: 600;
+}
+.seg button:first-child { border-radius: 7px 0 0 7px; }
+.seg button:last-child { border-radius: 0 7px 7px 0; border-left: none; }
+.seg button.active { background: var(--accent); color: #001018; border-color: var(--accent); }
+.seg.route-kind { display: flex; margin: 2px 0 4px; }
+.seg.route-kind button { flex: 1; }
+
+table.laps { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+table.laps th, table.laps td { padding: 6px 10px; text-align: left; font-size: 0.9rem; }
+table.laps th {
+  color: var(--muted);
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+table.laps tr { border-bottom: 1px solid var(--panel-edge-soft); }
+table.laps tr.best td { color: var(--good); }
+/* manually excluded laps stay listed but visibly out of the running */
+table.laps tr.excluded td { color: var(--muted); opacity: 0.55; }
+table.laps tr.excluded .lap-time { text-decoration: line-through; }
+table.laps .lap-actions { text-align: right; white-space: nowrap; }
+table.laps .lap-act {
+  padding: 1px 7px;
+  font-size: 0.8rem;
+  background: transparent;
+  border-color: transparent;
+  opacity: 0.35;
+}
+table.laps tr:hover .lap-act { opacity: 1; }
+table.laps .lap-act:hover { border-color: var(--accent); background: var(--panel-lo); }
+table.laps .pick {
+  display: inline-block;
+  width: 26px;
+  padding: 1px 0;
+  text-align: center;
+  border-radius: 5px;
+  border: 1px solid var(--panel-edge);
+  background: none;
+  cursor: pointer;
+  margin-right: 4px;
+  user-select: none;
+  color: var(--muted);
+}
+table.laps .pick:hover { border-color: var(--accent); color: var(--accent); }
+/* a picked lap's chip carries its overlay color inline (text/border/bg) */
+table.laps .pick.on { font-weight: 600; }
+
+/* comparison tray: the overlay roster (issue #30) - chip letters and colors
+   match the lap table, the map traces and the chart series */
+.cmp-tray {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  font-size: 0.85rem;
+}
+.cmp-tray .tray-label {
+  color: var(--muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-family: var(--display);
+  font-weight: 600;
+}
+.tray-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 3px 9px;
+  border: 1px solid var(--panel-edge);
+  border-radius: 999px;
+  background: #0d1218;
+  font-variant-numeric: tabular-nums;
+}
+.cmp-tray .swatch, .lap-grid .swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  vertical-align: -1px;
+}
+.tray-chip .ref-tag {
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
+  cursor: help;
+}
+.tray-chip button {
+  background: none;
+  border: none;
+  padding: 0 2px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.tray-chip button:hover { color: var(--text); }
+/* cross-route overlay: loud enough to not be skimmed past (a modal fires
+   once too, but this badge is what stays on screen) */
+.tray-warn {
+  color: var(--warn);
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 3px 10px;
+  border: 1px solid rgba(255, 190, 61, 0.5);
+  background: rgba(255, 190, 61, 0.12);
+  border-radius: 6px;
+}
+.tray-clear { margin-left: auto; }
+
+.map-row { display: grid; grid-template-columns: 1fr 320px; gap: 12px; }
+@media (max-width: 1100px) { .map-row { grid-template-columns: 1fr; } }
+/* A grid item's min-width defaults to min-content, and the canvas's own
+   inline width IS that content: once the map had been drawn at 1200 px the
+   column could never shrink again, so drawMap kept reading the blown-out
+   parent and narrowing the window left the page scrolling sideways for good
+   (measured: 375 px viewport, scrollWidth 576). */
+.map-row > * { min-width: 0; }
+#trackmap { width: 100%; touch-action: none; }
+.legend {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  color: var(--muted);
+  font-size: 0.8rem;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+.legend .swatch { display: inline-block; width: 26px; height: 8px; border-radius: 4px; vertical-align: middle; }
+select {
+  background: var(--panel-lo);
+  color: var(--text);
+  border: 1px solid var(--panel-edge);
+  border-radius: 7px;
+  padding: 4px 8px;
+  font-family: inherit;
+}
+
+.charts { display: flex; flex-direction: column; gap: 10px; }
+.uplot { background: transparent; }
+.uplot .u-legend { color: var(--muted); font-size: 0.8rem; }
+.uplot .u-title { color: var(--muted); font-family: var(--display); font-weight: 600; letter-spacing: 0.08em; font-size: 0.85rem; }
+.empty-hint { color: var(--muted); padding: 30px; text-align: center; }
+
+/* ---------- first run (issue #75) ----------
+   The detail pane on an install with no sessions. Not an .empty-hint: this is
+   the only thing on the page with anything to say, and the one action it
+   offers — go and set Forza up — has to look like an action. */
+.first-run {
+  max-width: 46ch;
+  margin: 8vh auto 0;
+  padding: 0 20px;
+  text-align: center;
+}
+.first-run h2 {
+  font-family: var(--display);
+  font-size: 1.5rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text);
+  margin: 0 0 12px;
+}
+.first-run p { color: var(--muted); line-height: 1.6; margin: 0 0 18px; }
+.first-run-go {
+  display: inline-block;
+  padding: 9px 20px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #001018;
+  font-family: var(--display);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-decoration: none;
+  transition: filter 0.15s;
+}
+.first-run-go:hover { filter: brightness(1.12); }
+.first-run-sub { font-size: 0.86rem; margin: 18px 0 0; }
+
+/* ---------- raw data views (Settings → Raw data) ---------- */
+
+/* live page: full-width value grid + wheels table */
+#raw-panel h2 button {
+  margin-left: auto;
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  padding: 3px 10px;
+  text-transform: uppercase;
+}
+#raw-panel h2 button.on { border-color: var(--accent); color: var(--accent); }
+.raw-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 1px 18px;
+}
+.raw-cell {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  padding: 2px 0;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.05);
+}
+.raw-cell span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.raw-cell span em { font-style: normal; opacity: 0.65; margin-left: 4px; font-size: 0.7rem; }
+.raw-cell b { font-weight: 600; font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+.raw-sub {
+  margin: 12px 0 4px;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-family: var(--display);
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.raw-wheels { border-collapse: collapse; margin-top: 10px; font-size: 0.8rem; }
+.raw-wheels th {
+  color: var(--muted);
+  font-weight: 600;
+  text-align: right;
+  padding: 2px 16px;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+}
+.raw-wheels td { text-align: right; padding: 2px 16px; font-variant-numeric: tabular-nums; }
+.raw-wheels td:first-child, .raw-wheels th:first-child {
+  text-align: left;
+  color: var(--muted);
+  padding-left: 0;
+  font-size: 0.78rem;
+}
+
+/* analysis page: values-at-cursor table, one column per picked lap */
+.raw-table { max-height: 340px; overflow: auto; margin-top: 6px; }
+.raw-table table { border-collapse: collapse; width: 100%; font-size: 0.8rem; }
+.raw-table th {
+  position: sticky;
+  top: 0;
+  background: var(--panel-lo);
+  text-align: right;
+  padding: 4px 14px;
+  font-weight: 600;
+}
+.raw-table td { text-align: right; padding: 1px 14px; font-variant-numeric: tabular-nums; }
+.raw-table td:first-child, .raw-table th:first-child { text-align: left; color: var(--muted); padding-left: 0; }
+.raw-table td:first-child em { font-style: normal; opacity: 0.65; margin-left: 4px; font-size: 0.7rem; }
+.raw-table tr:hover td { background: rgba(255, 255, 255, 0.03); }
+.raw-hint { color: var(--muted); font-size: 0.8rem; margin: 0 0 4px; }
+
+/* ---------- reduced motion (issue #70) ----------
+   Five animations here run forever, unconditionally. The loudest by far is
+   the limiter: `blink` alternates ten LEDs full/dim every 70 ms — about 7.1
+   flashes a second — for as long as the driver holds the rev limiter. The
+   flashing area is small enough to stay under WCAG 2.3.1's general flash
+   threshold, but it is not something to ship unguarded. With the OS setting
+   on, every one of them holds its lit state instead of moving. */
+@media (prefers-reduced-motion: reduce) {
+  .chip.ok .dot,
+  #shift-lights.limiter i,
+  .pulse-ring i::after,
+  .facet-pop,
+  .detail.busy::before,
+  dialog.modal,
+  dialog.modal::backdrop {
+    animation: none;
+  }
+  /* the ring's whole point is the sweep; a static one is just a smudge */
+  .pulse-ring i::after { display: none; }
+}
