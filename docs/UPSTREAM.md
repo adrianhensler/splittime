@@ -1,0 +1,80 @@
+# Upstream projects
+
+SplitTime reuses two MIT-licensed projects. Both were read on 2026-10-12 at the
+commits below.
+
+| Project | Licence | Pinned commit | Role |
+|---|---|---|---|
+| [darcane/LapScope](https://github.com/darcane/LapScope) | MIT, © 2026 Erdem Darcan | `c39a8d9` (2026-09-13) | **Base.** Imported whole. |
+| [ClickClickMedia/Forza-6-telemetry](https://github.com/ClickClickMedia/Forza-6-telemetry) | MIT, © 2026 ClickClickMedia | `523e8ba` (2026-07-28) | **Source for corner analysis.** Selected code adapted. |
+
+## LapScope: what it gives us
+
+Single-driver FH6 recorder and analysis site. Python, FastAPI, uvicorn, SQLite,
+no other runtime dependencies, no build step. About 6,000 lines of backend and about
+190 tests.
+
+| Area | File | Use |
+|---|---|---|
+| Packet parse and pack | `app/telemetry/packet.py` | As is |
+| UDP listener | `app/telemetry/listener.py` | One instance per driver |
+| Session, lap, finish, rewind, contact detection | `app/recorder/laps.py` | As is; one `SessionTracker` per driver |
+| Storage, migrations, manual edits | `app/recorder/store.py` | Add driver columns |
+| Reprocess from raw frames | `app/recorder/reprocess.py` | As is |
+| Route fingerprint and official route catalogue | `app/tracks.py`, `store.py` | As is; routes shared across drivers |
+| Car names | `app/cars.py` | As is |
+| REST API | `app/api/routes.py` | Add driver filters and rivalry endpoints |
+| Analysis page with multi-lap overlay (up to 6 laps, cross-session) | `app/static/analysis.*` | Add driver labels |
+| Scenario tests and packet simulator | `tests/`, `tools/simulator.py` | Keep green; extend to two ports |
+
+Its `AGENTS.md`, `ARCHITECTURE.md` and `docs/wiki/Event-Detection.md` record
+detection rules verified against real captures. Read them before touching
+`laps.py`.
+
+**What it lacks for our purpose**
+
+- Any notion of a driver. One port, one tracker, one set of bests.
+- Records or standings across people.
+- Corner-level comparison.
+- Access control. It checks the `Host` header only and assumes a home network.
+- Timing that has been tested over the internet. It was built for a LAN.
+
+**Not needed from it:** `desktop/`, the Windows exe spec and release workflow,
+Docker files, the live dashboard. Leave the live dashboard in place unless it
+gets in the way; drop the rest at import.
+
+## Forza-6-telemetry: what we take
+
+A tuning-focused tool. Most of it (dyno, tune export, AI package, MCP server,
+garage) is out of scope.
+
+| Area | File | Use |
+|---|---|---|
+| Corner detection and classification from lateral g, yaw, speed | `app/sections.py` | Adapt the detection approach and thresholds |
+| Column-array view of a session | `app/session_data.py` | Reference for a numpy view over LapScope frames |
+| Two-run summary deltas | `app/comparison.py` | Reference only |
+
+Its sections are grouped by corner type across a session. SplitTime needs
+corners fixed to a route and numbered, so the same corner can be compared
+between two drivers. That part is new work. Adapting `sections.py` adds numpy
+as a dependency.
+
+## Licence duties
+
+MIT requires the copyright and permission notice to travel with the code.
+
+- At import, add `THIRD_PARTY_NOTICES.md` containing both projects' full licence
+  texts and the pinned commits.
+- Keep existing copyright headers in copied files.
+- Record in this file every later sync from upstream, with the new commit.
+- SplitTime's own licence is undecided. See open questions in
+  [BUILD_PLAN.md](BUILD_PLAN.md#open-questions).
+
+## Import method
+
+A GitHub fork of a public repository cannot be made private, so LapScope is
+imported as a snapshot rather than forked: copy the tree at the pinned commit
+into this repo in one commit with no other changes, then modify in later
+commits. That keeps `git diff <import-commit>` an exact list of our changes and
+makes later upstream syncs manageable. Keep our changes to upstream files
+small and put new features in new files where possible.
