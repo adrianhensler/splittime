@@ -2,10 +2,10 @@
 
 | | |
 |---|---|
-| Status | draft |
+| Status | in-progress; exploratory records shipped on branches, scoring/history incomplete |
 | Parent | WP-000 |
 | Children | none |
-| Worker | — |
+| Worker | GPT-6; resumed by Codex on 2026-10-12 |
 | Verifier | — |
 | Acceptor | owner |
 
@@ -70,15 +70,29 @@ exploratory.
 
 ## Unresolved
 
-Owner confirmation of ADR 10 before this packet starts.
+Competitive equivalence and scoring defaults remain unresolved. The implemented
+POC deliberately shows candidate records and no winner. Full mode/quality
+classification, dated record-change history and real-capture route validation
+remain incomplete.
 
 ## Checkpoint
 
-Not started. Depends on WP-003 being admitted.
+Read-only API: `5d09fd1` on `feat/gpt6-rivalry-api`
+([PR #7](https://github.com/adrianhensler/splittime/pull/7)). Browser page:
+`6ad4b57` on `feat/gpt6-rivalry-page`
+([PR #9](https://github.com/adrianhensler/splittime/pull/9)). Both are in
+`feat/codex-integrated-poc` at `3ed8f6c`
+([draft PR #10](https://github.com/adrianhensler/splittime/pull/10)), not main.
+PRs hold live claims, tests and limits. Re-run `node --test tests/ui/*.test.cjs`
+and `python -m pytest -q tests/test_rivalry.py --basetemp=<new-scratch-directory>`.
+Fetch and inspect current refs before starting another implementation.
 
 ## Verification
 
-—
+Recovery session ran the combined suite (205 passed), driver/rivalry subset
+(21 passed) and UI controllers (8 passed), plus a browser smoke on simulator
+recordings. Newly authored integration checks are self-checks. Competitive
+fairness and real-game behaviour remain unverified.
 
 ## Acceptance
 

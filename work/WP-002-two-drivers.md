@@ -2,10 +2,10 @@
 
 | | |
 |---|---|
-| Status | draft |
+| Status | in-progress; implementation in PR #6, integrated for testing in draft PR #10 |
 | Parent | WP-000 |
 | Children | none |
-| Worker | — |
+| Worker | GPT-6; resumed by Codex on 2026-10-12 |
 | Verifier | — |
 | Acceptor | owner |
 
@@ -60,21 +60,31 @@ driver on every session, and per-driver bests.
 
 ## Known, unknown, unproven
 
-- **Known:** `SessionTracker` keeps state per instance (WP-000 C3).
-- **Unknown:** whether the store or the hub hold anything that assumes a single
-  tracker (session-best queries, live frame fan-out).
+- **Known:** separate configured listeners, trackers and hubs are implemented;
+  migration and destination-port isolation have simulator/socket regressions.
+- **Unknown:** real-game and deployed behaviour; full acceptance remains subject
+  to review rather than inferred from the passing suite.
 
 ## Unresolved
 
-None.
+Independent review remains pending. Simulator checks do not prove real FH6
+behaviour, authentication of UDP senders, or deployment readiness.
 
 ## Checkpoint
 
-Not started. Depends on WP-001 being admitted.
+Baseline is on main at `ad4551b`. The two-driver implementation is at
+`57ff717` on `feat/gpt6-two-driver-backend` ([PR #6](https://github.com/adrianhensler/splittime/pull/6)).
+It is included in `feat/codex-integrated-poc` at `3ed8f6c`
+([draft PR #10](https://github.com/adrianhensler/splittime/pull/10)), not merged or deployed.
+Live claims and limitations are in those PRs. Re-run
+`python -m pytest -q tests/test_multi_driver.py tests/test_rivalry.py --basetemp=<new-scratch-directory>`.
+On resumption, fetch, inspect the PRs and check the actual refs before editing.
 
 ## Verification
 
-—
+Recovery session ran the combined suite (205 passed) and the driver/rivalry
+subset (21 passed). These are this session's checks, not owner acceptance or
+proof that every acceptance criterion is met. See PR #10 for environment and scope.
 
 ## Acceptance
 

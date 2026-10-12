@@ -115,3 +115,49 @@ deliberately unsupported claim. SplitTime's WP-001 and WP-002 fit:
 
 Measure: time for worker B to become productive, questions B had to ask, and
 whether the reviewer caught the weak claims.
+
+## Recovery observation: a new chat resumed the build, 2026-10-12
+
+The owner reports that the preceding ChatGPT conversation seemed stuck or
+failed, and opened a fresh Codex chat to resume it. Cause is unknown. The chat
+reader exposes user messages but substitutes content-reference placeholders
+for the assistant replies; a `completed` turn marker does not establish that
+the build or handoff was complete. The reported Trackmania mention could not
+be traced through that reader. The original user request, repository README,
+setup and parser establish the intended game as Forza Horizon 6.
+
+**Recovery succeeded using the repository plus GitHub, not a packet alone.**
+The new session located `adrianhensler/splittime`, inspected the VPS checkout
+and refs, read instructions/contracts, cloned an isolated checkout and
+combined the recording/API/page/corner branches. It ran 205 Python tests,
+eight UI-controller tests and a browser smoke, then pushed integration head
+`3ed8f6c` as draft PR #10. Main stayed at `ad4551b`; no deployment occurred.
+These tests support the simulator POC, not field accuracy, independent review
+of new code, or admission. This was not a controlled packet-only experiment;
+recovery time, model cost and a comparison baseline were not measured.
+
+**The packet checkpoints failed to preserve current state.** WP-002 and
+WP-004 still said draft/not started despite PRs #6, #7 and #9. The new session
+also left WP-006 saying not started after its own integration. PR descriptions,
+branch contents and commit history supplied the missing state. The files had
+intents and limits worth reusing, but their status could mislead a replacement
+worker into rebuilding completed slices. This session subsequently corrected
+those checkpoints and linked the live PR records.
+
+**Concurrent work still needs a deliberate refresh.** A later fetch found
+corner fix `c29fdcc` and process-doc update `dc7cae1` after the POC branch was
+pushed. Saved on GitHub, merged to main, included in the integration and deployed
+are four different facts. PR #10 does not yet contain that newer corner fix.
+
+Minimal improvement: every stop leaves the repository locator, branch/head,
+PR, pushed/merged/deployed state, last actual check with its scope, unresolved
+criteria and one reproducible next step in the checkpoint. Fetch on resumption
+and challenge stale checkpoints against Git. Keep detailed evidence in the
+live PR while open, and snapshot it into the packet before merge, as proposed
+in process-doc PR #8. Do not infer acceptance from a successful upload or a
+successful test run.
+
+Observed conclusion: the code and evidence survived the conversation boundary;
+the packet files alone did not provide a dependable handoff. Whether Workpacket
+adds value beyond ordinary repository instructions and reviewed PRs remains
+unproven.
