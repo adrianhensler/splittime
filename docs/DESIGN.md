@@ -150,6 +150,8 @@ Detection rules are upstream's and are documented in its
 
 Use game-provided lap timing whenever available. Some upstream geometric or
 cutoff finishes are inferred or extrapolated; preserve a timing-source marker.
+Manual validity/flag corrections cannot erase the detector's cutoff evidence
+or promote its estimated time to a clean candidate record.
 Internet packet arrival timestamps must not be treated as official lap times.
 Circuit/sprint classification does not by itself identify Rivals versus a
 conventional race; unknown event modes remain unknown until validated.

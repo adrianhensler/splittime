@@ -2,10 +2,10 @@
 
 | | |
 |---|---|
-| Status | in-progress; exploratory records shipped on branches, scoring/history incomplete |
+| Status | in-progress; exploratory API in PR #7, fixing independent review findings |
 | Parent | WP-000 |
 | Children | none |
-| Worker | GPT-6; resumed by Codex on 2026-10-12 |
+| Worker | GPT-6; review repairs by Codex on 2026-10-12 |
 | Verifier | — |
 | Acceptor | owner |
 
@@ -70,30 +70,35 @@ exploratory.
 
 ## Unresolved
 
-Competitive equivalence and scoring defaults remain unresolved. The implemented
-POC deliberately shows candidate records and no winner. Full mode/quality
-classification, dated record-change history and real-capture route validation
-remain incomplete.
+Competitive scoring, real route equivalence, event mode, full quality
+classification and record-change history remain unresolved. The current
+projection explicitly has no winner and preserves unknowns.
 
 ## Checkpoint
 
-Read-only API: `5d09fd1` on `feat/gpt6-rivalry-api`
-([PR #7](https://github.com/adrianhensler/splittime/pull/7)). Browser page:
-`6ad4b57` on `feat/gpt6-rivalry-page`
-([PR #9](https://github.com/adrianhensler/splittime/pull/9)). Both are in
-`feat/codex-integrated-poc` at `3ed8f6c`
-([draft PR #10](https://github.com/adrianhensler/splittime/pull/10)), not main.
-PRs hold live claims, tests and limits. Re-run `node --test tests/ui/*.test.cjs`
-and `python -m pytest -q tests/test_rivalry.py --basetemp=<new-scratch-directory>`.
-Fetch and inspect current refs before starting another implementation.
+Branch `feat/gpt6-rivalry-api`,
+[PR #7](https://github.com/adrianhensler/splittime/pull/7), holds the API and
+live evidence. Before repair, two tests reproduced manual cutoff clearance
+promoting an estimate and missing known car names. Repairs preserve `flags_auto`
+provenance, use a shared car-name resolver and round displayed times to milliseconds.
+Re-run `python -m pytest -q tests/test_rivalry.py tests/test_rivalry_review.py`.
+Next: incorporate the repaired PR #6 base, verify the combined suite, push
+without rewriting history, and seek independent re-review before merging.
 
 ## Verification
 
-Recovery session ran the combined suite (205 passed), driver/rivalry subset
-(21 passed) and UI controllers (8 passed), plus a browser smoke on simulator
-recordings. Newly authored integration checks are self-checks. Competitive
-fairness and real-game behaviour remain unverified.
+Independent Opus and automated reviews reproduced both defects. Repair tests
+are this worker's self-checks; full results are in PR #7. Real-game behaviour
+and independent re-review of the repair remain pending.
 
 ## Acceptance
+
+## Integration checkpoint, 2026-10-12
+
+PR #7 repair `fe27989` and repaired backend merge `8684f17` are included in
+the PR #10 branch. The page remains in PR #9 and is also in PR #10. Fetch and
+check both PRs before editing; original API/page commits `5d09fd1` / `6ad4b57`
+are historical baselines. Review the combined fixes before merging; competitive
+scoring, real captures and deployment are still unverified.
 
 —

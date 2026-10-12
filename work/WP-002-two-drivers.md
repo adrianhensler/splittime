@@ -2,10 +2,10 @@
 
 | | |
 |---|---|
-| Status | in-progress; implementation in PR #6, integrated for testing in draft PR #10 |
+| Status | in-progress; implemented, correcting independent review findings in PR #6 |
 | Parent | WP-000 |
 | Children | none |
-| Worker | GPT-6; resumed by Codex on 2026-10-12 |
+| Worker | GPT-6; review repairs by Codex on 2026-10-12 |
 | Verifier | — |
 | Acceptor | owner |
 
@@ -60,32 +60,44 @@ driver on every session, and per-driver bests.
 
 ## Known, unknown, unproven
 
-- **Known:** separate configured listeners, trackers and hubs are implemented;
-  migration and destination-port isolation have simulator/socket regressions.
-- **Unknown:** real-game and deployed behaviour; full acceptance remains subject
-  to review rather than inferred from the passing suite.
+- **Known:** `SessionTracker` keeps state per instance (WP-000 C3).
+- **Unknown:** whether the store or the hub hold anything that assumes a single
+  tracker (session-best queries, live frame fan-out).
 
 ## Unresolved
 
-Independent review remains pending. Simulator checks do not prove real FH6
-behaviour, authentication of UDP senders, or deployment readiness.
+Real-game and deployment checks remain unverified. Review also reported an
+inherited detector issue: out-of-order UDP near a lap boundary can duplicate
+laps. Detector changes require a capture and remain separate from these fixes.
 
 ## Checkpoint
 
-Baseline is on main at `ad4551b`. The two-driver implementation is at
-`57ff717` on `feat/gpt6-two-driver-backend` ([PR #6](https://github.com/adrianhensler/splittime/pull/6)).
-It is included in `feat/codex-integrated-poc` at `3ed8f6c`
-([draft PR #10](https://github.com/adrianhensler/splittime/pull/10)), not merged or deployed.
-Live claims and limitations are in those PRs. Re-run
-`python -m pytest -q tests/test_multi_driver.py tests/test_rivalry.py --basetemp=<new-scratch-directory>`.
-On resumption, fetch, inspect the PRs and check the actual refs before editing.
+Baseline is merged at `ad4551b`. Branch `feat/gpt6-two-driver-backend`,
+[PR #6](https://github.com/adrianhensler/splittime/pull/6), holds implementation
+and the live review record. Repairs cover atomic port changes, driver-scoped
+grouping and bounded source tracking. Reproducer regressions are
+`tests/test_driver_review.py` and `tests/ui/driver-groups.test.cjs`;
+six Python cases failed before the fix. Re-run
+`python -m pytest -q tests/test_driver_review.py tests/test_multi_driver.py`
+and `node --test tests/ui/driver-groups.test.cjs`.
+Next: fetch, inspect the PR's newest head/checks, request independent re-review,
+and propagate the fixes through stacked PR #7 and the integration branch.
 
 ## Verification
 
-Recovery session ran the combined suite (205 passed) and the driver/rivalry
-subset (21 passed). These are this session's checks, not owner acceptance or
-proof that every acceptance criterion is met. See PR #10 for environment and scope.
+Own repair checks: 23 focused Python tests and two Node grouping tests passed;
+full-suite results are in PR #6. Prior independent Opus review found the bugs;
+this repair has not yet had independent re-review. No owner acceptance or deployment.
 
 ## Acceptance
+
+## Integration checkpoint, 2026-10-12
+
+Repair commit `8ab5ee2` from PR #6 is now included in the PR #10 branch through
+the repaired PR #7 merge `8684f17`. Fetch current refs and inspect
+[PR #10](https://github.com/adrianhensler/splittime/pull/10) before continuing;
+the earlier `3ed8f6c` checkpoint predates these review fixes. Main and deployment
+remain unchanged. Prior recovery-only results are preserved in the Workpacket
+takeaways and the PR history.
 
 —

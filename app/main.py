@@ -26,11 +26,14 @@ from .telemetry.listener import TelemetryProtocol
 log = logging.getLogger("lapscope")
 
 
-async def _watchdog(tracker: SessionTracker) -> None:
+async def _watchdog(tracker: SessionTracker, protocol=None) -> None:
     while True:
         await asyncio.sleep(1.0)
         try:
             tracker.tick(time.time())
+            if protocol is not None:
+                protocol.sources.sync_session(tracker.session_id, time.monotonic())
+                protocol.sources.flush(time.monotonic())
         except Exception:
             log.exception("watchdog tick failed")
 
@@ -65,15 +68,17 @@ async def lifespan(app: FastAPI):
 
     loop = asyncio.get_running_loop()
     transports = []
+    protocols = {}
     watchdogs = []
     try:
         for d in drivers:
             try:
-                transport, _ = await loop.create_datagram_endpoint(
+                transport, protocol = await loop.create_datagram_endpoint(
                     lambda d=d: TelemetryProtocol(hubs[d.id], trackers[d.id], d.id),
                     local_addr=("0.0.0.0", d.udp_port),
                 )
                 transports.append(transport)
+                protocols[d.id] = protocol
                 log.info("Driver %s (%s) listening on UDP %d", d.id, d.name, d.udp_port)
             except OSError as exc:
                 message = f"UDP {d.udp_port} for driver {d.id} cannot bind: {exc}"
@@ -81,13 +86,16 @@ async def lifespan(app: FastAPI):
                 if d.id == first.id:
                     app.state.udp_error = message
                 log.error(message)
-        watchdogs = [asyncio.create_task(_watchdog(t)) for t in trackers.values()]
+        watchdogs = [asyncio.create_task(_watchdog(t, protocols.get(ident)))
+                     for ident, t in trackers.items()]
         yield
     finally:
         for watchdog in watchdogs:
             watchdog.cancel()
         for transport in transports:
             transport.close()
+        for protocol in protocols.values():
+            protocol.sources.flush(time.monotonic(), force=True)
         for tracker in trackers.values():
             tracker.shutdown(time.time())
         store.close()

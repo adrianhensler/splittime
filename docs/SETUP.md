@@ -101,6 +101,17 @@ The destination port identifies a driver **only by configuration**: UDP can be
 forged. Sender IP:port is kept as provenance, never used to choose the driver.
 Existing older sessions migrate to `driver_id=legacy` without data loss.
 
+Driver IDs are persistent labels: changing an ID creates a new identity and
+does not relabel old recordings. Ports may be swapped or reused after removing
+a configured driver. Registration updates the port map in one transaction;
+historical driver rows stay, with no active port when absent from configuration.
+
+`GET /api/status` reports `source_changes` per driver since process startup.
+The first source address is saved immediately; later changes are counted in
+memory and their latest address is saved at most once every five seconds,
+with a final flush at session close or shutdown. Source-change warnings are
+also rate-limited. These addresses and counters are evidence, not authentication.
+
 ### Option 1: container
 
 Upstream ships a `Dockerfile` and `docker-compose.yml`. Publish the two UDP
