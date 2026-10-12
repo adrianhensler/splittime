@@ -1,4 +1,7 @@
-/* Live dashboard: WebSocket feed -> canvas gauges at display refresh rate. */
+/* Live dashboard: one driver's frames -> canvas gauges at display refresh rate.
+   SplitTime: the sockets live in livefeeds.js (one per driver) and liveview.js
+   chooses whose frames arrive here, through detailFrame() / resetDetail() /
+   setDetailStatus() below. */
 
 let rpmG, fricG, gripG, stripG, liveMapG;
 function initCanvases() {
@@ -14,15 +17,17 @@ function initCanvases() {
 initCanvases();
 // same reason as the analysis page: a resize drag fires far faster than five
 // canvas reallocations take (issue #71)
-window.addEventListener("resize", rafThrottle(initCanvases));
+window.addEventListener("resize", rafThrottle(() => {
+  initCanvases();
+  if (!state.frame) state.blank = true;  // nothing live to redraw them: repaint empty
+}));
 
 const STRIP_CAP = 12 * 60; // ~12 s at 60 Hz
 const state = {
   frame: null,
-  lastMsg: 0,
   trail: [],       // [latG, lonG] history for friction circle
   strip: [],       // input history
-  connected: false, // WebSocket open (distinct from the stream being stale)
+  blank: false,    // the shown driver changed: wipe the gauges on the next paint
   connLabel: null,  // last connection chip text (avoids per-frame DOM thrash)
 };
 
@@ -206,58 +211,47 @@ function fmtLap(s) {
   return `${m}:${(s - m * 60).toFixed(3).padStart(6, "0")}`;
 }
 
-/* Reconnect backoff: a server that is gone for good was being retried every
-   1.5 s forever. Doubles up to RECONNECT_MAX, resets on a successful open
-   (issue #73). */
-const RECONNECT_MIN = 1500;
-const RECONNECT_MAX = 15000;
-let reconnectDelay = RECONNECT_MIN;
-
-function connect() {
-  // wss when the page itself is served over TLS: a hardcoded ws:// behind a
-  // reverse proxy is blocked as mixed content, and the socket never opens
-  const scheme = location.protocol === "https:" ? "wss:" : "ws:";
-  // relative to the page, so the app also works under a URL prefix (ADR 16)
-  const wsPath = new URL("ws/live", location.href).pathname;
-  const ws = new WebSocket(`${scheme}//${location.host}${wsPath}`);
-  ws.onmessage = (ev) => {
-    // A hidden tab renders nothing (render() is rAF-paused by the browser),
-    // so parsing 64-field frames at 60 Hz into buffers nobody will see is
-    // pure CPU. Keep the socket open — reconnecting on every tab switch is
-    // worse — and drop the frames instead.
-    if (document.hidden) return;
-    const f = JSON.parse(ev.data);
-    state.frame = f;
-    state.lastMsg = performance.now();
-    if (f.is_race_on) {
-      state.trail.push([f.accel_x / 9.80665, f.accel_z / 9.80665]);
-      if (state.trail.length > 90) state.trail.shift();
-      state.strip.push({ th: f.accel / 2.55, br: f.brake / 2.55, st: f.steer / 1.27 });
-      if (state.strip.length > STRIP_CAP) state.strip.shift();
-    }
-    feedLiveMap(f);
-    feedCollision(f);
-  };
-  ws.onopen = () => {
-    state.connected = true;
-    reconnectDelay = RECONNECT_MIN;
-    setConn("live", "ok");
-  };
-  ws.onclose = () => {
-    state.connected = false;
-    setConn("reconnecting…", "err");
-    setTimeout(connect, reconnectDelay);
-    reconnectDelay = Math.min(RECONNECT_MAX, reconnectDelay * 2);
-  };
-  ws.onerror = () => ws.close();
+/* One frame of the driver being shown in detail (called by livefeeds.js, for
+   that driver only, and never while the tab is hidden). */
+function detailFrame(f) {
+  state.frame = f;
+  state.blank = false;
+  if (f.is_race_on) {
+    state.trail.push([f.accel_x / 9.80665, f.accel_z / 9.80665]);
+    if (state.trail.length > 90) state.trail.shift();
+    state.strip.push({ th: f.accel / 2.55, br: f.brake / 2.55, st: f.steer / 1.27 });
+    if (state.strip.length > STRIP_CAP) state.strip.shift();
+  }
+  feedLiveMap(f);
+  feedCollision(f);
 }
 
-/* Coming back to the tab after frames were dropped: the last one on screen is
-   however old, so re-arm the staleness clock from now rather than showing a
-   PAUSED chip for a stream that is running fine. */
-document.addEventListener("visibilitychange", () => {
-  if (!document.hidden && state.frame) state.lastMsg = performance.now();
-});
+/* The driver being shown changed. Everything on screen belonged to the other
+   driver: drop the frame, the histories, the map, the car chip and any held
+   raw values, so nothing of one driver is ever shown under the other's name.
+   Bumping chipSeq also discards a car-name lookup that is still in flight. */
+function resetDetail() {
+  state.frame = null;
+  state.trail = [];
+  state.strip = [];
+  state.blank = true;
+  resetLiveMap(null);
+  chipOrdinal = null;
+  chipSeq++;
+  const chip = $("car-chip");
+  chip.style.display = "none";
+  chip.textContent = "";
+  rawPanel.held = false;
+  const hold = $("raw-hold");
+  hold.classList.remove("on");
+  hold.textContent = "⏸ Hold";
+  lastCanvasLabel = 0;
+}
+
+/* The header chip follows the shown driver's feed: racing, paused, waiting... */
+function setDetailStatus(text, cls) {
+  setConn(text, cls);
+}
 
 function setConn(text, cls) {
   if (state.connLabel === text) return; // idempotent: skip redundant DOM writes
@@ -279,7 +273,9 @@ onSettingsChange(() => {
    arrive and every gauge still moves, so nothing on screen would say the
    drive isn't being saved. Not dismissible — it clears itself when the
    next flush succeeds (issue #64). */
-function showWriteError(st) {
+function showWriteError(status) {
+  // any driver's recorder, not only the first one's
+  const st = (status.drivers || []).find((d) => d.write_error) || status;
   let bar = document.getElementById("rec-banner");
   if (!st.write_error) { if (bar) bar.remove(); return; }
   if (!bar) {
@@ -293,26 +289,12 @@ function showWriteError(st) {
     `${lost} Free up disk space; recording resumes on its own.`;
 }
 
-/* server stats: the no-data overlay's line while it is visible, and the
-   write-failure banner at all times */
+/* server stats: the write-failure banner. (Upstream also filled a setup
+   overlay from here with the listening address and port; SplitTime's Live
+   page is for spectators and shows neither.) */
 async function pollStatus() {
   try {
-    const st = await (await fetch("api/status")).json();
-    showWriteError(st);
-    if ($("nodata").classList.contains("hidden")) return;
-    $("nd-port").textContent = st.udp_port;
-    const stat = $("nd-stat");
-    if (st.udp_error) {
-      stat.textContent = st.udp_error;
-      stat.classList.add("error");
-    } else {
-      stat.classList.remove("error");
-      stat.textContent =
-        st.packets_total === 0
-          ? `server: no packets received yet on UDP ${st.udp_port}` +
-            (st.bad_packets ? ` (${st.bad_packets} wrong-size packets!)` : "")
-          : `server: ${st.packets_total} packets received, last ${st.last_packet_age}s ago`;
-    }
+    showWriteError(await (await fetch("api/status")).json());
   } catch { /* server briefly unavailable */ }
 }
 setVisibleInterval(pollStatus, 2000);
@@ -468,24 +450,34 @@ function describeCanvases(f) {
     + ` gear ${f.gear === 0 ? "reverse" : f.gear === 11 ? "neutral" : f.gear}`);
 }
 
+/* What the gauges show for a driver nothing has been received from since they
+   were selected: zeros and dashes, never the previous driver's last values. */
+const BLANK_FRAME = {
+  current_engine_rpm: 0, engine_max_rpm: 0, engine_idle_rpm: 0, gear: 11,
+  accel_x: 0, accel_z: 0, speed: 0, power: 0, boost: 0,
+  accel: 0, brake: 0, steer: 0, yaw: 0, pos_x: 0, pos_z: 0,
+  tire_combined_slip: [0, 0, 0, 0], tire_temp: [0, 0, 0, 0],
+  norm_susp_travel: [0, 0, 0, 0], tire_slip_angle: [0, 0, 0, 0],
+  race_mode: false, session_id: null, delta: null,
+  current_lap: 0, lap_elapsed: 0, last_lap: 0, best_lap: 0, session_best: null,
+  lap_number: 0, race_position: 0,
+};
+
 function render() {
   requestAnimationFrame(render);
-  const f = state.frame;
-  const stale = performance.now() - state.lastMsg > 2500;
-  // The full-screen "waiting for telemetry" overlay is for the first-run case
-  // only (no frame ever). Once data has arrived, a stall must NOT re-cover the
-  // page: FH6 stops Data Out whenever it loses focus, so clicking away from
-  // the game to read the dashboard on a second screen would otherwise slam an
-  // opaque overlay — with the wrong diagnosis — over everything (issue #69).
-  // A stale-but-connected stream just flips the chip to PAUSED.
-  $("nodata").classList.toggle("hidden", !!f);
-  if (f && state.connected) setConn(stale ? "paused" : "live", stale ? "warn" : "ok");
-  if (!f) return;
+  // There is no full-page "waiting" overlay: the driver strip above the
+  // gauges says who is waiting or paused, and has to stay usable so a viewer
+  // can pick the other driver (upstream issue #69 is the same concern).
+  if (state.frame) paint(state.frame, true);
+  else if (state.blank) { state.blank = false; paint(BLANK_FRAME, false); }
+}
 
-  updateCarChip(f);
+function paint(f, live) {
+  if (live) updateCarChip(f);
   drawRpm(rpmG, f.current_engine_rpm, f.engine_max_rpm, f.engine_idle_rpm, f.gear);
   drawFriction(fricG, state.trail, f.accel_x / 9.80665, f.accel_z / 9.80665);
-  drawGrip(gripG, f.tire_combined_slip, f.tire_temp, f.norm_susp_travel, fmtTireTemp);
+  drawGrip(gripG, f.tire_combined_slip, f.tire_temp, f.norm_susp_travel,
+           live ? fmtTireTemp : () => "–");
   drawStrip(stripG, state.strip, STRIP_CAP);
   // heading from yaw: the packet's Velocity is car-local (always "forward"),
   // yaw is world-space - the car moves along (sin yaw, cos yaw)
@@ -507,7 +499,7 @@ function render() {
   $("long").textContent = lonG.toFixed(2);
   $("totg").textContent = Math.hypot(latG, lonG).toFixed(2);
 
-  const [txt, cls] = balanceText(f);
+  const [txt, cls] = live ? balanceText(f) : ["—", ""];
   const bal = $("balance");
   bal.textContent = txt;
   bal.className = `balance ${cls}`;
@@ -518,13 +510,13 @@ function render() {
   $("thr-val").textContent = th.toFixed(0);
   $("brk-val").textContent = br.toFixed(0);
   $("steer-ind").style.left = `calc(${(50 + st * 0.44).toFixed(1)}% - 9px)`;
-  $("gear-mini").textContent = f.gear === 0 ? "R" : f.gear === 11 ? "N" : f.gear;
+  $("gear-mini").textContent = !live ? "–" : f.gear === 0 ? "R" : f.gear === 11 ? "N" : f.gear;
 
   // lap timing only means something during an event; in free roam the
   // fallback lap clock would just count up meaninglessly
   const race = !!f.race_mode;
   const flag = $("race-flag");
-  flag.textContent = race ? "RACE MODE" : "FREE ROAM";
+  flag.textContent = !live ? "—" : race ? "RACE MODE" : "FREE ROAM";
   flag.classList.toggle("on", race);
   $("lap-cur").textContent = race ? fmtLap(f.current_lap || f.lap_elapsed) : "–:--.---";
   $("lap-last").textContent = fmtLap(f.last_lap);
@@ -540,11 +532,17 @@ function render() {
     d.className = f.delta >= 0 ? "pos" : "neg";
   }
 
+  if (!live) {
+    // raw values are the previous driver's packet: empty every cell
+    for (const c of rawPanel.cells) { c.txt = ""; c.el.textContent = ""; }
+    $("grip").setAttribute("aria-label", "Tire grip — no telemetry yet");
+    $("rpm").setAttribute("aria-label", "Engine RPM — no telemetry yet");
+    return;
+  }
   if (getSettings().rawLive && !rawPanel.held) updateRawPanel(f);
   describeCanvases(f);
 }
 
 initRawPanel();
 syncRawPanel();
-connect();
 render();

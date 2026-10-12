@@ -135,6 +135,12 @@ the remaining event/measurement matrix incrementally. Do not replay or edit
 the live data directory. The old LAN-oriented Live-page help is not the
 deployment's game setup; use the hosting record's settings.
 
+2026-10-12, Opus 5.5 (`feat/two-driver-live`): the Live page no longer shows
+setup text, an address or a port, and subscribes to each driver's feed
+separately (see WP-006). Simulated checks only; not deployed. The deployed
+site keeps the old overlay until the runtime checkout is updated. Two real
+drivers live at the same time have not been observed.
+
 ## Verification
 
 Opus independently reviewed the code repair at `f68d70a`, but did not see the

@@ -1,0 +1,93 @@
+/* SplitTime Live page: the driver strip above the gauges. Uses the theme
+   variables from style.css; kept in its own file so the imported stylesheet
+   stays as upstream wrote it. */
+
+.driver-strip {
+  max-width: 1500px;
+  margin: 0 auto;
+  padding: 14px 20px 0;
+}
+
+.driver-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 14px;
+}
+.driver-cards.single { grid-template-columns: minmax(230px, 480px); }
+
+.driver-card {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 12px;
+  align-items: baseline;
+  min-width: 0;
+  padding: 12px 16px;
+  text-align: left;
+  font: inherit;
+  color: var(--text);
+  cursor: pointer;
+  background: linear-gradient(165deg, var(--panel-hi), var(--panel-lo));
+  border: 1px solid var(--panel-edge);
+  border-radius: 14px;
+}
+.driver-card:hover { border-color: var(--accent); }
+/* which driver the gauges show: said by aria-pressed, and by a border and a
+   marker bar rather than by colour alone */
+.driver-card.chosen {
+  border-color: var(--accent);
+  box-shadow: inset 4px 0 0 var(--accent);
+  cursor: default;
+}
+
+.driver-name {
+  font-family: var(--display);
+  font-size: 1.15rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  overflow-wrap: anywhere;   /* a long configured name must not widen the page */
+  min-width: 0;
+}
+.driver-state {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.driver-state.ok { color: var(--good); }
+.driver-state.warn { color: var(--warn); }
+.driver-state.err { color: var(--bad); }
+.driver-speed {
+  font-family: var(--display);
+  font-size: 1.5rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.driver-laps {
+  grid-column: 1 / -1;
+  min-height: 1.3em;
+  font-size: 0.85rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+/* state sits top right, speed under it */
+.driver-card .driver-speed { grid-column: 2; grid-row: 2; text-align: right; }
+.driver-card .driver-laps { grid-row: 3; }
+
+.live-note {
+  margin: 10px 0 0;
+  padding: 8px 14px;
+  font-size: 0.9rem;
+  color: var(--warn);
+  border: 1px solid #5b4a1f;
+  border-radius: 10px;
+  background: var(--panel-lo);
+}
+.live-note[hidden] { display: none; }
+
+@media (max-width: 700px) {
+  .driver-strip { padding: 10px 12px 0; }
+  .driver-cards, .driver-cards.single { grid-template-columns: 1fr; }
+}

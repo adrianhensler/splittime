@@ -7,6 +7,7 @@
 <link rel="icon" type="image/png" href="img/logo.png">
 <link rel="stylesheet" href="css/fonts.css">
 <link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/live.css">
 </head>
 <body>
 <header>
@@ -21,22 +22,14 @@
   <button id="settings-btn" class="chip clickable" type="button" title="Settings" aria-label="Settings">⚙ Settings</button>
 </header>
 
-<div id="nodata" class="overlay hidden">
-  <div class="box">
-    <div class="pulse-ring"><i></i></div>
-    <h3>Waiting for telemetry</h3>
-    <p>In Forza Horizon 6 open <b>Settings → HUD and Gameplay</b> and set:</p>
-    <p class="setup-lines">
-      Data Out <code>ON</code><br>
-      Data Out IP Address <code>127.0.0.1</code><br>
-      Data Out IP Port <code id="nd-port">9999</code>
-    </p>
-    <p>Then drive — telemetry is not sent while in menus.
-       If nothing arrives, try your PC's LAN IP instead of 127.0.0.1
-       (see the README's loopback troubleshooting).</p>
-    <div class="stat" id="nd-stat">server: waiting for first packet…</div>
-  </div>
-</div>
+<!-- SplitTime: one card per configured driver, built by js/liveview.js. Each
+     shows that driver's live state; choosing one shows their gauges below.
+     There is no setup text here: this page is for watching, and a driver's
+     address and port are not shown to viewers. -->
+<section class="driver-strip" aria-label="Drivers">
+  <div id="drivers" class="driver-cards" role="group" aria-label="Choose whose telemetry to show in detail"></div>
+  <p id="live-note" class="live-note" role="status" aria-live="polite" hidden></p>
+</section>
 
 <main class="grid">
   <section class="panel cluster span7">
@@ -126,6 +119,8 @@
 <script src="js/common.js"></script>
 <script src="js/settings.js"></script>
 <script src="js/gauges.js"></script>
+<script src="js/livefeeds.js"></script>
 <script src="js/dashboard.js"></script>
+<script src="js/liveview.js"></script>
 </body>
 </html>
