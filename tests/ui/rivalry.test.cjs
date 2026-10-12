@@ -95,3 +95,22 @@ test('comparison A/B follows configured driver order despite API object order',a
  assert.match(elt('catalog').innerHTML,/compare.html\?lap_a=11&amp;lap_b=12/);
  assert.equal(elt('driverCount').textContent,'2');
 });
+test("one driver's own laps can be compared with each other",async()=>{
+ const solo={version:1,drivers:[{id:"alpha",name:"Alex"},{id:"beta",name:"Blair"}],categories:[
+  {route_id:3,route_name:"Solo Circuit",car_class_label:"C",total_attempts:3,
+   best_by_driver:{alpha:{lap_id:6,time_s:68.712,car_pi:500}},uncertainty:[],
+   attempts:[
+    {lap_id:3,driver_name:"Alex",time_s:74.654,completion:"complete",validity:"accepted"},
+    {lap_id:4,driver_name:"Alex",time_s:null,completion:"incomplete",validity:"suspect"},
+    {lap_id:6,driver_name:"Alex",time_s:68.712,completion:"complete",validity:"accepted"}
+   ]}]};
+ const {elt,settle}=page(solo);await settle();
+ const body=elt("catalog").innerHTML;
+ assert.match(body,/compare\.html\?lap_a=6&amp;lap_b=3">Compare the two fastest laps/);
+ assert.match(body,/compare\.html\?lap_a=6&amp;lap_b=3">vs Alex 1:08\.712/);
+ assert.match(body,/compare\.html\?lap_a=3&amp;lap_b=6">vs Alex 1:14\.654/);
+ assert.doesNotMatch(body,/lap_b=4/);
+ solo.categories[0].attempts.pop();
+ const one=page(solo);await one.settle();
+ assert.match(one.elt("catalog").innerHTML,/needs two completed laps/);
+});

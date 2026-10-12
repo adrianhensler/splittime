@@ -129,3 +129,24 @@ the PR #10 branch. The page remains in PR #9 and is also in PR #10. Fetch and
 check both PRs before editing; original API/page commits `5d09fd1` / `6ad4b57`
 are historical baselines. Review the combined fixes before merging; competitive
 scoring, real captures and deployment are still unverified.
+
+## Field follow-up (2026-10-12, Opus 5.5, branch `fix/rivals-finish-artifacts`)
+
+From the owner's first four live Rivals runs:
+
+- **Post-finish stretches are no longer attempts.** After a Rivals lap the
+  game holds the car at the line (~20 s, LapNumber 1, speed 0, a 196 m/s²
+  spike), then resets it to the start. The recorder stored both as incomplete
+  laps, one flagged `contact`. `_drop_parked_lap` deletes an untimed lap that
+  follows a timed one and moved under 25 odometer units (observed: 1.5 to
+  5.8). Evidence: `tests/test_rivals_finish.py`; replaying a copy of the four
+  sessions gives one lap each with times and flags unchanged (11 laps → 4).
+- **Self-comparison.** The rivalry page links any completed lap against the
+  fastest other lap on the route, same driver included.
+- **Whose session.** `driver_name` on every session; shown on Analysis cards,
+  the session header, and as a Driver filter.
+
+Not done: sessions already stored on the live site keep their extra laps until
+the owner has them reprocessed, which also renumbers their lap ids. Unknown:
+whether the game ever lets a second Rivals lap run on without the hold; a lap
+that is driven is kept, with the spike's `contact` flag on it.

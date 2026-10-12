@@ -26,6 +26,11 @@ const BROWSE_SORTS = [
    matching. "none" is the untagged/unidentified bucket for every facet. */
 const FACETS = [
   {
+    key: "driver", label: "Driver", bar: true,
+    value: (s) => String(s.driver_id || "none"),
+    text: (s) => s.driver_name || s.driver_id || "Unknown driver",
+  },
+  {
     /* Only NAMED routes get a row of their own. A fingerprint you have never
        named says nothing a "Route #37" row could help you pick, and there are
        more of those than named ones - they all share one bucket instead. */

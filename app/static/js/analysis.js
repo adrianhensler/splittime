@@ -103,6 +103,18 @@ function displayName(s) {
   return s.name || s.route_name || fmtDate(s.started_at);
 }
 
+/* Two drivers share this site: every session says whose it is. */
+const driverLabel = (s) => s.driver_name || s.driver_id || "";
+const driverPrefix = (s) => (driverLabel(s) ? `${driverLabel(s)} · ` : "");
+function driverBadge(s) {
+  const b = document.createElement("span");
+  if (!driverLabel(s)) return b;
+  b.className = "group-badge";
+  b.title = "The driver whose game sent this recording";
+  b.textContent = driverLabel(s);
+  return b;
+}
+
 /* ---------------- sessions sidebar ---------------- */
 
 /* Overlapping polls can land out of order and paint a stale list (the same
@@ -162,7 +174,7 @@ onServerReachable((ok) =>
 const cardSig = (s) =>
   [s.id, s.name, s.route_name, s.lap_count, s.best_lap, s.car_name, s.car_known,
    s.car_class_letter, s.car_pi, s.drivetrain, s.track_type, s.conditions,
-   s.route_kind, s.group_id, s.group_name].join("|");
+   s.route_kind, s.group_id, s.group_name, s.driver_name].join("|");
 
 let lastListSig = null;
 
@@ -490,7 +502,8 @@ async function reviewMerges() {
     title.append(name, count);
     const sub = document.createElement("span");
     sub.className = "rv-sub";
-    sub.textContent = `${fmtDate(Math.min(...cluster.map((x) => x.started_at)))}`
+    sub.textContent = driverPrefix(s)
+      + `${fmtDate(Math.min(...cluster.map((x) => x.started_at)))}`
       + ` · ${s.car_name} · ${runs} ${lapWord(s.route_kind, runs)}`
       + ` · best ${fmtLap(bests.length ? Math.min(...bests) : null)}`;
     text.append(title, sub);
@@ -583,8 +596,8 @@ function sessionCard(s) {
   // with that same date — so on a fresh install, where nothing is named and no
   // route is known yet, EVERY card printed its timestamp twice (issue #75)
   const named = !!(s.name || s.route_name);
-  $(".sub", card).textContent =
-    (named ? `${fmtDate(s.started_at)} · ` : "")
+  $(".sub", card).textContent = driverPrefix(s)
+    + (named ? `${fmtDate(s.started_at)} · ` : "")
     + `${s.lap_count} ${lapWord(s.route_kind, s.lap_count)}`
     + ` · best ${fmtLap(s.best_lap)}`;
   card.onclick = () => selectSession(s.id);
@@ -732,6 +745,7 @@ function editableTitle(text, { label, tip, onEdit }) {
 }
 
 function wireSessionHeader(s) {
+  $("#header-badges").replaceChildren(driverBadge(s));
   $("#session-title").replaceChildren(editableTitle(displayName(s), {
     label: "Rename this session",
     tip: "Rename this session — the label in the list on the left, this session only",
@@ -840,6 +854,7 @@ function wireGroupHeader(g, members) {
   }));
   $("#header-badges").innerHTML =
     `<span class="group-badge" title="${members.length} sessions merged into one run group">⛓ merged</span>`;
+  $("#header-badges").prepend(driverBadge(members[0]));
   // members[0] carries the route: the group's own row has no route_id
   $("#header-route").replaceChildren(
     routeChip(members[0], { edit: () => renameRoute(members[0]) }));
