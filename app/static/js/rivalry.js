@@ -19,7 +19,7 @@
     Object.keys(g.best_by_driver||{}))])];
   $("routeCount").textContent=String(groups.length);
   $("attemptCount").textContent=String(groups.reduce((n,g)=>n+(g.total_attempts||0),0));
-  $("driverCount").textContent=String(driverIds.length);
+  $("driverCount").textContent=String(drivers.length);
   if(!groups.length){
    $("catalog").innerHTML='<div class="empty">No recorded sessions yet. Configure both UDP destinations and complete an event. This page never substitutes fictional results.</div>';
    $("message").textContent="No stored recordings available.";return;
@@ -46,7 +46,7 @@
    }).join("");
    const uncertainty=(Array.isArray(group.uncertainty)?group.uncertainty:[])
     .map(s=>esc(String(s).replaceAll("_"," "))).join("; ");
-   const pair=Object.values(best).filter(lap=>Number.isSafeInteger(lap.lap_id)&&lap.lap_id>0).slice(0,2);
+   const pair=ids.map(id=>best[id]).filter(lap=>lap&&Number.isSafeInteger(lap.lap_id)&&lap.lap_id>0).slice(0,2);
    const comparison=group.route_id!=null&&pair.length===2?
     '<p><a href="compare.html?lap_a='+pair[0].lap_id+'&amp;lap_b='+pair[1].lap_id+'">Compare candidate laps · traces and corners</a></p>':
     '<p class="muted">Corner comparison needs candidate laps from two drivers on a known route.</p>';

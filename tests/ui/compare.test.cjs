@@ -26,7 +26,7 @@ test("thin recordings with no totals remain inspectable and preserve warnings",a
  const result=payload();result.totals=null;result.reasons=['too_few_samples'];
  result.corners.warnings=['<img src=x onerror=evil()>'];
  const {elt}=await run(result);
- assert.match(elt('summary').innerHTML,/too_few_samples/);
+ assert.match(elt('summary').innerHTML,/too few captured samples/);
  assert.doesNotMatch(elt('summary').innerHTML,/<img/);
  assert.match(elt('summary').innerHTML,/&lt;img/);
  assert.doesNotMatch(elt('status').textContent,/Could not compare/);
@@ -34,4 +34,15 @@ test("thin recordings with no totals remain inspectable and preserve warnings",a
 test("invalid lap IDs are rejected before any requests",async()=>{
  const {elt,calls}=await run(payload(),'?lap_a=<script>&lap_b=2');
  assert.equal(calls.length,0);assert.match(elt('status').textContent,/Choose two laps/);
+});
+
+test('unverified equivalence and clock warnings are explained beside lap times',async()=>{
+ const result=payload();result.comparable=false;
+ result.reasons=['route_equivalence_unverified','lap_clock_discontinuous'];
+ result.b.warnings=['lap clock runs backwards mid-lap'];
+ const {elt}=await run(result),text=elt('summary').innerHTML;
+ assert.match(text,/comparison is exploratory/);
+ assert.match(text,/Segment times are diagnostic only/);
+ assert.match(text,/B: lap clock runs backwards/);
+ assert.doesNotMatch(text,/route_equivalence_unverified/);
 });

@@ -87,3 +87,11 @@ test("empty dataset and network errors remain explicit",async()=>{
  assert.match(broken.elt("message").textContent,/Could not load recordings/);
  assert.match(broken.elt("catalog").innerHTML,/No data was changed/);
 });
+
+test('comparison A/B follows configured driver order despite API object order',async()=>{
+ const data=JSON.parse(JSON.stringify(examples));
+ data.categories[0].best_by_driver={beta:{lap_id:12,time_s:93},alpha:{lap_id:11,time_s:92},legacy:{lap_id:13,time_s:94}};
+ const {elt,settle}=page(data);await settle();
+ assert.match(elt('catalog').innerHTML,/compare.html\?lap_a=11&amp;lap_b=12/);
+ assert.equal(elt('driverCount').textContent,'2');
+});
