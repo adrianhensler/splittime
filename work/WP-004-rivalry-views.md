@@ -93,6 +93,8 @@ and independent re-review of the repair remain pending.
 
 ## Acceptance
 
+Pending independent re-review and integration decision.
+
 ## Integration checkpoint, 2026-10-12
 
 PR #7 repair `fe27989` and repaired backend merge `8684f17` are included in
@@ -100,5 +102,3 @@ the PR #10 branch. The page remains in PR #9 and is also in PR #10. Fetch and
 check both PRs before editing; original API/page commits `5d09fd1` / `6ad4b57`
 are historical baselines. Review the combined fixes before merging; competitive
 scoring, real captures and deployment are still unverified.
-
-—

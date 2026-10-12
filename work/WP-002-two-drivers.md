@@ -91,6 +91,8 @@ this repair has not yet had independent re-review. No owner acceptance or deploy
 
 ## Acceptance
 
+Pending independent re-review and integration decision.
+
 ## Integration checkpoint, 2026-10-12
 
 Repair commit `8ab5ee2` from PR #6 is now included in the PR #10 branch through
@@ -99,5 +101,3 @@ the repaired PR #7 merge `8684f17`. Fetch current refs and inspect
 the earlier `3ed8f6c` checkpoint predates these review fixes. Main and deployment
 remain unchanged. Prior recovery-only results are preserved in the Workpacket
 takeaways and the PR history.
-
-—
