@@ -110,7 +110,7 @@ def compare_laps(a: Trace, b: Trace, route: RouteCorners) -> dict:
     if "arrival_time" in (a.timing_source, b.timing_source):
         # packets crossed the internet: arrival times carry jitter and loss, so
         # they may illustrate a lap but never decide who was faster
-        reasons.append("arrival_time_timing")
+        reasons.append("arrival_time_unverified")
     result["comparable"] = not reasons
 
     units_per_metre = 1.0 / route.metres_per_unit if route.metres_per_unit else 1.0

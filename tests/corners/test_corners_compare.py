@@ -117,7 +117,7 @@ def test_timing_source_falls_back_and_mixed_sources_are_not_comparable():
     # even when both laps are timed the same way
     by_arrival = compare_laps(arrival, arrival, route)
     assert not by_arrival["comparable"]
-    assert by_arrival["reasons"] == ["arrival_time_timing"]
+    assert by_arrival["reasons"] == ["arrival_time_unverified"]
     assert len(_corners(by_arrival)) == 4
     mixed = compare_laps(lap, arrival, route)
     assert not mixed["comparable"]

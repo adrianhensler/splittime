@@ -121,7 +121,7 @@ for refinements. It did not run the tests.
 
 | Refinement | Response |
 |---|---|
-| Arrival time must never be a ranked timing basis | Done: any comparison resting on `arrival_time` is `comparable: false` with reason `arrival_time_timing`; segments still returned. Test added. |
+| Arrival time must never be a ranked timing basis | Done: any comparison resting on `arrival_time` is `comparable: false` with reason `arrival_time_unverified`; segments still returned. Test added. |
 | Direction sign is unverified; do not present as fact | Done: every route result carries `direction_verified: false`. The sign rule is unchanged. |
 | Reference lap may be rewound, cutoff or suspect | Done: fastest unflagged, unexcluded lap; falls back to fastest with a warning. Two tests added, one on upstream's dirty-lap scenario. |
 | Distance is not metres; convert the 300 m windows | Already converted with `metres_per_unit`. Contract now says the scale is a lap average and approximate. |

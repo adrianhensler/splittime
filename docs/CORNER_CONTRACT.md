@@ -121,7 +121,7 @@ Fields read from `frame`: `distance_traveled`, `current_lap`,
   against each other. Segments are still returned where they can be, for an
   exploratory look. Reasons: `too_few_samples`, `no_shared_distance`,
   `laps_cover_different_distance`, `different_start_position`,
-  `different_timing_source`, `arrival_time_timing`.
+  `different_timing_source`, `arrival_time_unverified`.
 - A corner cut off by the end of a lap carries `"partial": true`.
 - Each lap misses up to one frame at each end, so `residual` is normally a few
   hundredths of a second, not zero.
