@@ -1,0 +1,21 @@
+name: SplitTime frontend prototype checks
+on:
+  pull_request:
+    paths:
+      - 'prototype/**'
+      - '.github/workflows/prototype.yml'
+  push:
+    branches:
+      - feat/gpt6-rivalry-dashboard
+jobs:
+  prototype:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Domain JavaScript syntax
+        run: node --check prototype/domain.js
+      - name: Prototype domain and DOM smoke tests
+        run: node --test prototype/tests/*.test.cjs
