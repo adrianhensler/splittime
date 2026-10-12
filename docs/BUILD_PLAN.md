@@ -75,13 +75,13 @@ completion percentage.
 | WP-005 / corners | API wired into the app; measurements, trace links and comparison warnings; synthetic checks and one real trace | Persist a stable reference/numbering; verify direction and sensible boundaries; two real laps/cross-car alignment; forward clock discontinuities |
 | WP-006 / summary | Comparison page with overlays and largest corner differences; optional two-driver Live cards/detail independently browser-tested and deployed | Complete route summary and selected-lap analysis links; per-driver/total storage display; real two-driver comparison/live field use |
 
-### Next useful finish line: unattended use by both drivers
-
 The pre-#19 review cleanup corrects WP-002/004/005's stale integration
 checkpoints, records public-read scope in DESIGN/ADR 23, and fixes Live card
 accessible names. The advisory packet checker accepts an explicit reason for
 a trivial packet-free change. These repairs do not complete the field matrix,
 rankings/history, stable corner reference or summary/storage work above.
+
+### Next useful finish line: unattended use by both drivers
 
 This is a smaller proposed finish line within v1, not a claim that the
 remaining v1 criteria have been removed.

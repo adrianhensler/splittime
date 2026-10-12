@@ -27,6 +27,9 @@ One entry per decision. Status is **Accepted** (the owner decided),
 | 19 | Corner analysis uses the standard library only, not numpy | Proposed |
 
 | 20 | A reviewed merge to `main` counts as owner acceptance | Accepted |
+| 21 | Less merge friction: reviewer merges; packet check advisory | Accepted |
+| 22 | Optional two-driver Live view | Accepted |
+| 23 | Record public viewing separately from protected management | Proposed |
 
 Each entry lists what it **rests on**, so that reversing one decision shows
 which others to revisit.

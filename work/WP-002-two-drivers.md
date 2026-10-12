@@ -91,7 +91,8 @@ six Python cases failed before the fix. Re-run
 and `node --test tests/ui/driver-groups.test.cjs`.
 These repairs are included in integration code head `f68d70a`; propagation
 through PR #7 and final application review are done. PR #10 subsequently merged
-at `0015f01`; source PR #6 closed as superseded. The reviewed integration is
+at `0015f01`; source PR #6 was marked merged when its commits landed through
+#10. The reviewed integration is
 admitted under ADR 20. Shared deployment evidence is in WP-003.
 Next: validate fresh real captures from both drivers and the remaining field
 matrix in WP-003; the historical integration step is complete.

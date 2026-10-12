@@ -151,8 +151,8 @@ the user's judgment. Test extended in `test_reference_lap_prefers_clean_over_fas
 Historical source review: Opus merged `c29fdcc` into PR #10 at
 `7c81323`; both API safeguards and driver attribution are retained in code
 head `f68d70a`. `app/main.py` includes the router and the rivalry page links
-to `compare.html`. PR #10 merged at `0015f01`; source PR #5 closed as
-superseded. See WP-003 for later deployment evidence.
+to `compare.html`. PR #10 merged at `0015f01`; source PR #5 was marked merged
+when its commits landed through #10. See WP-003 for later deployment evidence.
 
 Next: obtain a second real lap, verify a labelled known turn, check boundaries
 and alignment, and persist a deliberate route reference before calling corner
