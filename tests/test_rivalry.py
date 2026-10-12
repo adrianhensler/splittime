@@ -88,3 +88,51 @@ def test_nonfinite_time_never_becomes_record():
                                        lap(11, 1, float("inf")), lap(12, 1, -10)]})
     result = rivalry_summary(store)
     assert result["categories"][0]["best_by_driver"] == {}
+
+
+def test_end_to_end_two_simulated_drivers_share_route_and_api_view(tmp_path):
+    """Actual packet simulator -> two independent trackers -> one SQLite -> rivalry."""
+    import random
+
+    from harness import FakeSocket
+    from app.recorder.store import Store
+    from app.recorder.laps import SessionTracker
+    from app.telemetry.drivers import DriverScopedStore, load_drivers
+    import tools.simulator as simulator
+
+    drivers = load_drivers({"SPLITTIME_DRIVERS": (
+        '[{"id":"alpha","name":"Alpha","udp_port":19999},'
+        '{"id":"beta","name":"Beta","udp_port":20000}]'
+    )})
+    store = Store(str(tmp_path / "integrated.db"))
+    store.register_drivers(drivers)
+    try:
+        for seed, driver in enumerate(drivers, start=61):
+            random.seed(seed)
+            tracker = SessionTracker(DriverScopedStore(store, driver.id))
+            args = SimpleNamespace(host="127.0.0.1", port=driver.udp_port,
+                                   rate=60.0, wet=False)
+            sim = simulator.Sim(args)
+            sim.sock.close()
+            sim.sock = FakeSocket(tracker)
+            sim.event(120, f"simulated {driver.id}", race_laps=1)
+            sim.race_off()
+            tracker.shutdown(sim.sock.t + 20.0)
+
+        sessions = store.list_sessions()
+        assert {row["driver_id"] for row in sessions} == {"alpha", "beta"}
+        result = rivalry_summary(store, drivers)
+        assert result["scoring"] == "exploratory_only"
+        # Both used the simulator's one course and car class, so the recorder
+        # should fingerprint the visits to the same physical route.
+        matched = [g for g in result["categories"]
+                   if set(g["best_by_driver"]) == {"alpha", "beta"}]
+        assert matched, "both drivers' completed simulated laps should share a category"
+        group = matched[0]
+        assert group["route_id"] is not None
+        assert group["winner"] is None
+        assert group["ranking_state"] == "exploratory"
+        assert group["total_attempts"] >= 2
+        assert all(v["time_s"] > 0 for v in group["best_by_driver"].values())
+    finally:
+        store.close()
