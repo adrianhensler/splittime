@@ -118,3 +118,21 @@ into this repo in one commit with no other changes, then modify in later
 commits. That keeps `git diff <import-commit>` an exact list of our changes and
 makes later upstream syncs manageable. Keep our changes to upstream files
 small and put new features in new files where possible.
+
+## SplitTime multi-driver delta (workstream WP-002, pending review)
+
+- `app/telemetry/drivers.py`: parses `SPLITTIME_DRIVERS`, builds a scoped
+  Store façade for each recorder. No changes to `laps.py` detector logic.
+- `app/recorder/store.py`: SQLite migration v2 (drivers table,
+  sessions.driver_id/source_addr); legacy records keep `legacy`.
+- `app/main.py`: one Hub, SessionTracker, listener and watchdog per driver.
+  The single-driver app.state aliases remain for upstream UI compatibility.
+- `app/telemetry/listener.py`: source-change anomaly logging, per-driver
+  live-frame identifier. Destination listener defines identity, not source IP.
+- `app/api/routes.py`: driver list/filter/status, multi-tracker safety guards.
+- `app/main.py`: WebSocket Host allowlist check added to prevent the DNS
+  rebinding weakness reported on PR #4; this is a defensive change, not
+  evidence that the public deployment is safe.
+
+Code and tests are in the two-driver PR; this is **not** independent verification
+and has not been exercised with actual Forza traffic.

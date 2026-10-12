@@ -83,7 +83,23 @@ provider firewall or routing.
 ## C. Run it
 
 Either way the app listens for HTTP on port 8000 and UDP on the driver ports.
-Driver names and ports are set by environment variables to be named in WP-002.
+Set `SPLITTIME_DRIVERS` to a JSON list. For two players, for example:
+
+```sh
+export SPLITTIME_DRIVERS='[{"id":"alpha","name":"Driver A","udp_port":9999},{"id":"beta","name":"Driver B","udp_port":10000}]'
+```
+
+If the setting is omitted, single-driver LapScope compatibility remains
+(`TELEMETRY_UDP_PORT`, default 9999). IDs are stable storage identities,
+not gamertags or authentication. Each UDP port needs its own firewall rule.
+The server rejects duplicate IDs/ports, privileged ports and game-reserved
+ports 5200–5300. `GET /api/status` exposes per-driver packet/error counters
+and `GET /api/drivers` lists configured drivers. `GET /api/sessions?driver_id=alpha`
+filters existing sessions; `/ws/live?driver=alpha` selects its live stream.
+
+The destination port identifies a driver **only by configuration**: UDP can be
+forged. Sender IP:port is kept as provenance, never used to choose the driver.
+Existing older sessions migrate to `driver_id=legacy` without data loss.
 
 ### Option 1: container
 

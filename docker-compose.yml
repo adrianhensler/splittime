@@ -6,7 +6,8 @@ services:
       # loopback only: the API has no authentication and must sit behind a
       # gateway that does (SplitTime change; upstream published on all interfaces)
       - "127.0.0.1:8000:8000"   # web dashboard: http://localhost:8000
-      - "9999:9999/udp"    # FH6 Data Out target port
+      - "9999:9999/udp"    # Driver A (only when configured)
+      - "10000:10000/udp"  # Driver B (only when configured)
     volumes:
       - ./data:/app/data   # SQLite session recordings
     environment:
@@ -14,6 +15,8 @@ services:
       # completed laps (for capturing event types the recorder doesn't
       # recognize yet - see README "An event type isn't being recorded")
       - LS_KEEP_DISCARDED=${LS_KEEP_DISCARDED:-0}
+      # Set JSON in .env, e.g. SPLITTIME_DRIVERS=[{"id":"alpha",...}]
+      - SPLITTIME_DRIVERS=${SPLITTIME_DRIVERS:-}
     restart: unless-stopped
     logging:
       # Docker's default json-file driver never rotates. A recorder that
