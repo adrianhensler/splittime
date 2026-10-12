@@ -56,8 +56,8 @@ checkpoint says what its milestone still owes.
 ## Completion and next finish lines
 
 Assessment dated 2026-10-12 after the reviewed shared deployment: the integrated
-POC and prefix slices are merged, and runtime `1e51eb9` is running behind the
-gateway. See WP-003 and the [hosting record](hosting/test-hensler-work.md) for
+POC, prefix and optional Live slices are merged, and runtime `bc5f836` is
+running behind the gateway. See WP-003 and the [hosting record](hosting/test-hensler-work.md) for
 deployment evidence and site-specific access/settings. This is an evidence
 snapshot; Git history and the PR list remain the source for subsequent changes.
 
@@ -73,7 +73,7 @@ completion percentage.
 | WP-003 / deploy and captures | One confirmed Rivals capture imported without raw-byte changes; reviewed gateway deployed; browser pages/WebSocket and protected mutations checked; both ports receive external race-off probes | Fresh game captures from each driver; event matrix, internet timing and free-roam/storage measurements; generic upstream browser update check removal (disabled in this deployment) |
 | WP-004 / rivalry | Recorded route/class attempts, driver/car/PI labels, candidate bests and exploratory comparison; session event guesses and source-address redaction | Quality/timing provenance fully propagated into rivalry records; event-mode/equivalence evidence; ranked rules, scoring and dated record history |
 | WP-005 / corners | API wired into the app; measurements, trace links and comparison warnings; synthetic checks and one real trace | Persist a stable reference/numbering; verify direction and sensible boundaries; two real laps/cross-car alignment; forward clock discontinuities |
-| WP-006 / summary | Comparison page with overlays and largest corner differences; deployed prefixed page responds | Complete route summary and selected-lap analysis links; per-driver/total storage display; real two-driver comparison |
+| WP-006 / summary | Comparison page with overlays and largest corner differences; optional two-driver Live cards/detail independently browser-tested and deployed | Complete route summary and selected-lap analysis links; per-driver/total storage display; real two-driver comparison/live field use |
 
 ### Next useful finish line: unattended use by both drivers
 

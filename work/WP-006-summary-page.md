@@ -2,11 +2,11 @@
 
 | | |
 |---|---|
-| Status | in-progress; local comparison page implemented, full summary criteria incomplete |
+| Status | partial; comparison and optional two-driver Live view deployed; full summary/storage criteria incomplete |
 | Parent | WP-000 |
 | Children | none |
-| Worker | Codex recovery session, 2026-10-12 |
-| Verifier | Opus 5.5: application/browser review at `f68d70a`; later legend presentation fix self-checked |
+| Worker | Codex checkpoint owner; Opus contributed optional Live view |
+| Verifier | Opus reviewed comparison at `f68d70a`; Codex independently reviewed and browser-tested Live at `c39ea19` |
 | Acceptor | owner |
 
 ## Intent
@@ -63,7 +63,9 @@ Final application snapshot at `f68d70a`; comparison is a partial summary slice.
 
 - **Known:** the browser can follow the rivalry candidate pair to three trace
   overlays and the corner table in a simulator-only local demo.
-- **Unknown:** real-capture accuracy, deployed gateway and URL-prefix behaviour.
+- **Known:** gateway/prefix deployment checked in WP-003; optional two-driver
+  Live tested in a real browser and deployed (receipt below).
+- **Unknown:** real two-driver capture/comparison accuracy and field timing.
 
 ## Unresolved
 
@@ -73,16 +75,17 @@ reference lap changes. New upstream-branch fixes must be reviewed before merge.
 
 ## Checkpoint
 
-Application checkpoint `f68d70a` on `feat/codex-integrated-poc`
-([draft PR #10](https://github.com/adrianhensler/splittime/pull/10)). Uses
-`app/static/compare.html` and the registered corner API; not merged or deployed.
+Historical comparison checkpoint `f68d70a` on `feat/codex-integrated-poc`
+([merged PR #10](https://github.com/adrianhensler/splittime/pull/10)). Uses
+`app/static/compare.html` and the registered corner API; the integrated app is
+now deployed. Current runtime is `bc5f836` from PR #17.
 PR #10 holds the live test record. To reproduce, use
 `python scripts/seed_demo.py <new-directory>` and the environment it prints,
 then serve on 127.0.0.1:8100 and open `rivalry.html`.
 
 Corner fix `c29fdcc` and process-doc PR #8 are included. UI repair `f09c3ec`
 orders A/B, explains warnings and improves narrow-screen readability.
-UI review is complete at `f68d70a`. Next: integrate the POC, then finish the route
+UI review is complete at `f68d70a`. Next: finish the route
 summary, selected-lap analysis links and storage display. Whole-app deployed
 prefix validation belongs with WP-003; authority has not expanded.
 
@@ -90,7 +93,7 @@ Later user-reported legend presentation fix: hollow square colour keys were
 the chart library default, confirmed from DOM/computed styles. They now render
 as line samples; dashed brake series have dashed samples. Browser checks
 confirmed colours and line styles; JS syntax and diff checks passed. This new
-presentation-only slice needs review in PR #10's newest head. Data and detector
+presentation-only slice is included in merged PR #10. Data and detector
 code are unchanged. Refresh the page to load updated static assets.
 
 ### Two-driver Live view (2026-10-12, Opus 5.5, `feat/two-driver-live`)
@@ -120,16 +123,27 @@ back/forward cache; a failed driver-list request silently became one generic
 Re-run: `node --test tests/ui/*.test.cjs` and
 `pytest -q tests/test_live_two_drivers.py`.
 
-Limits: fake sockets and a fake DOM only. Not seen in a real browser, not
-run against the real game, and two real drivers live at once have not been
-observed. The worker could not run the Python test locally (the session's
-permissions refused the virtualenv); it ran in CI. `/api/drivers` and
-`/api/status` still return each driver's port to anyone who asks; the page
-does not display it. Not deployed.
+Codex independently reviewed corrected head `c39ea19` and merged with all CI
+jobs green; 43 Node tests and the three original adversarial probes passed
+locally. The unchanged Python source had 17 targeted tests pass locally. Actual
+browser checks in a disposable non-root container showed both simulated race
+cards, driver switching, pause isolation, empty gauges and resumed feeds after
+Back without browser errors. Persisted restoration is also covered by Node
+tests; the browser check does not establish which cache path that browser used.
+
+Live deployed runtime `bc5f836`: both public cards connect and receive external
+race-off diagnostic packets through the gateway. Selecting Captn Compass works;
+the page shows no setup address/port. Existing recordings and unrelated services
+are preserved. [Deployment receipt](https://github.com/adrianhensler/splittime/pull/17#issuecomment-6127181182).
+
+Limits: two actual games live together and the friend's network are unobserved;
+internet timing/storage field checks remain in WP-003. `/api/drivers` and
+`/api/status` still return configured ports; the page does not display them.
+No full route-summary/storage acceptance is implied by optional Live viewing.
 
 ## Verification
 
-Combined self-checks at the current application checkpoint: 223 Python and
+Historical integration self-checks at `f68d70a`: 223 Python and
 12 Node UI tests, Ruff, packet round trip and browser rendering passed. Opus
 independently reviewed the earlier integration and source page; later UI
 repairs passed his `f68d70a` review. These results do not establish shared
@@ -137,4 +151,5 @@ deployment or real two-driver accuracy.
 
 ## Acceptance
 
-Pending reviewed integration merge; full summary/storage criteria incomplete.
+Reviewed comparison/optional Live slices merged and deployed. Full
+summary/storage criteria remain incomplete; this packet remains partial.

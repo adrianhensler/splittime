@@ -8,7 +8,8 @@ This is the owner's personal hosting. The generic guide is
 
 - Public site: <https://test.hensler.work/splittime/rivalry.html>, also linked
   from the public projects page.
-- SplitTime runtime: `1e51eb96b658c502c37df01e692072391b0c30ef` (#15).
+- SplitTime runtime: `bc5f836dfe0ff048384e3d713e3154ac54086805` (#17),
+  reviewed at `c39ea19`. The initial deployment used `1e51eb9` (#15).
 - Gateway deployment: `b950101ea36d39295740917280f71ddcec472bb8`, from reviewed
   [PR #113](https://github.com/adrianhensler/test.hensler.work/pull/113).
   #112 is closed as superseded. #111's footer removal is also deployed.
@@ -37,12 +38,10 @@ The hostname resolves through Cloudflare. Game UDP goes directly to the VPS
 IP; it does not travel through the HTTP tunnel. The assigned destination port
 identifies the driver, not the sender IP. UDP is not authenticated.
 
-The deployed Live page (runtime `1e51eb9`) still has upstream's setup overlay,
-which suggests loopback/LAN settings and the first configured port. Those are
-not this deployment's settings; use the table above. A replacement is prepared
-on `feat/two-driver-live`: a card per driver, no address or port on the page,
-and both drivers viewable at once. **It is not deployed yet.** Until the
-runtime checkout is moved to a commit that contains it, the overlay remains.
+The [deployed Live page](https://test.hensler.work/splittime/) has a card for
+each driver and no setup address/port. Both cards update concurrently; selecting
+one shows that driver's detailed gauges, map and input trace. Waiting and paused
+feeds leave the controls usable. Game setup remains the table above.
 
 ## Viewing and management
 
@@ -115,9 +114,30 @@ was rejected by Cloudflare's browser integrity check (1010); no protection was
 changed to accommodate the probe. External UDP receipt was read through trusted
 SSH loopback API checks instead. Browser access and game UDP are separate paths.
 
+## Live-view deployment follow-up, 2026-10-12
+
+[PR #17 deployment receipt](https://github.com/adrianhensler/splittime/pull/17#issuecomment-6127181182).
+Codex independently reviewed `c39ea19`, ran 43 Node tests, rechecked all three
+reproduced recovery defects, and merged with test/ui/records CI green. The
+unchanged Python source had 17 targeted tests pass locally. In a disposable
+UID/GID-1001 container with synthetic-only tmpfs storage, the actual browser
+showed two racing streams, detail switching, one-driver pause isolation,
+empty canvases and resumed feeds after Back; no browser errors were observed.
+
+Only SplitTime was rebuilt/recreated, with both real trackers idle beforehand.
+The gateway was unchanged. Live self-checks retained driver configuration,
+non-root/internal-HTTP settings, missing/sibling-Origin 403 and anonymous
+expected-Origin 302, unrelated container identities and the original database
+snapshot/hash. Both public browser cards showed receiving during a 20-second
+external race-off probe: 596 packets per listener, no new sessions or frames.
+These were diagnostic packets, not game recordings or internet timing evidence.
+Command/status receipts are under
+`/home/adrian/splittime-import/live-deployment-20261012/`; rollback image:
+`testhenslerwork-splittime:pre-live-20261012`.
+
 ## Remaining field checks
 
-The two reachability packets were not game recordings. Each driver next sends
+The reachability/race-off probes were not game recordings. Each driver next sends
 one fresh real event, verifies attribution/game time, and later records on a
 different day without server intervention. The friend's own network is untested.
 Complete WP-003's circuit/Rivals/sprint/quit/rewind/free-roam matrix, observed
