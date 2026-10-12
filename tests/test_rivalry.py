@@ -58,7 +58,7 @@ def test_provisional_rewind_contact_and_excluded_never_set_clean_best():
     assert "a" not in result["best_by_driver"]
     assert result["best_by_driver"]["b"]["time_s"] == 95.0
     assert result["winner"] is None
-    states = {l["lap_id"]: l for l in result["attempts"]}
+    states = {attempt["lap_id"]: attempt for attempt in result["attempts"]}
     assert states[11]["completion"] == "provisional"
     assert states[12]["validity"] == "suspect"
     assert states[13]["validity"] == "suspect"
