@@ -126,6 +126,40 @@ def test_timing_source_falls_back_and_mixed_sources_are_not_comparable():
     assert len(_corners(mixed)) == 4
 
 
+def test_a_clock_that_resets_mid_lap_is_refused_and_says_which_lap():
+    """A lap clock dropping back to zero part-way round would otherwise show
+    up as a negative corner time and a huge fake gain."""
+    samples = TWISTY.drive()
+    clean = build_trace(samples, lap_id=1)
+    route = detect_corners(clean)
+    hairpin = route.corners[0]
+    middle = (hairpin.s_entry + hairpin.s_exit) / 2
+    reset_at = next(frame["current_lap"] for _, dist, frame in samples if dist >= middle)
+    broken_samples = [
+        (t, dist, {**frame, "current_lap": frame["current_lap"] - reset_at}
+         if dist >= middle else frame)
+        for t, dist, frame in samples]
+    broken = build_trace(broken_samples, lap_id=2)
+    assert clean.clock_monotonic and not broken.clock_monotonic
+
+    for a, b in ((clean, broken), (broken, clean), (broken, broken)):
+        result = compare_laps(a, b, route)
+        assert not result["comparable"]
+        assert result["reasons"] == ["lap_clock_discontinuous"]
+    result = compare_laps(clean, broken, route)
+    assert result["a"]["warnings"] == []
+    assert any("backwards" in w for w in result["b"]["warnings"])
+    # the bad number is still visible for diagnosis, just never scoreable
+    assert _corners(result)[0]["time_b"] < 0
+    json.dumps(result)
+
+    # the same reset at the very end of a lap is the next lap's first frame,
+    # which is trimmed, so an ordinary lap is not caught by this
+    tail = samples[:-1] + [(samples[-1][0], samples[-1][1],
+                            {**samples[-1][2], "current_lap": 0.0})]
+    assert build_trace(tail).clock_monotonic
+
+
 def test_laps_from_different_routes_are_refused_not_scored():
     a = build_trace(TWISTY.drive(), lap_id=1)
     route = detect_corners(a)
@@ -192,7 +226,8 @@ def test_result_is_plain_json_with_the_contract_fields(sim_traces):
     payload = json.loads(json.dumps(compare_laps(sim_traces[0], sim_traces[1], route)))
     assert set(payload) == {"version", "comparable", "reasons", "a", "b", "segments",
                             "totals", "sum_check", "largest"}
-    assert set(payload["a"]) == {"lap_id", "timing_source", "capture_quality", "gaps", "samples"}
+    assert set(payload["a"]) == {"lap_id", "timing_source", "capture_quality", "gaps", "samples",
+                                 "warnings"}
     corner = _corners(payload)[0]
     assert set(corner) == {"kind", "n", "s_from", "s_to", "time_a", "time_b", "dt", "a", "b"}
     assert set(corner["a"]) == {"entry_kmh", "min_kmh", "s_min", "exit_kmh",

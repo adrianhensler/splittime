@@ -91,7 +91,13 @@ def test_compare_endpoint_matches_the_core_and_explains_the_lap_delta(sim_store,
     a, b = sim_laps[1], sim_laps[2]
     payload = json.loads(json.dumps(
         corners_compare(_request(sim_store), lap_a=a["id"], lap_b=b["id"])))
-    assert payload["comparable"] is True
+    # same route row, clean game-clock laps, and still not scoreable: sharing
+    # a fingerprint is not evidence the two laps ran the same event
+    assert payload["comparable"] is False
+    assert payload["reasons"] == ["route_equivalence_unverified"]
+    # the integration adds who drove each lap; both additions must survive
+    assert {"driver_id", "driver_name", "car_pi", "warnings"} <= set(payload["a"])
+    assert all(seg["time_a"] > 0 and seg["time_b"] > 0 for seg in payload["segments"])
     assert payload["a"]["lap_id"] == a["id"] and payload["b"]["lap_id"] == b["id"]
     assert payload["sum_check"]["lap_time_dt"] == pytest.approx(b["lap_time"] - a["lap_time"],
                                                                abs=0.001)
@@ -129,6 +135,9 @@ def test_point_to_point_run_is_analysed_too(two_routes):
     assert payload["corners"], "the simulator's sprint road winds; it has corners"
     same = corners_compare(_request(store), lap_a=sprint["id"], lap_b=sprint["id"])
     assert same["totals"]["dt"] == 0
+    # even a lap against itself is not declared comparable over HTTP
+    assert same["comparable"] is False
+    assert "route_equivalence_unverified" in same["reasons"]
 
 
 def test_world_time_attack_laps_use_the_race_clock(tmp_path):

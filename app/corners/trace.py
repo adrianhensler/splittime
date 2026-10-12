@@ -42,6 +42,7 @@ class Trace:
     lap_id: int | None = None
     lap_time: float | None = None       # the game's own time for the lap, if known
     timing_source: str = "arrival_time"
+    clock_monotonic: bool = True        # False when the chosen clock steps back mid-lap
     capture_quality: str = "unknown"
     gaps: list[dict] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
@@ -156,6 +157,7 @@ def build_trace(samples: Iterable[Sample], *, start_distance: float = 0.0,
         last -= 1
     kept, clock = kept[first:last], list(clock[first:last])
     if any(later < earlier for earlier, later in zip(clock, clock[1:])):
+        trace.clock_monotonic = False
         trace.warnings.append("lap clock runs backwards mid-lap; segment times are unreliable")
 
     trace.timing_source = source

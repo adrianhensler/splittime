@@ -5,6 +5,9 @@ Included in app.main under /api; the rivalry page links to compare.html.
 This is the only module in the package that knows about the store, and it only
 reads: `get_lap`, `lap_frames`, `get_session`, `get_route`, `session_laps`
 and one SELECT through `reader()`. Results are computed per request.
+
+The compare endpoint never returns `comparable: true` for now; see
+ROUTE_EQUIVALENCE_VERIFIED.
 """
 
 from __future__ import annotations
@@ -16,6 +19,12 @@ from .detect import detect_corners
 from .trace import Trace, build_trace, samples_from_rows
 
 router = APIRouter()
+
+# Two laps sharing a route row only share the recorder's fingerprint: start
+# position, length and bounding box. That does not prove the same direction,
+# checkpoints or event rules, and nothing in the app verifies those yet. Until
+# something does, every comparison served over HTTP is exploratory.
+ROUTE_EQUIVALENCE_VERIFIED = False
 
 
 def _trace(store, lap: dict) -> Trace:
@@ -87,6 +96,9 @@ def corners_compare(request: Request, lap_a: int = Query(...), lap_b: int = Quer
     reference, warnings = _reference(store, route_a)
     route = _detect(store, reference or laps[0], warnings)
     result = compare_laps(_trace(store, laps[0]), _trace(store, laps[1]), route)
+    if not ROUTE_EQUIVALENCE_VERIFIED:
+        result["reasons"].append("route_equivalence_unverified")
+        result["comparable"] = False
     names = {d.id: d.name for d in getattr(request.app.state, "drivers", ())}
     for side, lap in zip(("a", "b"), laps):
         session = store.get_session(lap["session_id"])

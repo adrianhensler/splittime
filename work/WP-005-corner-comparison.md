@@ -62,7 +62,7 @@ simulated laps only; no real lap exists yet.
 | C2 | Corner count, direction and boundaries do not depend on which lap is the reference, on packet rate (60 vs 140/s), or on a reference lap driven far below the limit | E1 |
 | C3 | Segments cover the shared lap with no gaps; their deltas sum to the total; residual against the game's lap-time difference is under 0.05 s (observed 0.002 to 0.010 s) | E1, E2, E3 |
 | C4 | A hairpin, a right-left chicane and a flat-out sweeper are found and classified; a 10° kink and a two-frame landing spike are not corners | E1 |
-| C5 | Thin, empty, mismatched, abandoned or mixed-clock input returns `comparable: false` with reasons and does not raise | E1 |
+| C5 | Thin, empty, mismatched, abandoned, mixed-clock or reset-clock input returns `comparable: false` with reasons and does not raise | E1 |
 | C6 | Dropped frames mark the lap `discontinuous` and move segment times by under 0.02 s; a rewound stretch is discarded | E1 |
 | C7 | Unmeasurable values are `null`, not 0 | E1 |
 | C8 | Laps with a dead lap clock (World Time Attack) are timed on the race clock and say so | E1 |
@@ -79,7 +79,7 @@ Ubuntu, Python 3.12.3. Head of `feat/opus-corner-analysis`.
 
 | ID | What | How to re-run |
 |---|---|---|
-| E1 | 31 tests in `tests/corners/` pass; full suite "184 passed" | `.venv/bin/pytest -q tests/corners` and `.venv/bin/pytest -q` |
+| E1 | 32 tests in `tests/corners/` pass; full suite "185 passed" | `.venv/bin/pytest -q tests/corners` and `.venv/bin/pytest -q` |
 | E2 | Detected vs true positions on the simulator: entries 603.2 / 1579.6 (true 600 / 1577), exits 973.3 / 1949.1 (true 977 / 1954), radius 120.0 | `test_simulator_circuit_has_its_two_known_corners`; true values from `tools/simulator.py` `STRAIGHT`, `RADIUS` |
 | E3 | Against the database recorded in WP-001 E5: 2 corners, `capture_quality: continuous`, totals dt −0.273 s, lap-time dt −0.283 s, residual −0.010 s; about 150 ms per comparison | record a session as in `AGENTS.md`, then call `app.corners.api.corners_compare` with a stub request as `tests/corners/test_corners_api.py` does |
 | E4 | Empty diff | `git diff --stat origin/main -- app/api app/recorder app/telemetry app/main.py app/static tools prototype requirements.txt` |
@@ -127,6 +127,17 @@ for refinements. It did not run the tests.
 | Distance is not metres; convert the 300 m windows | Already converted with `metres_per_unit`. Contract now says the scale is a lap average and approximate. |
 | Include gap evidence | Done: `gaps` count in each lap summary. |
 | Simulator passes are not field accuracy | Agreed; stated in Known/unknown above. |
+
+## Review round 2 (PR #5, 2026-10-12)
+
+GPT-6 and the Codex reviewer on `fc05b15`. Codex reproduced the second item.
+
+| Finding | Response |
+|---|---|
+| A shared route row is not proof the laps ran the same event | Done: the HTTP endpoint adds `route_equivalence_unverified` to every response, so it never returns `comparable: true` until something verifies equivalence. Segments are still returned. Test changed and extended. |
+| A clock that resets mid-lap gave `comparable: true` and a negative corner time | Done: `lap_clock_discontinuous`; each lap summary now carries its `warnings`. Test added with a mid-corner reset. |
+
+Not covered: a clock that jumps *forward* mid-lap is not detected.
 
 ## Checkpoint
 

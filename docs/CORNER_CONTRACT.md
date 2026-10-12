@@ -95,8 +95,8 @@ Fields read from `frame`: `distance_traveled`, `current_lap`,
   "version": 1,
   "comparable": true,
   "reasons": [],
-  "a": {"lap_id": 12, "timing_source": "game_lap_clock", "capture_quality": "continuous", "gaps": 0, "samples": 2569},
-  "b": {"lap_id": 31, "timing_source": "game_lap_clock", "capture_quality": "unknown", "gaps": 0, "samples": 2552},
+  "a": {"lap_id": 12, "timing_source": "game_lap_clock", "capture_quality": "continuous", "gaps": 0, "samples": 2569, "warnings": []},
+  "b": {"lap_id": 31, "timing_source": "game_lap_clock", "capture_quality": "unknown", "gaps": 0, "samples": 2552, "warnings": []},
   "segments": [
     {"kind": "straight", "n": null, "s_from": 0.0, "s_to": 603.48, "time_a": 11.77, "time_b": 11.167, "dt": -0.603},
     {"kind": "corner", "n": 1, "s_from": 603.48, "s_to": 973.33, "time_a": 9.869, "time_b": 9.983, "dt": 0.114,
@@ -121,7 +121,15 @@ Fields read from `frame`: `distance_traveled`, `current_lap`,
   against each other. Segments are still returned where they can be, for an
   exploratory look. Reasons: `too_few_samples`, `no_shared_distance`,
   `laps_cover_different_distance`, `different_start_position`,
-  `different_timing_source`, `arrival_time_unverified`.
+  `different_timing_source`, `arrival_time_unverified`,
+  `lap_clock_discontinuous` (the chosen clock reset or stepped back mid-lap,
+  so some segment times are negative or too short; each lap's `warnings` says
+  which lap) *(review)*.
+- The HTTP endpoint adds `route_equivalence_unverified` to every response and
+  so never returns `comparable: true` for now. Two laps on one route row share
+  only the recorder's fingerprint, which does not prove the same direction,
+  checkpoints or event rules. The example above is the core function's output
+  *(review)*.
 - A corner cut off by the end of a lap carries `"partial": true`.
 - Each lap misses up to one frame at each end, so `residual` is normally a few
   hundredths of a second, not zero.
