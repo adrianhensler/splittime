@@ -164,7 +164,7 @@ function drawOutline(host, pts) {
 function fetchOutline(routeId) {
   if (outlineCache.has(routeId)) return Promise.resolve(outlineCache.get(routeId));
   if (outlineInFlight.has(routeId)) return outlineInFlight.get(routeId);
-  const p = fetch(`/api/routes/${routeId}/outline`)
+  const p = fetch(`api/routes/${routeId}/outline`)
     .then((r) => (r.ok ? r.json() : { outline: null }))
     .then((body) => body.outline || null)
     .catch(() => null)
@@ -689,7 +689,7 @@ let _serverInfo = null;
 
 function serverInfo() {
   if (!_serverInfo)
-    _serverInfo = fetch("/api/version").then((r) => r.json()).catch(() => ({}));
+    _serverInfo = fetch("api/version").then((r) => r.json()).catch(() => ({}));
   return _serverInfo;
 }
 
@@ -805,7 +805,7 @@ async function maybeRefreshCarList() {
   if (Date.now() - last < CARDB_CHECK_TTL) return;
   localStorage.setItem(CARDB_CHECK_KEY, String(Date.now()));  // even on failure: don't hammer
   try {
-    const r = await fetch("/api/cars/refresh", { method: "POST" });
+    const r = await fetch("api/cars/refresh", { method: "POST" });
     if (!r.ok) return;
     const { added } = await r.json();
     // new names may resolve previously-unknown cars: redraw the session list
@@ -828,7 +828,7 @@ async function maybeRefreshTrackList() {
   if (Date.now() - last < TRACKDB_CHECK_TTL) return;
   localStorage.setItem(TRACKDB_CHECK_KEY, String(Date.now()));  // even on failure: don't hammer
   try {
-    const r = await fetch("/api/tracks/refresh", { method: "POST" });
+    const r = await fetch("api/tracks/refresh", { method: "POST" });
     if (!r.ok) return;
     const { named } = await r.json();
     // newly named routes show up as route names on the cards: redraw

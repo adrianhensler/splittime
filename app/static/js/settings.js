@@ -355,7 +355,7 @@ function openSettings() {
   const refreshRow = (path, unit, summarize) => {
     const { status, btn } = actionRow("Refresh now");
 
-    fetch(`/api/${path}`).then((r) => r.json()).then((info) => {
+    fetch(`api/${path}`).then((r) => r.json()).then((info) => {
       const when = info.fetched_at
         ? `updated ${new Date(info.fetched_at * 1000).toLocaleDateString()}`
         : "bundled list";
@@ -366,7 +366,7 @@ function openSettings() {
       btn.disabled = true;
       status.textContent = "refreshing…";
       try {
-        const r = await fetch(`/api/${path}/refresh`, { method: "POST" });
+        const r = await fetch(`api/${path}/refresh`, { method: "POST" });
         const out = await r.json();
         if (!r.ok) throw new Error(out.detail || "refresh failed");
         const { text, changed } = summarize(out);
@@ -432,7 +432,7 @@ function openSettings() {
       status.textContent = `${fmtBytes(info.db_bytes)} of recordings${free}`;
     };
 
-    fetch("/api/storage").then((r) => r.json()).then(size)
+    fetch("api/storage").then((r) => r.json()).then(size)
       .catch(() => { status.textContent = "database size unavailable"; });
 
     btn.onclick = async () => {
@@ -446,7 +446,7 @@ function openSettings() {
       btn.disabled = true;
       status.textContent = "compacting…";
       try {
-        const r = await fetch("/api/storage/compact", { method: "POST" });
+        const r = await fetch("api/storage/compact", { method: "POST" });
         const out = await r.json();
         if (!r.ok) throw new Error(out.detail || "compact failed");
         status.textContent = out.reclaimed_bytes > 0

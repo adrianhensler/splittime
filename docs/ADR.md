@@ -194,6 +194,10 @@ reverse proxy, not only the owner. Upstream's browser-side check for new
 LapScope releases is removed: it would point users at the wrong project and
 is an outbound call nobody asked for.
 
+*Implemented 2026-10-12 without a setting:* the pages use URLs relative to
+the page, so any prefix works once the proxy strips it. The update check is
+not yet removed.
+
 *Rests on:* 2, 6. *Work:* WP-003.
 
 ## 17. The owner's deployment is documented separately from the software

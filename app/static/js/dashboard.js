@@ -217,7 +217,9 @@ function connect() {
   // wss when the page itself is served over TLS: a hardcoded ws:// behind a
   // reverse proxy is blocked as mixed content, and the socket never opens
   const scheme = location.protocol === "https:" ? "wss:" : "ws:";
-  const ws = new WebSocket(`${scheme}//${location.host}/ws/live`);
+  // relative to the page, so the app also works under a URL prefix (ADR 16)
+  const wsPath = new URL("ws/live", location.href).pathname;
+  const ws = new WebSocket(`${scheme}//${location.host}${wsPath}`);
   ws.onmessage = (ev) => {
     // A hidden tab renders nothing (render() is rAF-paused by the browser),
     // so parsing 64-field frames at 60 Hz into buffers nobody will see is
@@ -295,7 +297,7 @@ function showWriteError(st) {
    write-failure banner at all times */
 async function pollStatus() {
   try {
-    const st = await (await fetch("/api/status")).json();
+    const st = await (await fetch("api/status")).json();
     showWriteError(st);
     if ($("nodata").classList.contains("hidden")) return;
     $("nd-port").textContent = st.udp_port;
@@ -324,7 +326,7 @@ async function updateCarChip(f) {
   const seq = ++chipSeq;
   let name = `Car #${f.car_ordinal}`, known = false;
   try {
-    const info = await (await fetch(`/api/cars/${f.car_ordinal}`)).json();
+    const info = await (await fetch(`api/cars/${f.car_ordinal}`)).json();
     name = info.name;
     known = info.known;
   } catch { }

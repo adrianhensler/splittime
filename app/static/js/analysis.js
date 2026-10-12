@@ -116,7 +116,7 @@ async function loadSessions() {
   try {
     // quiet: this runs on a 15 s timer, and a dialog every 15 s while the
     // server is down is worse than the outage. The chip says it instead.
-    list = await apiFetch("/api/sessions", { quiet: true, what: "load the sessions" });
+    list = await apiFetch("api/sessions", { quiet: true, what: "load the sessions" });
   } catch {
     // a blip mid-session keeps the list that is already on screen; only a
     // page that never got one has nothing to say (issue #68)
@@ -539,7 +539,7 @@ async function reviewMerges() {
     try {
       // quiet: the roll-up below reports all of them at once, and one dialog
       // per failed sitting would be a queue of modals
-      await apiFetch("/api/groups", {
+      await apiFetch("api/groups", {
         quiet: true,
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -599,7 +599,7 @@ function sessionCard(s) {
     add.textContent = "＋";
     add.onclick = async (e) => {
       e.stopPropagation();
-      const payload = await apiFetch(`/api/sessions/${s.id}/laps`,
+      const payload = await apiFetch(`api/sessions/${s.id}/laps`,
                                      { what: "load that session" });
       const best = payload.laps.find((l) => l.is_best);
       if (!best) return;
@@ -706,7 +706,7 @@ async function selectSession(id) {
   state.groupId = null;
   setDetailBusy(true);
   const payload = await selectView(
-    seq, `/api/sessions/${id}/laps`, "open that session");
+    seq, `api/sessions/${id}/laps`, "open that session");
   // a superseded selection must not clear the busy state its successor set
   if (!payload) { if (seq === selectSeq) setDetailBusy(false); return; }
   state.session = payload.session;  // PNG export captions from it
@@ -743,7 +743,7 @@ function wireSessionHeader(s) {
     routeChip(s, { edit: () => renameRoute(s) }));
   $("#header-car").replaceChildren(carChip(s, { edit: () => renameCar(s) }));
   wireSessionMenu(s);
-  const patch = (body, what) => apiFetch(`/api/sessions/${s.id}`, {
+  const patch = (body, what) => apiFetch(`api/sessions/${s.id}`, {
     what,
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
@@ -801,7 +801,7 @@ function wireSessionMenu(s) {
           hint: "undo every dismissed contact, flag override and exclusion",
           onSelect: () => resetEdits(s) },
         { label: "Export CSV…", hint: "full-rate telemetry, every timed lap in one file",
-          onSelect: () => exportCsv(`/api/sessions/${s.id}/export.csv`,
+          onSelect: () => exportCsv(`api/sessions/${s.id}/export.csv`,
                                     `Export ${displayName(s)}`) },
       ] },
       { items: [
@@ -822,7 +822,7 @@ async function selectGroup(id) {
   state.groupId = id;
   setDetailBusy(true);
   const payload = await selectView(
-    seq, `/api/groups/${id}/laps`, "open that group");
+    seq, `api/groups/${id}/laps`, "open that group");
   if (!payload) { if (seq === selectSeq) setDetailBusy(false); return; }
   const g = payload.group;
   state.group = g;
@@ -954,7 +954,7 @@ function renderLapRows() {
       </td>`;
     $(".pick", tr).onclick = () => pickLap(l.id);
     $(".act-csv", tr).onclick = () => exportCsv(
-      `/api/laps/${l.id}/export.csv`,
+      `api/laps/${l.id}/export.csv`,
       `Export ${lapLabel(kind, lapNo(l))}`);
     $(".act-flags", tr).onclick = () => editLapFlags(l);
     $(".act-exclude", tr).onclick = () => toggleLapExcluded(l);
@@ -971,7 +971,7 @@ function renderLapRows() {
 async function refetchPickData() {
   for (const p of state.picks)
     p.data = await apiFetch(
-      `/api/laps/${p.lapId}/data?channels=${channelList()}&max_points=1500`,
+      `api/laps/${p.lapId}/data?channels=${channelList()}&max_points=1500`,
       { what: "reload the lap data" });
 }
 
@@ -980,8 +980,8 @@ async function refetchPickData() {
 async function reloadSession() {
   const group = state.groupId !== null;
   const payload = await apiFetch(group
-    ? `/api/groups/${state.groupId}/laps`
-    : `/api/sessions/${state.sessionId}/laps`, { what: "refresh this view" });
+    ? `api/groups/${state.groupId}/laps`
+    : `api/sessions/${state.sessionId}/laps`, { what: "refresh this view" });
   const sessions = group ? payload.sessions : [payload.session];
   state.laps = payload.laps;
   state.sessionsById = Object.fromEntries(sessions.map((x) => [x.id, x]));
@@ -1010,7 +1010,7 @@ async function reloadSession() {
   loadSessions();  // lap counts / best on the session cards may have moved
 }
 
-const lapPatch = (lapId, body, what) => apiFetch(`/api/laps/${lapId}`, {
+const lapPatch = (lapId, body, what) => apiFetch(`api/laps/${lapId}`, {
   what,
   method: "PATCH",
   headers: { "Content-Type": "application/json" },
@@ -1067,7 +1067,7 @@ async function resetEdits(session) {
     + "overrides, and excluded laps — and show exactly what the recorder detected?",
     { okText: "Reset", danger: true });
   if (!sure) return;
-  await apiFetch(`/api/sessions/${session.id}/edits`,
+  await apiFetch(`api/sessions/${session.id}/edits`,
                  { what: "reset the edits", method: "DELETE" });
   reloadSession();
 }
@@ -1093,7 +1093,7 @@ async function addPick(lap, session, { auto = false } = {}) {
   renderPicks();  // the chip/row shows up right away, data follows
   try {
     const data = await apiFetch(
-      `/api/laps/${lap.id}/data?channels=${channelList()}&max_points=1500`,
+      `api/laps/${lap.id}/data?channels=${channelList()}&max_points=1500`,
       { what: "load that lap's data" });
     // rapid clicks race their fetches: only a pick still in the tray may
     // land its data - a removed pick's late response must be dropped
@@ -1315,7 +1315,7 @@ async function mergeRuns(session) {
     await uiAlert("Nothing to merge", "Pick at least two sessions.");
     return;
   }
-  const { group } = await apiFetch("/api/groups", {
+  const { group } = await apiFetch("api/groups", {
     what: "merge those sessions",
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -1332,7 +1332,7 @@ async function renameGroup(group) {
     message: "Shown on the merged card. Leave empty to fall back to the route name.",
   });
   if (name === null) return;
-  await apiFetch(`/api/groups/${group.id}`, {
+  await apiFetch(`api/groups/${group.id}`, {
     what: "rename the group",
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
@@ -1348,7 +1348,7 @@ async function ungroup(group) {
     + " sessions, their telemetry and every manual edit stay exactly as they are.",
     { okText: "Ungroup" });
   if (!sure) return;
-  await apiFetch(`/api/groups/${group.id}`,
+  await apiFetch(`api/groups/${group.id}`,
                  { what: "ungroup those sessions", method: "DELETE" });
   await loadSessions();
   destroyCharts();
@@ -1363,7 +1363,7 @@ async function removeFromGroup(sessionId) {
   const gid = state.groupId;
   let out;
   try {
-    out = await apiFetch(`/api/groups/${gid}/sessions/${sessionId}`,
+    out = await apiFetch(`api/groups/${gid}/sessions/${sessionId}`,
                          { what: "take that session out", method: "DELETE" });
   } catch (err) {
     // the group moved on since this view was rendered; repaint it from the
@@ -1383,7 +1383,7 @@ async function renameSession(session) {
     message: "Shown in the session list on the left. Leave empty to reset.",
   });
   if (name === null) return;  // cancelled; "" clears back to the fallback name
-  await apiFetch(`/api/sessions/${session.id}`, {
+  await apiFetch(`api/sessions/${session.id}`, {
     what: "rename the session",
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
@@ -1442,7 +1442,7 @@ async function renameRoute(session) {
   if (name === null) return;  // cancelled: neither the name nor the shape changes
   const body = { kind };  // "" clears the override back to the detected shape
   if (name.trim()) body.name = name.trim();
-  await apiFetch(`/api/routes/${session.route_id}`, {
+  await apiFetch(`api/routes/${session.route_id}`, {
     what: "save the route",
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
@@ -1456,7 +1456,7 @@ async function renameRoute(session) {
    type to every session recorded on the same (fingerprint-recognized) route */
 async function maybeRetagRoute(session, type) {
   if (!type || !session.route_id) return;
-  const all = await apiFetch("/api/sessions", { what: "check the other sessions" });
+  const all = await apiFetch("api/sessions", { what: "check the other sessions" });
   const others = all.filter((x) => x.route_id === session.route_id && x.id !== session.id);
   if (!others.length) return;
   const [icon, label] = TRACK_META[type];
@@ -1465,7 +1465,7 @@ async function maybeRetagRoute(session, type) {
     `${others.length} other session${others.length > 1 ? "s" : ""} recorded on the same route`
     + " will be retagged too (future sessions inherit it automatically).");
   if (!ok) return;
-  await apiFetch(`/api/routes/${session.route_id}`, {
+  await apiFetch(`api/routes/${session.route_id}`, {
     what: "retag the route",
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
@@ -1493,7 +1493,7 @@ async function renameCar(session) {
     extra,
   });
   if (name === null) return;  // cancelled; "" reverts to the bundled name
-  await apiFetch(`/api/cars/${session.car_ordinal}`, {
+  await apiFetch(`api/cars/${session.car_ordinal}`, {
     what: "name the car",
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
@@ -1515,7 +1515,7 @@ async function reprocessSession(session) {
   setDetailBusy(true);
   let laps;
   try {
-    ({ laps } = await apiFetch(`/api/sessions/${session.id}/reprocess`,
+    ({ laps } = await apiFetch(`api/sessions/${session.id}/reprocess`,
                                { what: "reprocess the session", method: "POST" }));
   } finally {
     setDetailBusy(false);
@@ -1534,7 +1534,7 @@ async function deleteSession(session) {
     `Delete "${displayName(session)}" and all of its telemetry? This cannot be undone.`,
     { okText: "Delete", danger: true });
   if (!sure) return;
-  await apiFetch(`/api/sessions/${session.id}`,
+  await apiFetch(`api/sessions/${session.id}`,
                  { what: "delete the session", method: "DELETE" });
   state.picks = state.picks.filter((p) => p.session.id !== session.id);
   state.sessionId = null;
@@ -1668,7 +1668,7 @@ function bindMapContext(canvas) {
       + "💥 flag lifts once no real contact remains). Reset edits brings it back.",
       { okText: "Dismiss" });
     if (!ok) return;
-    await apiFetch(`/api/laps/${hit.lapId}/dismiss_contact`, {
+    await apiFetch(`api/laps/${hit.lapId}/dismiss_contact`, {
       what: "dismiss that marker",
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -2549,7 +2549,7 @@ function bindImport() {
     btn.textContent = "Importing…";
     try {
       const out = await apiFetch(
-        `/api/import/csv?name=${encodeURIComponent(file.name.replace(/\.csv$/i, ""))}`, {
+        `api/import/csv?name=${encodeURIComponent(file.name.replace(/\.csv$/i, ""))}`, {
           what: "import that file",
           method: "POST",
           headers: { "Content-Type": "text/csv" },
