@@ -77,6 +77,7 @@ do not prove fresh two-driver recording or the full field matrix.
 | E2 | Outstanding field checks and generic update-check removal | This packet's acceptance criteria and `docs/hosting/test-hensler-work.md` |
 | E3 | Prefix implementation, author Docker/browser checks and independent URL/ASGI routing checks | [PR #13](https://github.com/adrianhensler/splittime/pull/13), reviewed head `982b54f`, merged at `d096489` |
 | E4 | Deployment receipt, reviewed configuration, live UI/WebSocket, write protection, external UDP and preservation checks | [Gateway PR #113 receipt](https://github.com/adrianhensler/test.hensler.work/pull/113#issuecomment-6126431312); [hosting record](../docs/hosting/test-hensler-work.md); SplitTime runtime `1e51eb9`, gateway `b950101` |
+| E5 | Two-driver Live UI reviewed and deployed; both public sockets receive external race-off probes without recording changes | [PR #17 receipt](https://github.com/adrianhensler/splittime/pull/17#issuecomment-6127181182); runtime `bc5f836`, reviewed head `c39ea19` |
 
 Raw recordings remain in private data directories; no packets, coordinates or
 database are in Git. Viewing is public at the owner's direction; management
@@ -108,7 +109,7 @@ requires the gateway's service grant and exact expected Origin.
 
 ## Checkpoint
 
-2026-10-12: SplitTime runtime `1e51eb9` is deployed behind the gateway from
+Initial deployment, 2026-10-12: SplitTime runtime `1e51eb9` was deployed behind the gateway from
 reviewed PR #113 (`369afd3`, merged as `b950101`). PR #112 was closed as
 superseded. The owner run is visible on the public Rivalry page; source data
 was preserved and a separate corrected copy seeded a new database without
@@ -132,14 +133,18 @@ These checks did not run the real gateway or its HTTP upgrade/authentication.
 Next: each driver enables Data Out with the assigned destination and drives
 one fresh event, then checks attribution and game timing on the site. Collect
 the remaining event/measurement matrix incrementally. Do not replay or edit
-the live data directory. The old LAN-oriented Live-page help is not the
-deployment's game setup; use the hosting record's settings.
+the live data directory. Use the hosting record's settings for game setup;
+the Live page shows feeds and no setup address/port.
 
 2026-10-12, Opus 5.5 (`feat/two-driver-live`): the Live page no longer shows
 setup text, an address or a port, and subscribes to each driver's feed
-separately (see WP-006). Simulated checks only; not deployed. The deployed
-site keeps the old overlay until the runtime checkout is updated. Two real
-drivers live at the same time have not been observed.
+separately (see WP-006). The deployed site now runs the reviewed replacement
+from PR #17 at `bc5f836`. Codex's
+independent code/browser review and live deployment receipt are E5. Each public
+card received the external diagnostic stream; the original 16,333 frames,
+lap values/contact and ordered raw hash are unchanged. Both real trackers were
+idle before the targeted restart. Two real drivers live at the same time have
+not been observed, and the original field matrix remains outstanding.
 
 ## Verification
 
