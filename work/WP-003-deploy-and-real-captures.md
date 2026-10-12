@@ -200,7 +200,7 @@ too. No upstream threshold changed; timed laps and raw frames are untouched.
 
 | Evidence | Re-run |
 |---|---|
-| 24 tests: the captured hold and reset signature; the reviewer's short (10, 24, 26 units) and slow (0, 1.0, 4.0, 4.99 m/s) attempts kept at telemetry end, game reset and clock restart; a line crossing that carries on; frame count unchanged by a drop. 11 of them fail on `560aa52` | `pytest -q tests/test_rivals_finish.py` |
+| 24 tests: the captured hold and reset signature; the reviewer's short (10, 24, 26 units) and slow (0, 1.0, 4.0, 4.99 m/s) attempts kept at telemetry end, game reset and clock restart; a line crossing that carries on; frame count unchanged by a drop. 12 of them fail on `560aa52` | `pytest -q tests/test_rivals_finish.py` |
 | At `560aa52`, before the repair, by the first author: replay of a read-only copy of sessions 5, 8, 11, 14 gave 11 laps → 4; times 150.808 / 74.654 / 68.712 / 51.308 and the Highway lap's `contact` unchanged; 43,283 frames untouched | `reprocess_session` on a copy, never the live directory |
 
 **Not re-run after the repair:** the replay above. The repair was made
