@@ -291,3 +291,23 @@ integrator who merges, this entry replaces it.
 
 *Rests on:* 18, 20. *Revisit if* a merged change has to be reverted because
 the reviewer missed something the owner would have caught.
+
+## 22. The Live page stays, as an optional view of both drivers
+
+**Accepted, 2026-10-12** (owner, after the first deployment).
+
+The design left upstream's live dashboard in place and out of scope. Once the
+site was public the owner looked at it: it showed `127.0.0.1` and one port,
+which suits one person on their own PC and not two remote drivers. The owner's
+decision: keep live viewing ("may as well still allow viewing live races"),
+do not advertise an address or port, and make it work when both are driving.
+
+So the Live page is kept as a spectator view. It shows each configured driver
+side by side and one of them in detail. It displays no setup instructions; how
+a driver points their game at a server is in the setup and hosting documents.
+It does not compare or rank the two live: they can be on different routes.
+
+This does not change what v1 is for. The product is still the after-race
+comparison, and nothing about the Live page is an acceptance criterion.
+
+*Rests on:* 16. *Work:* WP-006 (optional Live view).

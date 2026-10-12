@@ -133,7 +133,7 @@ progress on two humans' availability.
 | Free-roam recording | Storage; not wanted (ADR 7) |
 | VPN or home collector | Not needed for two friends (ADR 5) |
 | In-app accounts | The web server in front handles access (ADR 6) |
-| Live dashboard | Not part of the after-the-fact purpose; upstream's stays in place unless it gets in the way |
+| Live dashboard beyond watching | Not part of the after-the-fact purpose. The page is kept as an optional spectator view for both drivers (ADR 22); live standings or a live comparison between drivers are not planned |
 | Shared-segment comparison across different routes | Later idea from the concept |
 | Weekly challenges or other rivalry formats | Decide after using the basic records table |
 | Retention limits beyond upstream's delete | Storage is modest with events only |

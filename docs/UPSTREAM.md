@@ -187,3 +187,26 @@ the app works under a gateway prefix with no configuration (ADR 16). 37 call
 sites, one character each, plus two lines for the socket. On an upstream sync,
 re-run `sed -i -E 's#(["`])/api/#\1api/#g'` over those files;
 `tests/ui/prefix.test.cjs` fails if an absolute URL comes back.
+
+### Live page for two drivers, 2026-10-12
+
+Owner's request (ADR 22). Changes to imported files:
+
+- `app/static/index.html`: upstream's "Waiting for telemetry" overlay, with
+  its Data Out address and port instructions, is removed. In its place is a
+  strip of driver cards. Two script tags and one stylesheet link added.
+- `app/static/js/dashboard.js`: the single WebSocket (`connect()`), its
+  reconnect constants, the `visibilitychange` re-arm and the overlay half of
+  `pollStatus()` are removed. Added: `detailFrame()`, `resetDetail()`,
+  `staleDetail()`, `setDetailStatus()`, `BLANK_FRAME`; `render()` is split into `render()` and
+  `paint(frame, live)`. `showWriteError()` looks at every driver's recorder.
+  The gauge drawing, map and collision code are untouched, and `gauges.js`
+  is not changed at all.
+
+New files, not from upstream: `app/static/js/livefeeds.js` (one socket per
+driver, reconnect, which driver is shown), `app/static/js/liveview.js` (the
+cards), `app/static/css/live.css`. `app/main.py` is unchanged: it already
+served `ws/live?driver=<id>` per driver and still serves the no-query form.
+
+On an upstream sync, changes to upstream's `connect()` or overlay will
+conflict; take ours for those and keep upstream's gauge changes.

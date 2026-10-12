@@ -32,7 +32,10 @@ corner-by-corner differences.
 
 - Free-roam recording or storage.
 - CSV import.
-- Live dashboard, tuning advice, AI coaching, MCP server, desktop/exe builds.
+- Tuning advice, AI coaching, MCP server, desktop/exe builds.
+- Anything live beyond watching. Upstream's Live page is kept as an optional
+  view of both drivers (ADR 22); it is not part of v1's acceptance, and live
+  standings or a live comparison are not planned.
 - In-app accounts, TLS, certificates (the web server in front handles access).
 - VPN or home-side collector for authenticated transport.
 

@@ -93,6 +93,40 @@ confirmed colours and line styles; JS syntax and diff checks passed. This new
 presentation-only slice needs review in PR #10's newest head. Data and detector
 code are unchanged. Refresh the page to load updated static assets.
 
+### Two-driver Live view (2026-10-12, Opus 5.5, `feat/two-driver-live`)
+
+Owner's request after the deployment: the Live page showed `127.0.0.1` and one
+port, which fits one local user and not two remote drivers; keep live viewing,
+drop the address and port, and make it work with both drivers at once. This is
+the optional Live view (ADR 22). It adds nothing to this packet's acceptance
+criteria, which are about the after-race summary and remain incomplete.
+
+| # | Claim | Basis |
+|---|---|---|
+| L1 | The Live page shows a card per configured driver (state, speed, lap times) and no address, port or setup text | `tests/ui/liveview.test.cjs` |
+| L2 | Each driver has their own same-origin socket, relative to the page and `wss` under HTTPS; one driver pausing, dropping or reconnecting does not affect the other | `tests/ui/livefeeds.test.cjs` |
+| L3 | Switching the shown driver clears the gauges, histories, map, car chip and held raw values first; a late car-name reply for the previous driver is discarded | `tests/ui/liveview.test.cjs` |
+| L4 | "Waiting" until a first packet; "paused" from packet arrival times. A speed or mode is shown only when it was read from the newest packets: while the tab is hidden every driver is still read about five times a second, and on return the old gauges are dropped before a current frame, if any, is shown | `tests/ui/livefeeds.test.cjs`, `tests/ui/liveview.test.cjs` |
+| L5 | The server routes two simultaneous sockets to their own drivers | `tests/test_live_two_drivers.py` |
+| L6 | Leaving the page closes every socket and cancels anything pending; a page restored from the back/forward cache reconnects each driver once | both UI test files |
+| L7 | A failed driver-list request is shown and retried (2 s doubling to 15 s). It never becomes a single generic feed. A server that answers with an empty list still gets the one legacy feed | `tests/ui/liveview.test.cjs` |
+
+Review round 1 (Codex, on `ca6e44a`) reproduced three faults, fixed in the
+next commit: a packet arriving while the tab was hidden made a ten-second-old
+frame count as current; `pagehide` stopped the feeds with no way back from the
+back/forward cache; a failed driver-list request silently became one generic
+"Driver" feed. L4, L6 and L7 are the corrected behaviour.
+
+Re-run: `node --test tests/ui/*.test.cjs` and
+`pytest -q tests/test_live_two_drivers.py`.
+
+Limits: fake sockets and a fake DOM only. Not seen in a real browser, not
+run against the real game, and two real drivers live at once have not been
+observed. The worker could not run the Python test locally (the session's
+permissions refused the virtualenv); it ran in CI. `/api/drivers` and
+`/api/status` still return each driver's port to anyone who asks; the page
+does not display it. Not deployed.
+
 ## Verification
 
 Combined self-checks at the current application checkpoint: 223 Python and

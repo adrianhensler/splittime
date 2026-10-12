@@ -37,10 +37,12 @@ The hostname resolves through Cloudflare. Game UDP goes directly to the VPS
 IP; it does not travel through the HTTP tunnel. The assigned destination port
 identifies the driver, not the sender IP. UDP is not authenticated.
 
-The inherited Live-page overlay suggests loopback/LAN settings and the first
-configured port. Those are not this deployment's settings; use the table above.
-Repairing that inherited help is a small remaining UI task, separate from
-whether the two listeners can receive data.
+The deployed Live page (runtime `1e51eb9`) still has upstream's setup overlay,
+which suggests loopback/LAN settings and the first configured port. Those are
+not this deployment's settings; use the table above. A replacement is prepared
+on `feat/two-driver-live`: a card per driver, no address or port on the page,
+and both drivers viewable at once. **It is not deployed yet.** Until the
+runtime checkout is moved to a commit that contains it, the overlay remains.
 
 ## Viewing and management
 
