@@ -29,6 +29,22 @@ needs no extra signatures or digest machinery. **Git author metadata is not
 proof of identity or authority; a commit or hash is not evidence that claims
 are true or that tests actually passed.** Record reproducible checks separately.
 
+## One record, not two
+
+While a pull request is open, **its description is the packet's live record**:
+claims, commands and results, what was not tested, known limits. Reviewers read
+pull requests, not `work/` files, and keeping the same tables in both places
+doubled the writing on WP-001 and WP-005 for no benefit.
+
+The packet file holds what the pull request cannot: intent, authority and
+limits, acceptance criteria (written before the work), and after the work a
+short closing note with the PR number, the head commit, what the reviewer did
+and did not check, and whatever is still unresolved. Do not copy the PR's
+evidence table into it; link the PR.
+
+Current status lives in the pull request list. Do not maintain status columns
+in documents; the one in `BUILD_PLAN.md` was stale within an hour.
+
 ## Three roles, kept apart
 
 | Role | Does | May be |
@@ -52,6 +68,11 @@ mandatory pause before the next authorized POC implementation step.
 - **complete**: the worker declares it finished. Claims and evidence are
   filled in. Not yet accepted.
 - **admitted**: the owner accepted it. Later work may rely on it.
+  **A merge is not admission.** The integrator may merge reviewed work so
+  others can build on it; the packet stays `complete` until the owner says
+  otherwise. As of 2026-10-12 nothing has been admitted, including work that
+  is merged and built upon. That is a real gap between the method and the
+  practice, left visible here on purpose.
 - **parked**: waiting on something outside the worker's authority. Says what.
 - **failed**: could not be done as specified. Says why and what was learned.
 
@@ -75,11 +96,21 @@ mandatory pause before the next authorized POC implementation step.
    (Accepted) or a worker's default (Proposed).
 8. **Keep it small.** A packet that takes longer to write than the work it
    records should not exist.
+9. **Fetch before you write.** Another worker may have pushed coordination
+   documents, issues or a branch for you since you last looked. Check the
+   remote, the issue list and the pull request list before starting a packet
+   or writing anything about who does what.
+10. **Agree the interface before building on it.** When two workers' parts
+    meet, write the contract and have the other side review it first. It is
+    the cheapest review there is.
+11. **State unknowns in the data too.** If a result rests on something
+    unverified, the output should carry that (`null`, a `*_verified: false`
+    flag, a `comparable: false` with a reason), not only the packet.
 
 ## Working a packet
 
 1. Read `AGENTS.md`, then the packet, then only the context it references.
-2. Set status `in-progress` and name yourself as worker.
+2. Set status `in-progress` and name yourself as worker. Check the remote first (rule 9).
 3. Do the work within authority and limits. Commit as you go.
 4. Fill in claims, evidence, known/unknown/unproven, unresolved, checkpoint.
 5. Set status `complete` with explicit limitations. Continue into another

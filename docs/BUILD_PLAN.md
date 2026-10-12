@@ -25,15 +25,19 @@ corrections and independent acceptance tests.
 
 ## Status
 
-| Milestone | Packet | State |
-|---|---|---|
-| Planning docs | [WP-000](../work/WP-000-planning.md) | Complete, awaiting acceptance |
-| M0 Import baseline | [WP-001](../work/WP-001-import-baseline.md) | Complete, in review (branch `feat/opus-lapscope-baseline`) |
-| M1 Two drivers | [WP-002](../work/WP-002-two-drivers.md) | Draft |
-| M2 Deploy and real captures | [WP-003](../work/WP-003-deploy-and-real-captures.md) | Draft |
-| M3 Rivalry views | [WP-004](../work/WP-004-rivalry-views.md) | Draft |
-| M4 Corner comparison | [WP-005](../work/WP-005-corner-comparison.md) | Draft |
-| M5 Summary page and polish | [WP-006](../work/WP-006-summary-page.md) | Draft |
+Live status is the [pull request list](https://github.com/adrianhensler/splittime/pulls?q=is%3Apr)
+and [docs/PARALLEL_BUILD.md](PARALLEL_BUILD.md). It is not kept in a table
+here, because that table went stale within an hour of parallel work starting.
+
+| Milestone | Packet |
+|---|---|
+| Planning docs | [WP-000](../work/WP-000-planning.md) |
+| M0 Import baseline | [WP-001](../work/WP-001-import-baseline.md) |
+| M1 Two drivers | [WP-002](../work/WP-002-two-drivers.md) |
+| M2 Deploy and real captures | [WP-003](../work/WP-003-deploy-and-real-captures.md) |
+| M3 Rivalry views | [WP-004](../work/WP-004-rivalry-views.md) |
+| M4 Corner comparison | [WP-005](../work/WP-005-corner-comparison.md) |
+| M5 Summary page and polish | [WP-006](../work/WP-006-summary-page.md) |
 
 ## Milestones in one line each
 
