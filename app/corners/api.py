@@ -37,16 +37,24 @@ def pick_reference(laps: list[dict]) -> tuple[dict | None, list[str]]:
     """The lap corners are detected from: the fastest timed lap that is not
     flagged (rewind, contact, cutoff) and not excluded by a user edit. When
     every lap on the route is flagged the fastest one is used anyway, with a
-    warning, so the page can still show something and say what it rests on."""
+    warning, so the page can still show something and say what it rests on.
+
+    A detector `cutoff` counts even after a user clears the visible flag
+    (`flags_auto` keeps it): the lap's time is an estimate and its trace stops
+    short, and an edit to what is displayed does not change either."""
     timed = sorted((lap for lap in laps if lap.get("lap_time") is not None),
                    key=lambda lap: lap["lap_time"])
     if not timed:
         return None, []
+
+    def cut_off(lap: dict) -> bool:
+        return "cutoff" in (lap.get("flags_auto") or "").split(",")
+
     for lap in timed:
-        if not lap.get("flags") and not lap.get("excluded"):
+        if not lap.get("flags") and not lap.get("excluded") and not cut_off(lap):
             return lap, []
     lap = timed[0]
-    why = lap.get("flags") or "excluded"
+    why = lap.get("flags") or ("cutoff (flag cleared by hand)" if cut_off(lap) else "excluded")
     return lap, [f"no clean lap on this route; reference lap {lap['id']} is flagged: {why}"]
 
 

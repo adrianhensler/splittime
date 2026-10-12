@@ -68,6 +68,19 @@ def test_reference_lap_prefers_clean_over_fast():
     assert lap["id"] == 1
     assert warnings == ["no clean lap on this route; reference lap 1 is flagged: rewind"]
     assert pick_reference([laps[4]]) == (None, [])
+
+    # a cutoff the user cleared by hand is still an estimated, short trace
+    cleared = {"id": 6, "lap_time": 39.0, "flags": None, "flags_auto": "cutoff",
+               "excluded": False}
+    assert pick_reference([cleared, laps[2]]) == (laps[2], [])
+    lap, warnings = pick_reference([cleared])
+    assert lap["id"] == 6
+    assert warnings == ["no clean lap on this route; reference lap 6 is flagged: "
+                        "cutoff (flag cleared by hand)"]
+    # other hand-cleared flags are the user's call and stay cleared
+    forgiven = {"id": 7, "lap_time": 38.0, "flags": None, "flags_auto": "contact",
+                "excluded": False}
+    assert pick_reference([forgiven, laps[2]]) == (forgiven, [])
     assert pick_reference([]) == (None, [])
 
 

@@ -80,7 +80,7 @@ Ubuntu, Python 3.12.3. Head of `feat/opus-corner-analysis`.
 
 | ID | What | How to re-run |
 |---|---|---|
-| E1 | 32 tests in `tests/corners/` pass; full suite "185 passed" | `.venv/bin/pytest -q tests/corners` and `.venv/bin/pytest -q` |
+| E1 | 32 tests in `tests/corners/` pass; full suite "223 passed" on the integration branch | `.venv/bin/pytest -q tests/corners` and `.venv/bin/pytest -q` |
 | E2 | Detected vs true positions on the simulator: entries 603.2 / 1579.6 (true 600 / 1577), exits 973.3 / 1949.1 (true 977 / 1954), radius 120.0 | `test_simulator_circuit_has_its_two_known_corners`; true values from `tools/simulator.py` `STRAIGHT`, `RADIUS` |
 | E3 | Against the database recorded in WP-001 E5: 2 corners, `capture_quality: continuous`, totals dt −0.273 s, lap-time dt −0.283 s, residual −0.010 s; about 150 ms per comparison | record a session as in `AGENTS.md`, then call `app.corners.api.corners_compare` with a stub request as `tests/corners/test_corners_api.py` does |
 | E4 | Isolated source scope check | `git diff --stat ad4551b c29fdcc -- app/api app/recorder app/telemetry app/main.py app/static tools prototype requirements.txt` |
@@ -137,6 +137,14 @@ GPT-6 and the Codex reviewer on `fc05b15`. Codex reproduced the second item.
 | A clock that resets mid-lap gave `comparable: true` and a negative corner time | Done: `lap_clock_discontinuous`; each lap summary now carries its `warnings`. Test added with a mid-corner reset. |
 
 Not covered: a clock that jumps *forward* mid-lap is not detected.
+
+## Review round 3 (PR #10, 2026-10-12)
+
+Codex automated review on `c3ac78a`: a `cutoff` lap whose visible flag a user
+cleared could become the route's corner reference with no warning. Fixed by
+Opus in `app/corners/api.py`: `pick_reference` reads the detector's
+`flags_auto` for cutoff. Hand-cleared `contact` or `rewind` stay cleared, as
+the user's judgment. Test extended in `test_reference_lap_prefers_clean_over_fast`.
 
 ## Checkpoint
 
