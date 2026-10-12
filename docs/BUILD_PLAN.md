@@ -55,27 +55,27 @@ checkpoint says what its milestone still owes.
 
 ## Completion and next finish lines
 
-Assessment dated 2026-10-12, including the integrated POC in
-[PR #10](https://github.com/adrianhensler/splittime/pull/10) and the prefix slice
-in [PR #13](https://github.com/adrianhensler/splittime/pull/13), merged at
-`d096489`. This is an evidence snapshot; Git history and the PR list remain
-the source for subsequent changes.
+Assessment dated 2026-10-12 after the reviewed shared deployment: the integrated
+POC and prefix slices are merged, and runtime `1e51eb9` is running behind the
+gateway. See WP-003 and the [hosting record](hosting/test-hensler-work.md) for
+deployment evidence and site-specific access/settings. This is an evidence
+snapshot; Git history and the PR list remain the source for subsequent changes.
 
-The local capture-to-comparison POC runs. The original two-friend v1 is not
-complete: deployment and field validation remain, and some promised features
-are still absent. Counting packets or passing tests would not yield an honest
+The shared capture-to-page POC runs and the imported owner run is visible.
+The original two-friend v1 is not complete: field validation remains, and some
+promised features are still absent. Counting packets or passing tests would not yield an honest
 completion percentage.
 
 | Packet | Implemented and evidenced | Still needed for its full acceptance |
 |---|---|---|
-| WP-001 / baseline | Imported, independently reviewed and merged; Docker recording smoke self-checked by Opus in PR #13 | Container smoke is not independent deployment verification |
+| WP-001 / baseline | Imported, independently reviewed and merged; deployed application self-checked | Full deployment was not independently rerun |
 | WP-002 / two drivers | Integrated two listeners, isolated trackers, migration and attribution; repaired configuration/source handling independently re-checked | Two real drivers and internet delivery validation in WP-003; inherited reordered UDP can duplicate laps |
-| WP-003 / deploy and captures | One owner-confirmed local Rivals capture; exact game time and start repair; prefix URLs and app-side HTTP/WebSocket routing independently checked; Docker/browser smoke self-checked | Real proxy upgrade/authentication; access-controlled deployment; second driver; event matrix, internet timing and free-roam/storage measurements; remove upstream browser update check |
-| WP-004 / rivalry | Recorded route/class attempts, driver/car/PI labels, candidate bests and exploratory comparison | Quality/timing provenance propagated into rivalry records; event-mode/equivalence evidence; ranked rules, scoring and dated record history |
+| WP-003 / deploy and captures | One confirmed Rivals capture imported without raw-byte changes; reviewed gateway deployed; browser pages/WebSocket and protected mutations checked; both ports receive external race-off probes | Fresh game captures from each driver; event matrix, internet timing and free-roam/storage measurements; generic upstream browser update check removal (disabled in this deployment) |
+| WP-004 / rivalry | Recorded route/class attempts, driver/car/PI labels, candidate bests and exploratory comparison; session event guesses and source-address redaction | Quality/timing provenance fully propagated into rivalry records; event-mode/equivalence evidence; ranked rules, scoring and dated record history |
 | WP-005 / corners | API wired into the app; measurements, trace links and comparison warnings; synthetic checks and one real trace | Persist a stable reference/numbering; verify direction and sensible boundaries; two real laps/cross-car alignment; forward clock discontinuities |
-| WP-006 / summary | Comparison page with overlays and largest corner differences | Complete route summary and selected-lap analysis links; per-driver/total storage display; deployed prefix validation |
+| WP-006 / summary | Comparison page with overlays and largest corner differences; deployed prefixed page responds | Complete route summary and selected-lap analysis links; per-driver/total storage display; real two-driver comparison |
 
-### Next useful release: private exploratory use
+### Next useful finish line: unattended use by both drivers
 
 This is a smaller proposed finish line within v1, not a claim that the
 remaining v1 criteria have been removed.
@@ -84,13 +84,12 @@ remaining v1 criteria have been removed.
    build and first-start repair. PR #13 adds relative URLs with independent
    app routing checks and green CI. Their remaining field/deployment limits
    stay in the packet; integration is no longer an outstanding step.
-2. **Make the private installation work normally.** All pages/APIs/WebSockets
-   through the real proxy prefix, gateway/access and management
-   isolation checks, correct driver labels, and clear separation of seeded
-   examples from game recordings. Application/configuration work may proceed
-   in the repo; host/gateway/firewall changes require their existing authority.
+2. **Shared installation: deployed and checked.** The real prefix, browser
+   WebSocket, gateway mutation protection, driver labels and imported game
+   recording are checked. No seeded examples were imported. Two external
+   race-off packets prove listener reachability, not game detection/timing.
 3. **Prove asynchronous use by both friends.** Each configures Data Out once,
-   drives without server intervention, and sees their own event on the private
+   drives without server intervention, and sees their own event on the shared
    site. Compare two real laps on a candidate shared route with accurate game
    timing and honest quality/unknown labels. Keep comparisons exploratory
    while direction, event rules or timing equivalence remain unverified.
@@ -159,6 +158,25 @@ platform (both PC); server (this host, direct UDP, ADR 5); run mode
 (container, ADR 15).
 
 ## Findings
+
+### Shared deployment checkpoint, 2026-10-12
+
+The reviewed deployment now serves the imported owner's 2:30.808 Rivals attempt
+with contact only and no seeded sessions. Original recordings were untouched;
+new live storage was seeded from a corrected copy. Ordered raw-packet hashes
+match across the original export, staging and live seed (16,333 frames).
+Codex reviewed the gateway preparation and performed live deployment
+self-checks: prefixed pages/API, browser WebSocket, public reads/protected
+mutations, both external UDP counters and unchanged unrelated containers.
+A separate agent source-reviewed the final Origin protection and seed/probe
+instructions without blockers; it did not independently rerun deployment.
+See [WP-003](../work/WP-003-deploy-and-real-captures.md) and the hosting record
+for exact checks, receipt and remaining criteria.
+
+R1 remains unmeasured: the original recording was local and the new external
+packets were race-off reachability probes. R2's 30-minute free-roam/storage
+measurement and R3's observed rates for both drivers remain pending. Next:
+one fresh real event from each driver before extra rivalry/history work.
 
 ### Real capture and final integration checkpoint, 2026-10-12
 
