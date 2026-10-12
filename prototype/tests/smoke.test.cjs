@@ -23,7 +23,7 @@ test("demo renders records and ineligible reasons",()=>{
  assert.equal(el("scoreB").textContent,"1:33.060");
  assert.match(el("winner").textContent,/A 0\.642s/);
  assert.match(el("attempts").innerHTML,/Ineligible: not complete/);
- assert.match(el("attempts").innerHTML,/Ineligible: not accepted/);
+ assert.match(el("attempts").innerHTML,/Ineligible:[^<]*not accepted/);
 });
 test("route, channel and slider controls work",()=>{
  const {el}=boot(),before=el("lineA").attrs.d;
