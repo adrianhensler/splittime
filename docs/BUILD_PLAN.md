@@ -62,8 +62,8 @@ deployment evidence and site-specific access/settings. This is an evidence
 snapshot; Git history and the PR list remain the source for subsequent changes.
 
 The shared capture-to-page POC runs and the imported owner run is visible.
-The original two-friend v1 is not complete: field validation remains, and some promised features
-are still absent. Counting packets or passing tests would not yield an honest
+The original two-friend v1 is not complete: field validation remains, and some
+promised features are still absent. Counting packets or passing tests would not yield an honest
 completion percentage.
 
 | Packet | Implemented and evidenced | Still needed for its full acceptance |

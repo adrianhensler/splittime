@@ -74,7 +74,7 @@ do not prove fresh two-driver recording or the full field matrix.
 | ID | What | Where |
 |---|---|---|
 | E1 | Capture/replay findings and scope | [Capture record](https://github.com/adrianhensler/splittime/pull/10#issuecomment-6118975642); `docs/BUILD_PLAN.md` dated checkpoint |
-| E2 | Outstanding deployment/field checks | This packet's acceptance criteria and `docs/hosting/test-hensler-work.md` |
+| E2 | Outstanding field checks and generic update-check removal | This packet's acceptance criteria and `docs/hosting/test-hensler-work.md` |
 | E3 | Prefix implementation, author Docker/browser checks and independent URL/ASGI routing checks | [PR #13](https://github.com/adrianhensler/splittime/pull/13), reviewed head `982b54f`, merged at `d096489` |
 | E4 | Deployment receipt, reviewed configuration, live UI/WebSocket, write protection, external UDP and preservation checks | [Gateway PR #113 receipt](https://github.com/adrianhensler/test.hensler.work/pull/113#issuecomment-6126431312); [hosting record](../docs/hosting/test-hensler-work.md); SplitTime runtime `1e51eb9`, gateway `b950101` |
 
@@ -113,8 +113,9 @@ reviewed PR #113 (`369afd3`, merged as `b950101`). PR #112 was closed as
 superseded. The owner run is visible on the public Rivalry page; source data
 was preserved and a separate corrected copy seeded a new database without
 overwriting existing data. Full paths, mapping and repeatable read checks are
-in `docs/hosting/test-hensler-work.md`. This documentation checkpoint is on
-`docs/deployment-receipt`; its PR is the repository's docs-only follow-up.
+in `docs/hosting/test-hensler-work.md`. This documentation checkpoint is
+[PR #16](https://github.com/adrianhensler/splittime/pull/16), based on `1e51eb9`;
+it changes no application code and does not admit unresolved field criteria.
 
 2026-10-12, Opus 5.5 (`feat/url-prefix`): every page now uses relative URLs,
 checked through a prefix-stripping proxy; the container builds and records two
