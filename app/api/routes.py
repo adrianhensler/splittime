@@ -18,11 +18,12 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from .. import OFFLINE, __version__, cars, tracks
-from ..cars import CAR_NAMES
+from ..cars import CAR_NAMES, resolve_name
 from ..recorder.laps import (AIRBORNE_MIN_S, AIRBORNE_SLIP_MAX,
                              AIRBORNE_SUSP_MAX, IMPACT_ACCEL, LANDING_GRACE_S,
                              impulsive)
 from ..recorder.reprocess import reprocess_session
+from ..rivalry import rivalry_summary
 from ..recorder.store import (ROUTE_KINDS as store_kinds, ROUTE_OUTLINE_BOX,
                               ROUTE_OUTLINE_DETAIL, lap_anchor, lap_span)
 from ..telemetry.packet import FIELDS, empty_fields, pack, parse
@@ -80,9 +81,7 @@ def _class_letter(v) -> str:
 
 
 def _car_name(ordinal, override=None) -> str:
-    if ordinal is None:  # imported sessions carry no car metadata at all
-        return override or "Unknown car"
-    return override or CAR_NAMES.get(ordinal) or f"Car #{ordinal}"
+    return resolve_name(ordinal, override)
 
 
 def _session_out(row: dict) -> dict:
@@ -124,7 +123,44 @@ async def status(request: Request):
         # stored. frames_dropped counts what the capped buffer had to shed.
         "write_error": tracker.write_error,
         "frames_dropped": tracker.frames_dropped,
+        "drivers": [
+            {
+                "id": d.id, "name": d.name, "udp_port": d.udp_port,
+                "udp_error": getattr(request.app.state, "udp_errors", {}).get(d.id),
+                "packets_total": request.app.state.hubs[d.id].packets_total,
+                "bad_packets": request.app.state.hubs[d.id].bad_packets,
+                "source_changes": request.app.state.hubs[d.id].source_changes,
+                "session_id": request.app.state.trackers[d.id].session_id,
+                "write_error": request.app.state.trackers[d.id].write_error,
+                "frames_dropped": request.app.state.trackers[d.id].frames_dropped,
+            }
+            for d in getattr(request.app.state, "drivers", [])
+        ],
     }
+
+
+def _any_session_active(request: Request) -> bool:
+    trackers = getattr(request.app.state, "trackers", None)
+    if trackers is not None:
+        return any(t.session_id is not None for t in trackers.values())
+    tracker = getattr(request.app.state, "tracker", None)
+    return tracker is not None and tracker.session_id is not None
+
+
+def _session_active(request: Request, session_id: int) -> bool:
+    trackers = getattr(request.app.state, "trackers", None)
+    if trackers is not None:
+        return any(t.session_id == session_id for t in trackers.values())
+    tracker = getattr(request.app.state, "tracker", None)
+    return tracker is not None and tracker.session_id == session_id
+
+
+@router.get("/drivers")
+def drivers(request: Request):
+    return [
+        {"id": d.id, "name": d.name, "udp_port": d.udp_port}
+        for d in getattr(request.app.state, "drivers", [])
+    ]
 
 
 def _require_online() -> None:
@@ -168,7 +204,7 @@ async def compact_storage(request: Request):
     Store's event-loop connection and holds an exclusive lock the whole time,
     so - like reprocess and import - it must not run while a session is
     recording, or live telemetry stalls behind it."""
-    if request.app.state.tracker.session_id is not None:
+    if _any_session_active(request):
         raise HTTPException(409, "a session is recording; retry after it ends")
     try:
         return {"ok": True, **request.app.state.store.vacuum()}
@@ -180,9 +216,19 @@ async def compact_storage(request: Request):
                  "the size of the database")
 
 
+
+@router.get("/rivalry")
+def rivalry(request: Request):
+    """Read-only display projection; no unverified competitive winners."""
+    return rivalry_summary(request.app.state.store,
+                           getattr(request.app.state, "drivers", ()))
+
 @router.get("/sessions")
-def sessions(request: Request):
-    return [_session_out(s) for s in request.app.state.store.list_sessions()]
+def sessions(request: Request, driver_id: str | None = None):
+    rows = request.app.state.store.list_sessions()
+    if driver_id is not None:
+        rows = [s for s in rows if s["driver_id"] == driver_id]
+    return [_session_out(s) for s in rows]
 
 
 class SessionPatch(BaseModel):
@@ -221,7 +267,7 @@ async def reprocess(session_id: int, request: Request):
     store = request.app.state.store
     if store.get_session(session_id) is None:
         raise HTTPException(404, "session not found")
-    if request.app.state.tracker.session_id is not None:
+    if _any_session_active(request):
         raise HTTPException(409, "a session is recording; retry after it ends")
     try:
         return {"ok": True, "laps": reprocess_session(store, session_id)}
@@ -238,7 +284,7 @@ def delete_session(session_id: int, request: Request):
     store = request.app.state.store
     if store.get_session(session_id) is None:
         raise HTTPException(404, "session not found")
-    if request.app.state.tracker.session_id == session_id:
+    if _session_active(request, session_id):
         raise HTTPException(409, "session is currently recording")
     store.delete_session(session_id)
     return {"ok": True}
@@ -429,11 +475,13 @@ def _group_out(group: dict, members: list[dict]) -> dict:
     _session_out; members arrive oldest first."""
     out = dict(group)
     lead = members[0] if members else {}
+    drivers = {m.get("driver_id") or "legacy" for m in members}
+    out["driver_id"] = next(iter(drivers)) if len(drivers) == 1 else None
     bests = [m["best_lap"] for m in members if m["best_lap"]]
     started = group["created_at"] if not members else members[0]["started_at"]
     out["session_count"] = len(members)
     out["run_count"] = sum(m["lap_count"] for m in members)
-    out["best_lap"] = min(bests, default=None)
+    out["best_lap"] = min(bests, default=None) if len(drivers) <= 1 else None
     out["started_at"] = started
     out["ended_at"] = max((m["ended_at"] or m["started_at"] for m in members),
                           default=None)
@@ -450,12 +498,13 @@ def _group_out(group: dict, members: list[dict]) -> dict:
     # member onto another route, and a group the user can't open is worse than
     # one that says so
     out["mixed"] = (len({m["route_id"] for m in members}) > 1
-                    or len({m["car_ordinal"] for m in members}) > 1)
+                    or len({m["car_ordinal"] for m in members}) > 1
+                    or len(drivers) > 1)
     return out
 
 
 def _check_members(store, session_ids: list[int], group: dict | None = None):
-    """Same route and same car, both known, and nothing already grouped.
+    """Same driver, route and car; known metadata and nothing already grouped.
     Returns (route_id, car_ordinal)."""
     if not session_ids:
         raise HTTPException(400, "no sessions given")
@@ -468,6 +517,9 @@ def _check_members(store, session_ids: list[int], group: dict | None = None):
                                           or s["group_id"] != group["id"]):
             raise HTTPException(409, f"session {sid} is already in a group")
         rows.append(s)
+    members = rows + (store.group_sessions(group["id"]) if group else [])
+    if len({s.get("driver_id") or "legacy" for s in members}) > 1:
+        raise HTTPException(400, "sessions must belong to the same driver")
     routes = {s["route_id"] for s in rows} | (
         {group["route_id"]} if group else set())
     cars = {s["car_ordinal"] for s in rows} | (
@@ -519,6 +571,8 @@ def group_laps(group_id: int, request: Request):
     if group is None:
         raise HTTPException(404, "group not found")
     members = [_session_out(s) for s in store.group_sessions(group_id)]
+    if len({s.get("driver_id") or "legacy" for s in members}) > 1:
+        raise HTTPException(409, "group contains sessions from different drivers; ungroup it")
     laps = store.group_laps(group_id)
     best = min((lap["lap_time"] for lap in laps
                 if lap["lap_time"] and not lap["excluded"]), default=None)
@@ -1243,7 +1297,7 @@ async def import_csv(request: Request, name: str = Query("", max_length=120)):
     and car/route metadata is unknown (the session shows "Unknown car").
     The raw body IS the file (text/csv) - no multipart, no new dependency."""
     store = request.app.state.store
-    if request.app.state.tracker.session_id is not None:
+    if _any_session_active(request):
         raise HTTPException(409, "a session is recording; retry after it ends")
     body = await _read_import_body(request)
     # off the loop: parsing and synthesizing a large file used to run right

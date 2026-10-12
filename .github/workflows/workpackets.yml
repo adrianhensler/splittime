@@ -1,0 +1,21 @@
+name: Workpacket records
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, edited, ready_for_review, converted_to_draft]
+
+permissions:
+  contents: read
+
+jobs:
+  records:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check packet ownership, scope and evidence snapshot
+        run: python scripts/check_workpackets.py --event "$GITHUB_EVENT_PATH"

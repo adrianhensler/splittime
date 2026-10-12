@@ -25,15 +25,22 @@ corrections and independent acceptance tests.
 
 ## Status
 
-| Milestone | Packet | State |
+"On `main`" below records only what has merged, and is updated by the pull
+request that merges it. Work in progress and in review is in the
+[pull request list](https://github.com/adrianhensler/splittime/pulls?q=is%3Apr);
+it is not tracked here, because a finer-grained table went stale within an
+hour of parallel work starting. The next slice is the first milestone not on
+`main`, subject to the open pull requests.
+
+| Milestone | Packet | On `main` |
 |---|---|---|
-| Planning docs | [WP-000](../work/WP-000-planning.md) | Complete, awaiting acceptance |
-| M0 Import baseline | [WP-001](../work/WP-001-import-baseline.md) | Complete, in review (branch `feat/opus-lapscope-baseline`) |
-| M1 Two drivers | [WP-002](../work/WP-002-two-drivers.md) | Draft |
-| M2 Deploy and real captures | [WP-003](../work/WP-003-deploy-and-real-captures.md) | Draft |
-| M3 Rivalry views | [WP-004](../work/WP-004-rivalry-views.md) | Draft |
-| M4 Corner comparison | [WP-005](../work/WP-005-corner-comparison.md) | Draft |
-| M5 Summary page and polish | [WP-006](../work/WP-006-summary-page.md) | Draft |
+| Planning docs | [WP-000](../work/WP-000-planning.md) | yes |
+| M0 Import baseline | [WP-001](../work/WP-001-import-baseline.md) | yes (PR #4, `ad4551b`) |
+| M1 Two drivers | [WP-002](../work/WP-002-two-drivers.md) | no |
+| M2 Deploy and real captures | [WP-003](../work/WP-003-deploy-and-real-captures.md) | no |
+| M3 Rivalry views | [WP-004](../work/WP-004-rivalry-views.md) | no |
+| M4 Corner comparison | [WP-005](../work/WP-005-corner-comparison.md) | no |
+| M5 Summary page and polish | [WP-006](../work/WP-006-summary-page.md) | no |
 
 ## Milestones in one line each
 
@@ -45,6 +52,60 @@ corrections and independent acceptance tests.
   versus exploratory.
 - **M4** Fixed numbered corners per route; two-lap corner table.
 - **M5** One summary page per route; storage display.
+
+## Completion and next finish lines
+
+Assessment dated 2026-10-12, against application code at `f68d70a` and the
+live review record in [PR #10](https://github.com/adrianhensler/splittime/pull/10).
+This supplements the merged-only table above; fetch the PR before treating
+this dated checkpoint as current.
+
+The local capture-to-comparison POC runs. The original two-friend v1 is not
+complete: deployment and field validation remain, and some promised features
+are still absent. Counting packets or passing tests would not yield an honest
+completion percentage.
+
+| Packet | Implemented and evidenced | Still needed for its full acceptance |
+|---|---|---|
+| WP-001 / baseline | Imported, independently reviewed and merged | Docker runtime is not established by the import checks |
+| WP-002 / two drivers | Two listeners, isolated trackers, migration and attribution; repaired configuration/source handling independently re-checked | Integration merge; two real drivers and internet delivery validation in WP-003; inherited reordered UDP can duplicate laps |
+| WP-003 / deploy and captures | One owner-confirmed local Rivals capture; exact game time and capture-derived start repair | Whole-app prefix/WebSocket and Docker checks; access-controlled deployment; second driver; event matrix, internet timing and free-roam/storage measurements |
+| WP-004 / rivalry | Recorded route/class attempts, driver/car/PI labels, candidate bests and exploratory comparison | Quality/timing provenance propagated into rivalry records; event-mode/equivalence evidence; ranked rules, scoring and dated record history |
+| WP-005 / corners | API wired into the app; measurements, trace links and comparison warnings; synthetic checks and one real trace | Persist a stable reference/numbering; verify direction and sensible boundaries; two real laps/cross-car alignment; forward clock discontinuities |
+| WP-006 / summary | Comparison page with overlays and largest corner differences | Complete route summary and selected-lap analysis links; per-driver/total storage display; deployed prefix validation |
+
+### Next useful release: private exploratory use
+
+This is a smaller proposed finish line within v1, not a claim that the
+remaining v1 criteria have been removed.
+
+1. **Integrate the reviewed POC.** Opus approved application checkpoint
+   `f68d70a`, including `175bffe` (first-start repair) and `f09c3ec` (UI),
+   with no blocking findings. Review any later code/process changes;
+   green checks; final durable packet records; reviewed merge of PR #10.
+   Retain source PRs until that succeeds.
+2. **Make the private installation work normally.** All pages/APIs/WebSockets
+   under the configured prefix, Docker smoke, gateway/access and management
+   isolation checks, correct driver labels, and clear separation of seeded
+   examples from game recordings. Application/configuration work may proceed
+   in the repo; host/gateway/firewall changes require their existing authority.
+3. **Prove asynchronous use by both friends.** Each configures Data Out once,
+   drives without server intervention, and sees their own event on the private
+   site. Compare two real laps on a candidate shared route with accurate game
+   timing and honest quality/unknown labels. Keep comparisons exploratory
+   while direction, event rules or timing equivalence remain unverified.
+
+Finish the original v1 by completing the WP-003 event/measurement matrix,
+recognized zero-completed-lap attempt retention, quality/provenance integration,
+stable corners, route summary/storage monitoring and bounded receive/storage
+handling. Ranked rivalry and history follow the required rules and equivalence
+evidence; they are not silently counted as delivered by candidate bests.
+
+Use the existing packet acceptance criteria as the checklist. For every
+remaining criterion record whether code is missing, self-tested only,
+independently checked, or admitted; keep a locator for its evidence. The next
+action is the first unresolved criterion on this path, not merely the first
+packet whose status is not `complete`.
 
 Real captures should validate detection as early as practical, but a basic
 read-only rivalry UI may be built and tested against clearly labelled
@@ -98,5 +159,61 @@ platform (both PC); server (this host, direct UDP, ADR 5); run mode
 (container, ADR 15).
 
 ## Findings
+
+### Real capture and final integration checkpoint, 2026-10-12
+
+PR #10 is the single integration route to main. Opus merged corner fix `c29fdcc`
+at `7c81323`, preserving driver attribution; independently re-ran 18/19 adverse
+tests successfully. The inherited out-of-order lap-duplication test remains a
+known limit. PR #8 process documentation is reconciled into this branch.
+
+The owner confirmed one real Rivals lap, no rewind, with wall contact. A local
+snapshot holds 16,333 frames; stored 150.807556 s matches both game lap-time
+fields. A negative-distance approach and first-line lap-clock reset caused a
+false rewind. Repair `175bffe` re-anchors that observed first-start signature
+without changing any detector threshold. Separate replay copies retain contact
+and the game time, remove false rewind/clock warnings; live data stays intact.
+Corrected timed trace: 14,187 samples, continuous, zero gaps, 12 detected corners,
+metres_per_unit 1.16881; direction and corner accuracy remain unverified.
+
+Own checks: 223 Python tests, 12 Node UI tests, Ruff and packet round trip pass.
+UI repair `f09c3ec` follows configured A/B order, explains unresolved equivalence
+and clock warnings, and makes chart axes readable on narrow screens. Opus's
+[independent review of `f68d70a`](https://github.com/adrianhensler/splittime/pull/10#pullrequestreview-5490170368)
+re-ran 223 Python and 12 Node tests and found no blockers. One hypothetical
+safe-direction miss remains: a lap-clock reset one frame after crossing may
+still flag a clean lap suspect. No capture supports widening that predicate.
+Current live recording retains
+its original index until deliberate curation or reprocessing; only copies were replayed.
+
+Next: verify later process/checkpoint changes and make PR #10 ready; do not close source
+PRs until integration succeeds. Then verify URL-prefix/gateway/Docker setup and
+capture the second driver. Route equivalence, official validity, cross-car
+alignment and the complete event matrix remain open. Defer rivalry history and
+extra analysis until this capture-to-page path is in ordinary use.
+
+### Initial integrated local POC checkpoint, 2026-10-12
+
+Branch `feat/codex-integrated-poc` combines the two-driver backend, rivalry API,
+rivalry page and isolated corner module. Corner endpoints are now registered in
+the app; candidate records link to a read-only comparison page with speed,
+throttle and brake overlays, timing/quality labels and corner measurements.
+The corner response attributes A/B to driver names; no winner is awarded.
+
+Validation on Windows/Python 3.13: full combined suite 205 passed; Node UI
+controllers 8 passed; Ruff passed. After adding driver labels to the corner
+response, its regressions are run separately. Browser smoke check followed
+Rivalry to the comparison page with two simulated drivers. This is synthetic
+validation, not field accuracy or deployment acceptance.
+
+`scripts/seed_demo.py <new-directory>` creates a fresh simulator-only database,
+refusing to overwrite an existing one. Run offline with the printed driver
+configuration, HTTP bound to 127.0.0.1:8100, UDP 19999/20000.
+
+Remaining: review/integrate pending PRs; real FH6 recordings; verified gateway
+and URL-prefix deployment; zero-completed-lap attempt retention; bounded storage
+and per-driver storage totals; durable corner numbering/reference; rivalry
+history and competitive-equivalence evidence. No VPS runtime or gateway was
+changed at this checkpoint.
 
 Record what real captures show here, dated, as WP-003 produces them.

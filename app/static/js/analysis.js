@@ -345,7 +345,7 @@ function mergeSuggestions() {
   const byPair = {};
   for (const s of state.allSessions) {
     if (s.group_id != null || !s.route_id || s.car_ordinal == null) continue;
-    (byPair[`${s.route_id}:${s.car_ordinal}`] ||= []).push(s);
+    (byPair[`${s.driver_id || "legacy"}:${s.route_id}:${s.car_ordinal}`] ||= []).push(s);
   }
   const out = [];
   for (const rows of Object.values(byPair))
@@ -1247,6 +1247,7 @@ function mergeCandidates(session) {
   if (!session.route_id || session.car_ordinal == null) return [];
   return state.allSessions.filter(
     (s) => s.group_id == null && s.route_id === session.route_id
+      && (s.driver_id || "legacy") === (session.driver_id || "legacy")
       && s.car_ordinal === session.car_ordinal);
 }
 
@@ -2304,6 +2305,9 @@ function makeChart(el, title, xVals, seriesDefs, height = 150) {
   const opts = {
     title, width: el.clientWidth, height,
     cursor: { sync: { key: "fc" } },
+    legend: {
+      markers: { dash: (u, i) => u.series[i].dash?.length ? "dashed" : "solid" },
+    },
     // hovering any chart marks the matching spot on the track map (the
     // charts all share lap A's x-array, so the cursor idx maps 1:1)
     hooks: {

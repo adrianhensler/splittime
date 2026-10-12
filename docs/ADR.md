@@ -24,6 +24,9 @@ One entry per decision. Status is **Accepted** (the owner decided),
 | 16 | The app works under a URL prefix; browser update check removed | Accepted |
 | 17 | The owner's deployment is documented separately from the software | Accepted |
 | 18 | Workpacket-light, POC-first development | Accepted |
+| 19 | Corner analysis uses the standard library only, not numpy | Proposed |
+
+| 20 | A reviewed merge to `main` counts as owner acceptance | Accepted |
 
 Each entry lists what it **rests on**, so that reversing one decision shows
 which others to revisit.
@@ -220,3 +223,35 @@ least privilege or separation of verification from acceptance.
 
 *Consequence:* the implementation handoff and workflow guidance live in
 `docs/REVIEW_HANDOFF_2026-10-12.md`, `AGENTS.md` and `docs/WORKPACKETS.md`.
+
+## 19. Corner analysis uses the standard library only, not numpy
+
+**Proposed, 2026-10-12** (Opus 5.5, with the corner module).
+ADR 3 expected numpy to arrive with the corner code. It was not needed: a lap
+is a few thousand samples, and the comparison endpoint takes about 150 ms for
+three simulated laps, most of it reading and parsing frames. Upstream runs on
+two runtime dependencies and its Docker image installs only those; keeping it
+that way avoids a Dockerfile and requirements change.
+
+The detection approach and thresholds still come from Forza-6-telemetry's
+`sections.py` (ADR 3); only the array library differs.
+
+*Rests on:* 3. *Revisit if* laps of tens of thousands of samples make the
+pure-Python pass slow.
+
+## 20. A reviewed merge to `main` counts as owner acceptance
+
+**Accepted, 2026-10-12** (owner, "in this instance": for this project's POC).
+(Number 19 is taken by an entry on the corner-analysis branch.)
+
+The method kept acceptance for the owner alone, but in the first day nothing
+was accepted while merged work was already being built on. The owner settled
+it: a merge to `main` is acceptance, provided someone other than the author
+reviewed the pull request and the author did not merge it.
+
+Acceptance covers what the pull request claims. Items it lists as untested,
+unknown or asserted are not accepted as true by the merge. Deployment, gateway
+or firewall changes and anything needing root are outside this and still need
+the owner's explicit go-ahead.
+
+*Rests on:* 14, 18. *Revisit* when the project leaves POC or gains users.

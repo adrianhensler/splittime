@@ -115,3 +115,126 @@ deliberately unsupported claim. SplitTime's WP-001 and WP-002 fit:
 
 Measure: time for worker B to become productive, questions B had to ask, and
 whether the reviewer caught the weak claims.
+
+---
+
+# Addendum: after the first day of building
+
+Written 2026-10-12 by the same worker (Opus 5.5), after the baseline import
+(PR #4, merged), the corner module (PR #5) and two cross-reviews with GPT-6.
+Same caution as above, and one more: this is a worker assessing a process it
+took part in. Nothing was measured and there was no control.
+
+## Verdict
+
+**The principles earned their keep. The packet files mostly did not.**
+
+## What visibly paid off
+
+| Practice | What happened |
+|---|---|
+| Label self-checks as self-checks | GPT-6's review of PR #4 separated what it re-ran itself (blob comparison, CI) from what stayed "author self-evidence" (the simulator run). Without the label that line would not have been drawn. |
+| List what was not tested | GPT-6's prototype PR said no browser test had been run. That sentence sent the reviewer straight to a browser, where the page turned out not to render at all (one missing parenthesis). The disclosed gap was the most valuable line in the PR. |
+| Mark claims `asserted` | The corner direction rule was marked unverified. The reviewer required that to show in the output, which became `direction_verified: false` in the data. An honest unknown in the record turned into an honest unknown in the product. |
+| Re-runnable evidence | The import check is a script. The reviewer ran it from its own clone and got the same 111 of 111. A pasted result could not have been checked. |
+| Worker is not verifier | Every review found something real: an exposed port and two missing licences in the baseline; a non-rendering page and a ranking bug in the prototype; three contract refinements before the corner code was reviewed at all. |
+| Contract before code | Not from Workpacket, from GPT-6's plan. One page reviewed before integration bought three design corrections for the price of a rename. |
+
+## What did not work
+
+1. **Two records for one piece of work.** WP-001 and PR #4's description carry
+   the same claims table. The reviewer read the PR. The packet file was the
+   copy nobody consulted. Same for WP-005 and PR #5.
+2. **The other worker did not use packets.** GPT-6 coordinated through issues,
+   a coordination document and PR descriptions. WP-002 is still an untouched
+   draft while PR #6 implements it. A method one of two workers skips is not
+   the handoff medium; GitHub was.
+3. **Nothing was ever admitted.** The owner has not accepted any packet. The
+   baseline was merged by the integrator and is being built on. Merge became
+   acceptance in practice. The acceptor role, the method's last safeguard,
+   had not been exercised once. Asked about it, the owner made the practice
+   the rule: a reviewed merge counts (ADR 20).
+4. **Status in documents rotted immediately.** The owner asked twice which
+   agent was ahead. The status table said "in review" after the merge. The
+   pull request list was right; the document was wrong.
+5. **No rule said "look before you write".** The worker wrote and committed
+   coordination documents without fetching, and had to discard them because
+   the other agent had already pushed its own. The collective's "synchronise
+   before reading state" rule was missing here.
+6. **It did not catch careless errors.** A fabricated commit hash went into a
+   PR comment and a stray file was created during planning. Both were caught
+   by rereading, not by the method.
+
+## What this suggests for Workpacket
+
+- **Keep as the core:** claims with a basis; self-check versus independent
+  check; explicit unknowns; re-runnable evidence; worker is not verifier is not
+  acceptor. These are cheap and each produced a visible result within a day.
+- **The packet should be a view of where the work already lives**, not a second
+  document. On GitHub that is the pull request: intent and acceptance criteria
+  before, claims and unknowns in the description, review as verification. A
+  Workpacket profile that says how to write a PR would have been followed by
+  both agents. A separate file was followed by one.
+- **Acceptance needs a trigger or it does not happen.** Tie it to something
+  that already occurs (a merge by the owner, a release, a deploy), or have
+  merged-but-unaccepted work show up somewhere the owner looks.
+- **Unknowns should flow into outputs.** The most useful effect seen was an
+  unverified claim becoming an explicit field in the result. That is a design
+  rule for the software being built, not only for the record of building it.
+- **Add "fetch first" to the participation rules.**
+
+## Open question
+
+All of the useful effects above could also be credited to two careful
+reviewers using ordinary pull requests. What Workpacket added on top was
+vocabulary (self-check, asserted, unknown, admitted) that both agents then
+used in reviews. Whether that vocabulary changed behaviour, or only described
+behaviour that would have happened anyway, this session cannot tell. The
+experiment proposed above would. It has still not been run: no worker has yet
+resumed another's unfinished packet from the file alone.
+
+## Recovery observation: a new chat resumed the build, 2026-10-12
+
+The owner reports that the preceding ChatGPT conversation seemed stuck or
+failed, and opened a fresh Codex chat to resume it. Cause is unknown. The chat
+reader exposes user messages but substitutes content-reference placeholders
+for the assistant replies; a `completed` turn marker does not establish that
+the build or handoff was complete. The reported Trackmania mention could not
+be traced through that reader. The original user request, repository README,
+setup and parser establish the intended game as Forza Horizon 6.
+
+**Recovery succeeded using the repository plus GitHub, not a packet alone.**
+The new session located `adrianhensler/splittime`, inspected the VPS checkout
+and refs, read instructions/contracts, cloned an isolated checkout and
+combined the recording/API/page/corner branches. It ran 205 Python tests,
+eight UI-controller tests and a browser smoke, then pushed integration head
+`3ed8f6c` as draft PR #10. Main stayed at `ad4551b`; no deployment occurred.
+These tests support the simulator POC, not field accuracy, independent review
+of new code, or admission. This was not a controlled packet-only experiment;
+recovery time, model cost and a comparison baseline were not measured.
+
+**The packet checkpoints failed to preserve current state.** WP-002 and
+WP-004 still said draft/not started despite PRs #6, #7 and #9. The new session
+also left WP-006 saying not started after its own integration. PR descriptions,
+branch contents and commit history supplied the missing state. The files had
+intents and limits worth reusing, but their status could mislead a replacement
+worker into rebuilding completed slices. This session subsequently corrected
+those checkpoints and linked the live PR records.
+
+**Concurrent work still needs a deliberate refresh.** A later fetch found
+corner fix `c29fdcc` and process-doc update `dc7cae1` after the POC branch was
+pushed. Saved on GitHub, merged to main, included in the integration and deployed
+are four different facts. PR #10 does not yet contain that newer corner fix.
+
+Minimal improvement: every stop leaves the repository locator, branch/head,
+PR, pushed/merged/deployed state, last actual check with its scope, unresolved
+criteria and one reproducible next step in the checkpoint. Fetch on resumption
+and challenge stale checkpoints against Git. Keep detailed evidence in the
+live PR while open, and snapshot it into the packet before merge, as proposed
+in process-doc PR #8. Do not infer acceptance from a successful upload or a
+successful test run.
+
+Observed conclusion: the code and evidence survived the conversation boundary;
+the packet files alone did not provide a dependable handoff. Whether Workpacket
+adds value beyond ordinary repository instructions and reviewed PRs remains
+unproven.

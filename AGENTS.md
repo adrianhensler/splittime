@@ -71,6 +71,11 @@ handoff checklists, not a required runtime or serial approval ceremony. Read
 ## Keeping the docs current
 
 - Progress, new risks, findings: your packet, and `docs/BUILD_PLAN.md`.
+- The worker owns the packet checkpoint. At PR opening record status, one
+  checkpoint owner and the PR locator; before marking ready copy the final
+  evidence/limits into the packet. Integrators own the combined snapshot.
+  See the fixed triggers and CI check in `docs/WORKPACKETS.md`. Reviewers
+  review packet criteria and evidence as part of the code review.
 - A decision that changes or adds to the design: a new entry at the end of
   `docs/ADR.md` marked Proposed, and the matching edit in `docs/DESIGN.md`.
 - A sync from upstream, or newly adapted code: `docs/UPSTREAM.md`.

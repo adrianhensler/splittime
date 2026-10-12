@@ -8,16 +8,19 @@ import logging
 import time
 
 from .packet import PACKET_SIZE, parse
+from .sources import SourceTracker
 
 log = logging.getLogger("lapscope.udp")
 
 
 class TelemetryProtocol(asyncio.DatagramProtocol):
-    def __init__(self, hub, tracker) -> None:
+    def __init__(self, hub, tracker, driver_id: str = "legacy") -> None:
         self.hub = hub
         self.tracker = tracker
+        self.driver_id = driver_id
         self._size_warned = False
         self._source_logged = False
+        self.sources = SourceTracker(getattr(tracker, "store", None), hub, driver_id)
 
     def datagram_received(self, data: bytes, addr) -> None:
         now = time.time()
@@ -49,7 +52,11 @@ class TelemetryProtocol(asyncio.DatagramProtocol):
             # keep the documented frame shape (ARCHITECTURE.md, WS contract)
             extras = {"session_id": None, "delta": None, "session_best": None,
                       "lap_elapsed": None, "race_mode": False}
+        sid = getattr(self.tracker, "session_id", extras.get("session_id"))
+        addr_text = f"[{addr[0]}]:{addr[1]}" if ":" in addr[0] else f"{addr[0]}:{addr[1]}"
+        self.sources.observe(sid, addr_text, time.monotonic())
         frame.update(extras)
+        frame["driver_id"] = self.driver_id
         frame["_t"] = now
         hub.publish(frame)
 

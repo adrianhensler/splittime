@@ -16,19 +16,24 @@ from fastapi.staticfiles import StaticFiles
 
 from . import cars, tracks
 from .api.routes import router
+from .corners.api import router as corners_router
 from .recorder.laps import SessionTracker
 from .recorder.store import Store
 from .telemetry.hub import Hub
+from .telemetry.drivers import DriverScopedStore, load_drivers
 from .telemetry.listener import TelemetryProtocol
 
 log = logging.getLogger("lapscope")
 
 
-async def _watchdog(tracker: SessionTracker) -> None:
+async def _watchdog(tracker: SessionTracker, protocol=None) -> None:
     while True:
         await asyncio.sleep(1.0)
         try:
             tracker.tick(time.time())
+            if protocol is not None:
+                protocol.sources.sync_session(tracker.session_id, time.monotonic())
+                protocol.sources.flush(time.monotonic())
         except Exception:
             log.exception("watchdog tick failed")
 
@@ -37,60 +42,67 @@ async def _watchdog(tracker: SessionTracker) -> None:
 async def lifespan(app: FastAPI):
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
     data_dir = os.environ.get("DATA_DIR", "./data")
-    udp_port = int(os.environ.get("TELEMETRY_UDP_PORT", "9999"))
+    drivers = load_drivers()
 
-    # overlay a previously downloaded community car list (see app/cars.py) and
-    # track catalogue (app/tracks.py). Both before the Store: its startup
-    # backfill names routes straight out of the catalogue.
     cars.load(data_dir)
     tracks.load(data_dir)
     store = Store(os.path.join(data_dir, "telemetry.db"))
+    store.register_drivers(drivers)
     removed = store.cleanup_sessions()
     if removed:
-        log.info("Startup cleanup: removed %d session(s) without completed laps", removed)
-    hub = Hub()
-    tracker = SessionTracker(store)
-    app.state.store, app.state.hub, app.state.tracker = store, hub, tracker
-    app.state.udp_port = udp_port
+        log.info("Startup cleanup: removed %d untimed session(s)", removed)
 
+    hubs = {d.id: Hub() for d in drivers}
+    trackers = {d.id: SessionTracker(DriverScopedStore(store, d.id)) for d in drivers}
+    first = drivers[0]
+    app.state.store = store
+    app.state.drivers = drivers
+    app.state.hubs = hubs
+    app.state.trackers = trackers
+    # Compatibility: legacy endpoints and upstream dashboard default to first driver.
+    app.state.hub = hubs[first.id]
+    app.state.tracker = trackers[first.id]
+    app.state.udp_port = first.udp_port
     app.state.udp_error = None
+    app.state.udp_errors = {}
+
     loop = asyncio.get_running_loop()
-    transport = None
+    transports = []
+    protocols = {}
+    watchdogs = []
     try:
-        transport, _ = await loop.create_datagram_endpoint(
-            lambda: TelemetryProtocol(hub, tracker), local_addr=("0.0.0.0", udp_port)
-        )
-        log.info("Listening for FH6 Data Out on UDP %d; dashboard on HTTP 8000", udp_port)
-    except OSError as exc:
-        # Port already taken (another telemetry tool, or a second LapScope
-        # window). Don't crash-exit — that slams the console shut on a
-        # double-clicked exe before the user can read anything. Keep the
-        # dashboard serving (past-session analysis still works) and surface an
-        # actionable message here and in /api/status.
-        app.state.udp_error = (
-            f"UDP port {udp_port} is already in use - another program (or a second "
-            "LapScope window) has it. Close that program, or set TELEMETRY_UDP_PORT to "
-            "a free port, then restart LapScope."
-        )
-        log.error(
-            "Could not bind UDP telemetry port %d (%s). %s "
-            "The dashboard is still available on HTTP 8000, but no live telemetry "
-            "will arrive until the port is free.",
-            udp_port, exc, app.state.udp_error,
-        )
-    watchdog = asyncio.create_task(_watchdog(tracker))
-
-    yield
-
-    watchdog.cancel()
-    if transport is not None:
-        transport.close()
-    tracker.shutdown(time.time())
-    store.close()
-
+        for d in drivers:
+            try:
+                transport, protocol = await loop.create_datagram_endpoint(
+                    lambda d=d: TelemetryProtocol(hubs[d.id], trackers[d.id], d.id),
+                    local_addr=("0.0.0.0", d.udp_port),
+                )
+                transports.append(transport)
+                protocols[d.id] = protocol
+                log.info("Driver %s (%s) listening on UDP %d", d.id, d.name, d.udp_port)
+            except OSError as exc:
+                message = f"UDP {d.udp_port} for driver {d.id} cannot bind: {exc}"
+                app.state.udp_errors[d.id] = message
+                if d.id == first.id:
+                    app.state.udp_error = message
+                log.error(message)
+        watchdogs = [asyncio.create_task(_watchdog(t, protocols.get(ident)))
+                     for ident, t in trackers.items()]
+        yield
+    finally:
+        for watchdog in watchdogs:
+            watchdog.cancel()
+        for transport in transports:
+            transport.close()
+        for protocol in protocols.values():
+            protocol.sources.flush(time.monotonic(), force=True)
+        for tracker in trackers.values():
+            tracker.shutdown(time.time())
+        store.close()
 
 app = FastAPI(title="LapScope", lifespan=lifespan)
 app.include_router(router, prefix="/api")
+app.include_router(corners_router, prefix="/api")
 
 
 # extra Host names to answer to, comma-separated (a reverse proxy, a hostname
@@ -172,13 +184,27 @@ def origin_allowed(origin: str | None, host_header: str) -> bool:
 
 @app.websocket("/ws/live")
 async def ws_live(ws: WebSocket) -> None:
-    if not origin_allowed(ws.headers.get("origin"), ws.headers.get("host", "")):
+    if (not host_allowed(ws.headers.get("host", "")) or
+            not origin_allowed(ws.headers.get("origin"), ws.headers.get("host", ""))):
         log.warning("Rejected /ws/live handshake from origin %s",
                     ws.headers.get("origin"))
         await ws.close(code=1008)  # policy violation
         return
+    # Existing no-query clients and upstream test doubles remain supported.
+    params = getattr(ws, "query_params", None)
+    driver_id = params.get("driver") if params is not None else None
+    if driver_id is None:
+        configured = getattr(ws.app.state, "drivers", None)
+        driver_id = configured[0].id if configured else None
+    if driver_id is None:
+        hub: Hub | None = getattr(ws.app.state, "hub", None)
+    else:
+        hubs = getattr(ws.app.state, "hubs", None)
+        hub = hubs.get(driver_id) if hubs is not None else None
+    if hub is None:
+        await ws.close(code=1008)
+        return
     await ws.accept()
-    hub: Hub = ws.app.state.hub
     q = hub.subscribe()
     # Watch the socket as well as the queue. Nothing is ever sent *to* this
     # endpoint, so this only completes on a disconnect - the tab closing, or

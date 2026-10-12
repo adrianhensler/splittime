@@ -31,6 +31,9 @@ Files, sections and pinned commits the worker needs. Nothing else is assumed.
 
 ## Claims
 
+While a pull request is open, write "see PR #N" here and under Evidence. Fill
+both in once, when the pull request is ready to merge.
+
 | # | Claim | Basis |
 |---|---|---|
 | C1 | | E1, or `asserted` |
@@ -53,7 +56,9 @@ Open items and who can resolve them.
 
 ## Checkpoint
 
-Next action, and anything a replacement worker needs to continue.
+Checkpoint owner; repository/branch/PR; application code revision; pushed,
+merged and deployed state; last check and its scope; unresolved acceptance
+criteria; one next reproducible action. Fetch the live PR on resumption.
 
 ## Verification
 

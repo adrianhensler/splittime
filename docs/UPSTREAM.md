@@ -63,6 +63,12 @@ corners fixed to a route and numbered, so the same corner can be compared
 between two drivers. That part is new work. Adapting `sections.py` adds numpy
 as a dependency.
 
+**Adapted so far** (WP-005): into `app/corners/detect.py`, from `app/sections.py`
+at `523e8ba`: `CORNER_LAT_G` (0.30), `TURN_MIN_HEADING_DEG` (25), and the
+hairpin, switchback and sweeper thresholds with their classification rule.
+Rewritten, not copied; numpy not used (ADR 19). `session_data.py` and
+`comparison.py` were read for reference only.
+
 ## Licence duties
 
 MIT requires the copyright and permission notice to travel with the code.
@@ -118,3 +124,56 @@ into this repo in one commit with no other changes, then modify in later
 commits. That keeps `git diff <import-commit>` an exact list of our changes and
 makes later upstream syncs manageable. Keep our changes to upstream files
 small and put new features in new files where possible.
+
+## SplitTime multi-driver delta (workstream WP-002, pending review)
+
+- `app/telemetry/drivers.py`: parses `SPLITTIME_DRIVERS`, builds a scoped
+  Store façade for each recorder. No changes to `laps.py` detector logic.
+- `app/recorder/store.py`: SQLite migration v2 (drivers table,
+  sessions.driver_id/source_addr); legacy records keep `legacy`.
+- `app/main.py`: one Hub, SessionTracker, listener and watchdog per driver.
+  The single-driver app.state aliases remain for upstream UI compatibility.
+- `app/telemetry/listener.py`: source-change anomaly logging, per-driver
+  live-frame identifier. Destination listener defines identity, not source IP.
+- `app/api/routes.py`: driver list/filter/status, multi-tracker safety guards.
+- `app/main.py`: WebSocket Host allowlist check added to prevent the DNS
+  rebinding weakness reported on PR #4; this is a defensive change, not
+  evidence that the public deployment is safe.
+
+At the initial two-driver checkpoint, checks were synthetic self-checks only.
+The real-capture evidence and subsequent independent reviews are recorded below
+and in the current PR description; they do not prove the full field matrix.
+
+### First real Rivals capture: first-line clock reset, 2026-10-12
+
+The owner confirmed Rivals, no rewind, and wall contact. A private snapshot
+contained 16,333 frames and one 150.807556 s lap, matching packet LastLap/BestLap.
+During approach to the first line, route distance was negative and CurrentLap
+counted to 2.493 s. At the line it reset while CurrentRaceTime continued. The
+old high-water rewind rule incorrectly flagged that as rewind.
+
+`laps.py` now re-anchors the existing first lap for this observed signature,
+using the same flag/trace reset as the existing mid-session re-anchor. No
+threshold was changed. The sanitized scalar regression failed before repair;
+after repair, real backwards-race-clock and existing dirty-lap tests stay intact.
+Replays of separate snapshot copies keep the exact game lap time and contact,
+remove false rewind and the spurious clock warning. Original live data and the
+read-only snapshot were not reprocessed or edited. Raw captures stay outside Git.
+
+### PR #7 review corrections, 2026-10-12
+
+`app/cars.py` owns a shared name resolver; the session API keeps its existing
+helper delegating to it, and the rivalry projection uses the same catalogue
+and database overrides. No catalogue or recorded packet was changed.
+`app/rivalry.py` uses `flags_auto` for immutable cutoff timing evidence,
+effective flags for validity, millisecond display times, and conservative
+eligibility when an unknown effective flag appears.
+
+### PR #6 review corrections, 2026-10-12
+
+Port registration now reconciles atomically without deleting old identities.
+Source tracking is isolated in `app/telemetry/sources.py`; watchdog/shutdown
+flush pending provenance and warnings/writes are coalesced. Existing analysis
+group suggestions and API membership/scoring checks are scoped by driver.
+Mixed groups already stored remain intact and are refused for combined scoring.
+No detector thresholds, `laps.py`, or upstream scenario tests were changed.

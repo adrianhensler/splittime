@@ -2,11 +2,11 @@
 
 | | |
 |---|---|
-| Status | draft |
+| Status | partial; repaired exploratory API/page in PR #10, ranked rivalry/history not implemented |
 | Parent | WP-000 |
 | Children | none |
-| Worker | — |
-| Verifier | — |
+| Worker | Codex (checkpoint owner); original implementation by GPT-6 |
+| Verifier | Opus 5.5: API/page repairs and final browser review at `f68d70a` |
 | Acceptor | owner |
 
 ## Intent
@@ -54,13 +54,20 @@ exploratory.
 
 ## Claims
 
+Final application snapshot at `f68d70a`; candidate bests are not ranked leaders.
+
 | # | Claim | Basis |
 |---|---|---|
+| C1 | Provenance/name/order repairs pass; page stays exploratory | E1, E2 |
+| C2 | Ranked leaders/history and full quality/mode classification are absent | E3 |
 
 ## Evidence
 
 | ID | What | Where |
 |---|---|---|
+| E1 | API/UI regressions | `python -m pytest -q tests/test_rivalry.py tests/test_rivalry_review.py`; `node --test tests/ui/rivalry.test.cjs` |
+| E2 | Independent adverse/browser review | [Opus final review](https://github.com/adrianhensler/splittime/pull/10#pullrequestreview-5490170368) |
+| E3 | Quality/timing/mode unknown, winner null, no record history | `app/rivalry.py` at `f68d70a` |
 
 ## Known, unknown, unproven
 
@@ -70,16 +77,41 @@ exploratory.
 
 ## Unresolved
 
-Owner confirmation of ADR 10 before this packet starts.
+Competitive scoring, real route equivalence, event mode, full quality
+classification and record-change history remain unresolved. The current
+projection explicitly has no winner and preserves unknowns.
 
 ## Checkpoint
 
-Not started. Depends on WP-003 being admitted.
+Branch `feat/gpt6-rivalry-api`,
+[PR #7](https://github.com/adrianhensler/splittime/pull/7), holds the API and
+live evidence. Before repair, two tests reproduced manual cutoff clearance
+promoting an estimate and missing known car names. Repairs preserve `flags_auto`
+provenance, use a shared car-name resolver and round displayed times to milliseconds.
+Re-run `python -m pytest -q tests/test_rivalry.py tests/test_rivalry_review.py`.
+The repaired base and both source fixes are included at `f68d70a` in PR #10.
+Opus independently re-checked source repairs and later UI changes at `f68d70a`.
+Next: integrate; then propagate verified timing and
+capture quality into the rivalry projection. It still emits quality/timing
+and event-mode unknowns. Ranked rules/equivalence and history remain open.
 
 ## Verification
 
-—
+Independent Opus and automated reviews reproduced both defects; Opus confirmed
+the repairs at `7c81323`. His browser review of the source page included XSS
+and prefix checks. Current combined self-checks are recorded in PR #10; the
+later UI repairs passed his narrow-screen, long-name and escaped-name browser
+checks at `f68d70a`. Full real-game comparison remains unverified.
 
 ## Acceptance
 
-—
+Pending reviewed integration merge; the full scoring/history and real-route
+criteria remain incomplete even after the current POC merges.
+
+## Integration checkpoint, 2026-10-12
+
+PR #7 repair `fe27989` and repaired backend merge `8684f17` are included in
+the PR #10 branch. The page remains in PR #9 and is also in PR #10. Fetch and
+check both PRs before editing; original API/page commits `5d09fd1` / `6ad4b57`
+are historical baselines. Review the combined fixes before merging; competitive
+scoring, real captures and deployment are still unverified.

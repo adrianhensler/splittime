@@ -2,11 +2,11 @@
 
 | | |
 |---|---|
-| Status | draft |
+| Status | partial; one local real capture checked, shared deployment and full field matrix not done |
 | Parent | WP-000 |
 | Children | none |
-| Worker | — |
-| Verifier | — |
+| Worker | Codex (checkpoint owner); local capture work, deployment work unassigned |
+| Verifier | owner supplied capture ground truth; Opus reviewed repair at `f68d70a`; deployment unverified |
 | Acceptor | owner |
 
 ## Intent
@@ -54,18 +54,32 @@ real events unattended, and the two main risks are measured.
 
 ## Claims
 
+One local recording is partial evidence, not deployment acceptance.
+
 | # | Claim | Basis |
 |---|---|---|
+| C1 | One confirmed Rivals run has exact game lap timing; copied replay removes false rewind | E1; Codex inspection and owner ground truth |
+| C2 | Shared deployment and full event matrix are incomplete | E2; no deployment receipt or second-driver field capture |
 
 ## Evidence
 
 | ID | What | Where |
 |---|---|---|
+| E1 | Capture/replay findings and scope | [Capture record](https://github.com/adrianhensler/splittime/pull/10#issuecomment-6118975642); `docs/BUILD_PLAN.md` dated checkpoint |
+| E2 | Outstanding deployment/field checks | This packet's acceptance criteria and `docs/hosting/test-hensler-work.md` |
+
+Raw recordings stay private and local; no packets, coordinates or database are in Git.
 
 ## Known, unknown, unproven
 
 - **Known:** upstream pages use absolute URLs (WP-000 C5).
+- **Known for this local run:** 16,333 frames; 150.807556 s agrees exactly
+  with game LastLap/BestLap; owner confirms Rivals, contact and no rewind.
+  Copied replay after `175bffe` retains time/contact and removes the false
+  first-start rewind. Corrected timed trace has zero timestamp gaps.
 - **Unknown:** everything in the "Things to confirm" table of the hosting doc.
+- **Unknown:** internet delivery, second-driver rate and events, real rewind,
+  sprint/race/abandonment cases, and measured free-roam/storage behaviour.
 
 ## Unresolved
 
@@ -74,12 +88,21 @@ real events unattended, and the two main risks are measured.
 
 ## Checkpoint
 
-Not started. Depends on WP-002 being admitted.
+Application code is at `f68d70a` in PR #10. Local capture work has started;
+shared deployment has not. The original live recording is untouched. Only new
+recordings use the repaired detector; separate copies supplied replay evidence.
+
+Next: prepare whole-app prefix/WebSocket and Docker checks, then complete
+private deployment within its existing authority and obtain the second
+driver's unattended recording. Collect the remaining event/measurement matrix
+incrementally. Do not replay or edit the live data directory.
 
 ## Verification
 
-—
+Opus independently reviewed the code repair at `f68d70a`, but did not see the
+private capture. Packet/replay claims rest on Codex inspection and owner ground
+truth. Deployment, second-driver and full matrix checks remain unverified.
 
 ## Acceptance
 
-—
+Partial evidence only; no deployment or full packet admission.
