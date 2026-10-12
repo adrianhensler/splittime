@@ -73,7 +73,7 @@ def _measure(trace: Trace, corner: Corner, s_prev_exit: float, s_next_entry: flo
 def _lap_summary(trace: Trace) -> dict:
     return {"lap_id": trace.lap_id, "timing_source": trace.timing_source,
             "capture_quality": trace.capture_quality, "gaps": len(trace.gaps),
-            "samples": len(trace)}
+            "samples": len(trace), "warnings": list(trace.warnings)}
 
 
 def compare_laps(a: Trace, b: Trace, route: RouteCorners) -> dict:
@@ -111,6 +111,10 @@ def compare_laps(a: Trace, b: Trace, route: RouteCorners) -> dict:
         # packets crossed the internet: arrival times carry jitter and loss, so
         # they may illustrate a lap but never decide who was faster
         reasons.append("arrival_time_unverified")
+    if not (a.clock_monotonic and b.clock_monotonic):
+        # a clock that reset or jumped back mid-lap makes some segment times
+        # negative or far too short; they are returned, but must not be scored
+        reasons.append("lap_clock_discontinuous")
     result["comparable"] = not reasons
 
     units_per_metre = 1.0 / route.metres_per_unit if route.metres_per_unit else 1.0
