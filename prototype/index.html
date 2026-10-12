@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SplitTime | Rivalry prototype</title>
+<style>
+:root{color-scheme:dark;--bg:#09121c;--panel:#142332;--border:#294356;--ink:#eaf4fa;--muted:#9fb6c8;--a:#63dfc4;--b:#f5ac75;--warn:#f2cb7d}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px system-ui,-apple-system,Segoe UI,sans-serif}main{max-width:1230px;margin:auto;padding:32px 22px}
+header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;border-bottom:1px solid var(--border);padding-bottom:24px;margin-bottom:22px}
+h1{font-size:33px;letter-spacing:-1.6px;margin:0}h1 span{color:var(--a)}h2{font-size:15px;margin:0 0 14px}.muted,.sub{color:var(--muted)}.sub{margin-top:4px;font-size:12px}
+.pill{display:inline-block;border:1px solid #496273;color:#b9d4e3;padding:6px 9px;border-radius:6px;font-size:11px}.demo{color:var(--warn);border-color:#72623f}
+.toolbar{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:9px;margin:22px 0 14px}
+button,select{border:1px solid #36556b;background:#203649;color:var(--ink);border-radius:7px;padding:10px;font:inherit;cursor:pointer}button:hover{background:#294b62}button:focus-visible,select:focus-visible{outline:2px solid var(--a)}
+.layout{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
+.card{border:1px solid var(--border);border-radius:11px;padding:18px;background:var(--panel);min-width:0}.full{grid-column:1/-1}
+.scores{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px;margin:12px 0}.metric{padding:17px;border:1px solid var(--border);border-radius:9px;background:var(--panel)}
+.big{font-weight:800;font-size:26px;letter-spacing:-.6px;font-variant-numeric:tabular-nums}.aa{color:var(--a)}.bb{color:var(--b)}.small{font-size:11px;margin:8px 0;color:var(--muted)}
+svg{width:100%;height:auto;display:block}svg text{fill:var(--muted);font:12px system-ui}#traces{background:#0b1a27;border-radius:8px}.legend{display:flex;gap:15px;font-size:12px;margin:10px 0 3px;flex-wrap:wrap}
+table{width:100%;border-collapse:collapse;text-align:left;font-size:12px}th{font-size:11px;color:#a9c3d4}th,td{padding:11px 7px;border-bottom:1px solid var(--border)}tr:last-child td{border:0}.tableWrap{overflow-x:auto}
+.note{padding:10px 12px;background:#243340;border-left:3px solid var(--warn);font-size:12px;line-height:1.5;color:#d4dfeb}
+.notice{font-size:12px;color:var(--muted);line-height:1.6}label{font-weight:600}.soft{opacity:.7}
+footer{color:var(--muted);font-size:11px;margin:24px 0 6px}.mono{font-variant-numeric:tabular-nums}#cursor{margin-top:9px;font-size:12px;color:#cbdde8}
+@media(max-width:740px){.scores{grid-template-columns:1fr 1fr}.scores .metric:last-child{grid-column:1/-1}.layout{grid-template-columns:1fr}.full{grid-column:auto}main{padding:20px 12px}.big{font-size:22px}}
+</style></head><body><main>
+<header><div><h1>Split<span>//</span>Time</h1><div class="sub">Race whenever you like. Compare afterward.</div></div><div><span class="pill demo">SYNTHETIC DEMO — NO TELEMETRY CONNECTED</span> <span class="pill">2 independent drivers</span></div></header>
+<div class="toolbar"><label>Route <select id="route"><option value="0">Demo Circuit A</option><option value="1">Demo Sprint B</option></select></label><label>Channel <select id="channel"><option value="speed">Speed</option><option value="throttle">Throttle</option><option value="brake">Brake</option></select></label><button id="export">Export sample CSV</button></div>
+<section class="scores"><div class="metric"><div class="small">Driver A · best eligible attempt</div><div id="scoreA" class="big aa"></div><div id="carA" class="small"></div></div><div class="metric"><div class="small">Driver B · best eligible attempt</div><div id="scoreB" class="big bb"></div><div id="carB" class="small"></div></div><div class="metric"><div class="small">Eligible comparison</div><div class="big" id="winner"></div><div class="small" id="winNote"></div></div></section>
+<div class="layout">
+<section class="card"><h2>Route visualization</h2><svg viewBox="0 0 500 270" role="img" aria-label="Illustrative course outline"><defs><pattern id="grid" width="25" height="25" patternUnits="userSpaceOnUse"><path d="M25 0H0V25" fill="none" stroke="#325068" stroke-width=".6"/></pattern></defs><rect width="500" height="270" rx="7" fill="#0b1a27"/><rect width="500" height="270" fill="url(#grid)"/><path id="mapPath" d="" stroke="#3b556a" stroke-width="23" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path id="mapLineA" d="" stroke="#63dfc4" stroke-width="4" stroke-linecap="round" fill="none"/><path id="mapLineB" d="" stroke="#f5ac75" stroke-width="3" stroke-linecap="round" stroke-dasharray="7 5" fill="none"/><circle id="markerA" r="7" fill="#63dfc4"/><circle id="markerB" r="7" fill="#f5ac75"/><text x="13" y="21">Diagrammatic route only · not recorded geometry</text></svg><div class="legend"><span class="aa">● Driver A</span><span class="bb">● Driver B</span></div></section>
+<section class="card"><h2>Distance-aligned telemetry · <span id="traceLabel">speed</span></h2><svg id="traces" viewBox="0 0 600 270" role="img" aria-label="Synthetic comparison traces"><g id="gridLines" stroke="#365168" stroke-dasharray="3 5"></g><path id="lineA" fill="none" stroke="#63dfc4" stroke-width="2.7"/><path id="lineB" fill="none" stroke="#f5ac75" stroke-width="2.7"/><line id="cross" y1="22" y2="231" stroke="#d4e1eb" stroke-dasharray="3 5"/><g font-size="12"><text x="12" y="18">Sample value</text><text x="12" y="255">0%</text><text x="284" y="255">50%</text><text x="544" y="255">100% route</text></g></svg><label class="notice" for="seek">Inspect position</label><input id="seek" style="width:100%;accent-color:#63dfc4" type="range" min="0" max="100" value="45"><div id="cursor" class="mono"></div></section>
+<section class="card"><h2>Candidate corner differences</h2><div class="notice" style="margin-bottom:8px">Synthetic examples. The future engine must anchor numbered corners to a route reference and trace every claim back to frames.</div><div class="tableWrap"><table><thead><tr><th>Segment</th><th>A advantage</th><th>Observation</th></tr></thead><tbody id="corners"></tbody></table></div></section>
+<section class="card"><h2>Capture and comparison rules</h2><div class="note">A shared physical route is not automatically a fair ranked comparison. Game modes, direction, checkpoints, car class/PI and uncertain finishes must be visible.</div><p class="notice">Completion, lap validity and capture quality are independent. An abandoned event can contain ranked completed laps; a provisional finish, suspect lap or unknown mode must not silently become an official result.</p><div id="modeNote" class="notice"></div></section>
+<section class="card full"><h2>Recorded attempts (different dates)</h2><div class="tableWrap"><table><thead><tr><th>Date (UTC)</th><th>Driver</th><th>Car / class</th><th>Mode</th><th>Time</th><th>Completion</th><th>Validity</th><th>Capture</th></tr></thead><tbody id="attempts"></tbody></table></div></section>
+</div><footer>Static no-dependency POC · Entire dataset and map are intentionally fictional · Backend adapter to follow after LapScope import</footer></main>
+<script>
+"use strict";
+const R=[
+{title:"Demo Circuit A",length:4.2,shape:"M92 193C53 142 95 49 179 70C223 76 238 34 307 53C385 69 450 130 421 179C404 216 364 224 310 244C237 259 221 216 178 232C139 245 105 222 92 193Z",
+ attempts:[
+{id:1,date:"2026-10-09",driver:"A",car:"Car 1042",class:"A",pi:800,mode:"Rivals",time:92.418,completion:"complete",validity:"accepted",quality:"continuous"},
+{id:2,date:"2026-10-11",driver:"B",car:"Car 1042",class:"A",pi:800,mode:"Rivals",time:93.060,completion:"complete",validity:"accepted",quality:"continuous"},
+{id:3,date:"2026-10-10",driver:"B",car:"Car 1042",class:"A",pi:800,mode:"Rivals",time:null,completion:"incomplete",validity:"unknown",quality:"continuous"},
+{id:4,date:"2026-10-12",driver:"A",car:"Car 1042",class:"A",pi:800,mode:"Race (inferred)",time:91.900,completion:"provisional",validity:"suspect",quality:"discontinuous"}
+], corners:[["T2","0.11s","A carries more speed through the apex"],["T4","0.31s","B brakes earlier and reapplies throttle later"],["T6","−0.08s","B gains time on corner exit"]],ranked:true},
+{title:"Demo Sprint B",length:5.7,shape:"M42 225C97 251 118 143 178 174C226 213 147 85 243 98C305 109 252 189 351 158C400 141 341 61 445 51",
+ attempts:[
+{id:5,date:"2026-10-08",driver:"A",car:"Car 508",class:"S1",pi:900,mode:"Sprint (inferred)",time:128.040,completion:"complete",validity:"accepted",quality:"continuous"},
+{id:6,date:"2026-10-10",driver:"B",car:"Car 712",class:"S1",pi:874,mode:"Unknown",time:129.211,completion:"complete",validity:"accepted",quality:"continuous"},
+{id:7,date:"2026-10-11",driver:"B",car:"Car 712",class:"S1",pi:874,mode:"Unknown",time:127.906,completion:"provisional",validity:"suspect",quality:"discontinuous"}
+],corners:[["T1","0.22s","Different braking onset"],["T3","−0.14s","B has higher exit speed"],["T5","0.33s","A reaches throttle sooner"]],ranked:false}];
+let route=0,channel="speed",progress=.45;
+const $=id=>document.getElementById(id);
+const fmt=t=>t===null?"—":Math.floor(t/60)+":"+(t%60).toFixed(3).padStart(6,"0");
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function channelValue(driver,p){const t=2*Math.PI,slow=Math.sin(t*(3.2*p+.16)),fast=Math.sin(t*(7.9*p+.23)),offset=driver==="A"?3:-3;
+if(channel==="speed")return Math.max(45,Math.min(260,153+47*slow+18*fast+offset));
+if(channel==="throttle")return Math.max(0,Math.min(100,55+42*Math.sin(t*(4*p+.08))+offset));
+return Math.max(0,Math.min(100,65*Math.max(0,Math.sin(t*(4*p+.56)))**4+(driver==="B"?7:0));}
+function renderChart(){const bounds=channel==="speed"?[35,265]:[0,105];const graph=(d)=>Array.from({length:161},(_,i)=>{const p=i/160;const x=30+p*542,y=229-(channelValue(d,p)-bounds[0])/(bounds[1]-bounds[0])*195;return(i?"L":"M")+x.toFixed(1)+","+y.toFixed(1)}).join(" ");
+$("lineA").setAttribute("d",graph("A"));$("lineB").setAttribute("d",graph("B"));$("traceLabel").textContent=channel;$("gridLines").innerHTML=[0,.25,.5,.75,1].map(f=>'<path d="M30 '+(229-f*195)+' H572"/>').join("");cursor();}
+function cursor(){let x=30+542*progress;$("cross").setAttribute("x1",x);$("cross").setAttribute("x2",x);const u=channel==="speed"?" km/h":"%";$("cursor").textContent=(progress*100).toFixed(0)+"% of route · A "+channelValue("A",progress).toFixed(0)+u+" · B "+channelValue("B",progress).toFixed(0)+u;
+for(const d of ["A","B"]){let path=$("mapLineA"),len=path.getTotalLength();let p=path.getPointAtLength(len*Math.min(.999,Math.max(0,progress+(d==="B"?.007:0))));$("marker"+d).setAttribute("cx",p.x);$("marker"+d).setAttribute("cy",p.y+(d==="B"?4:0));}}
+function render(){let r=R[route];$("mapPath").setAttribute("d",r.shape);$("mapLineA").setAttribute("d",r.shape);$("mapLineB").setAttribute("d",r.shape);
+const eligible=d=>r.attempts.filter(x=>x.driver===d&&x.completion==="complete"&&x.validity==="accepted"&&x.quality==="continuous").sort((a,b)=>a.time-b.time);
+const a=eligible("A")[0],b=eligible("B")[0];$("scoreA").textContent=fmt(a?.time??null);$("scoreB").textContent=fmt(b?.time??null);
+$("carA").textContent=a? a.car+" · "+a.class+a.pi:"No eligible attempt";$("carB").textContent=b?b.car+" · "+b.class+b.pi:"No eligible attempt";
+const comparable=!!(r.ranked&&a&&b&&a.class===b.class&&a.mode===b.mode);
+$("winner").textContent=comparable?(a.time<=b.time?"A ":"B ")+Math.abs(a.time-b.time).toFixed(3)+"s":"Exploratory";
+$("winNote").textContent=comparable?"Same route, mode and class; sample rivalry only":"Conditions/mode not established equivalent — no competitive winner";
+$("modeNote").textContent=r.ranked?"This synthetic comparison has matched route, mode, class and PI.":"The synthetic sprint includes an unknown event mode and different PI: compare traces only, no ranked winner.";
+$("corners").innerHTML=r.corners.map(k=>'<tr><td>'+esc(k[0])+'</td><td>'+esc(k[1])+'</td><td>'+esc(k[2])+'</td></tr>').join("");
+$("attempts").innerHTML=r.attempts.map(k=>'<tr><td>'+esc(k.date)+'</td><td class="'+(k.driver==="A"?"aa":"bb")+'">Driver '+k.driver+'</td><td>'+esc(k.car+' · '+k.class+k.pi)+'</td><td>'+esc(k.mode)+'</td><td>'+fmt(k.time)+'</td><td>'+esc(k.completion)+'</td><td>'+esc(k.validity)+'</td><td>'+esc(k.quality)+'</td></tr>').join("");
+renderChart();}
+$("route").onchange=e=>{route=Number(e.target.value);render()};$("channel").onchange=e=>{channel=e.target.value;renderChart()};$("seek").oninput=e=>{progress=Number(e.target.value)/100;cursor()};
+$("export").onclick=()=>{const rows=["source,route,driver,position,speed_kmh,throttle_percent,brake_percent"];
+const old=channel;for(const d of ["A","B"])for(let i=0;i<=100;i++){let p=i/100;channel="speed";let speed=channelValue(d,p);channel="throttle";let throttle=channelValue(d,p);channel="brake";let brake=channelValue(d,p);rows.push(["synthetic",JSON.stringify(R[route].title),d,p.toFixed(3),speed.toFixed(1),throttle.toFixed(1),brake.toFixed(1)].join(","));}channel=old;
+const u=URL.createObjectURL(new Blob([rows.join("\n")],{type:"text/csv"})),a=document.createElement("a");a.href=u;a.download="splittime-synthetic-demo.csv";a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);};
+render();
+</script></body></html>
