@@ -180,10 +180,17 @@ async def ws_live(ws: WebSocket) -> None:
                     ws.headers.get("origin"))
         await ws.close(code=1008)  # policy violation
         return
-    driver_id = ws.query_params.get("driver") if ws.query_params else None
+    # Existing no-query clients and upstream test doubles remain supported.
+    params = getattr(ws, "query_params", None)
+    driver_id = params.get("driver") if params is not None else None
     if driver_id is None:
-        driver_id = ws.app.state.drivers[0].id
-    hub: Hub | None = ws.app.state.hubs.get(driver_id)
+        configured = getattr(ws.app.state, "drivers", None)
+        driver_id = configured[0].id if configured else None
+    if driver_id is None:
+        hub: Hub | None = getattr(ws.app.state, "hub", None)
+    else:
+        hubs = getattr(ws.app.state, "hubs", None)
+        hub = hubs.get(driver_id) if hubs is not None else None
     if hub is None:
         await ws.close(code=1008)
         return
