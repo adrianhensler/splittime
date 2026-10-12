@@ -135,6 +135,11 @@ address like the web process's. Update the web process whenever you like.
 Update the collector only when nobody is driving: check that
 `last_packet_age` in `/api/status` is null or large first.
 
+The collector checks `Host` like any other SplitTime process. If the web
+process reaches it by a name rather than an IP address, add that name to the
+collector's `LS_ALLOWED_HOSTS`, or every status request is refused and the
+web process answers 503.
+
 ### Option 1: container
 
 Upstream ships a `Dockerfile` and `docker-compose.yml`. Publish the two UDP
