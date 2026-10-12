@@ -81,6 +81,20 @@ Competitive scoring, real route equivalence, event mode, full quality
 classification and record-change history remain unresolved. The current
 projection explicitly has no winner and preserves unknowns.
 
+## Event-type guess (2026-10-12, Opus 5.5, `feat/event-guess`)
+
+Owner's decision: capture every event and guess its type; manual tagging can
+come later if needed. `app/eventtype.py` guesses `rivals`, `race` or `unknown`
+per session and every rivalry attempt carries it as `event_mode` with
+`event_mode_basis: "guess"`. Rules: any race position above 1 means `race`;
+the lap clock resetting at the first start line means `rivals`; otherwise
+`unknown`. The Rivals rule rests on one real capture, which it classifies
+correctly (approach 2.493 s, position 1 throughout). Nothing is filtered or
+ranked by the guess yet. Re-run: `pytest -q tests/test_eventtype.py`.
+
+Also: `source_addr` (the sender's IP and port) is no longer included in any
+API response, since the pages may be served without a login.
+
 ## Checkpoint
 
 Branch `feat/gpt6-rivalry-api`,

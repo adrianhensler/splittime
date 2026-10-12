@@ -85,6 +85,9 @@ def _car_name(ordinal, override=None) -> str:
 
 
 def _session_out(row: dict) -> dict:
+    # the sender's IP address and port: evidence for the operator, in the
+    # database only. Never sent to a browser; the pages may be public.
+    row.pop("source_addr", None)
     row["car_class_letter"] = _class_letter(row.get("car_class"))
     override = row.pop("car_name_override", None)
     row["car_name"] = _car_name(row.get("car_ordinal"), override)

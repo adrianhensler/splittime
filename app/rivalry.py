@@ -10,6 +10,8 @@ from datetime import datetime, timezone
 
 from .cars import resolve_name
 
+from .eventtype import guess_event
+
 CLASS_LABELS = ("D", "C", "B", "A", "S1", "S2", "R", "X")
 
 
@@ -19,7 +21,7 @@ def _utc(t):
     return datetime.fromtimestamp(t, timezone.utc).isoformat().replace("+00:00", "Z")
 
 
-def _lap_out(session: dict, lap: dict, names: dict) -> dict:
+def _lap_out(session: dict, lap: dict, names: dict, event: dict) -> dict:
     raw_flags = lap.get("flags") or ""
     flags = sorted({item.strip() for item in raw_flags.split(",") if item.strip()})
     auto_flags = {item.strip() for item in (lap.get("flags_auto", raw_flags) or "").split(",")
@@ -49,7 +51,10 @@ def _lap_out(session: dict, lap: dict, names: dict) -> dict:
         "validity": validity,
         "capture_quality": "unknown",
         "timing_source": "cutoff_estimate" if estimated else "unverified",
-        "event_mode": "unknown",
+        # inferred, never reported by the game: see app/eventtype.py
+        "event_mode": event["kind"],
+        "event_mode_basis": event["basis"],
+        "event_evidence": event["evidence"],
         "flags": flags,
         "flags_auto": sorted(auto_flags),
         "candidate_clean": timed and completion == "complete" and validity == "accepted",
@@ -79,8 +84,9 @@ def rivalry_summary(store, configured_drivers=()) -> dict:
                 and 0 <= car_class < len(CLASS_LABELS) else "?"),
             "attempts": [],
         })
+        event = guess_event(store, session)
         for lap in store.session_laps(session["id"]):
-            group["attempts"].append(_lap_out(session, lap, names))
+            group["attempts"].append(_lap_out(session, lap, names, event))
 
     categories = []
     for group in groups.values():
@@ -102,7 +108,7 @@ def rivalry_summary(store, configured_drivers=()) -> dict:
         group["uncertainty"] = [
             "route_fingerprint_is_not_equivalence" if group["route_id"] is not None
             else "route_unidentified",
-            "game_mode_unknown",
+            "game_mode_is_a_guess",
             "capture_quality_unknown",
             "timing_provenance_unverified",
         ]
