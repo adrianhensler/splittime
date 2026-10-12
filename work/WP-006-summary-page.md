@@ -143,6 +143,19 @@ No full route-summary/storage acceptance is implied by optional Live viewing.
 
 ## Verification
 
+[PR #20](https://github.com/adrianhensler/splittime/pull/20), PR #17 accessibility
+follow-up (Codex, 2026-10-12): card accessible names now
+include the displayed lap times and current speed, plus state and selection
+action. A paused feed removes speed from its accessible name. The new
+regression in `tests/ui/liveview.test.cjs` passes; self-checks have 13 focused
+and 44 total UI tests, plus 18 guard tests (`python -m pytest -q
+tests/test_workpacket_guard.py`). Independent VPS Claude source/controller
+review at `ae16a08` also passed 44 UI tests and caught historical #5/#6 wording,
+corrected at `5d6150f`. It did not run pytest/ruff or a real screen reader.
+PR #20 holds the final head review, full code CI and merge record. This
+documentation/accessibility cleanup claims no deployment or broader packet
+completion.
+
 Historical integration self-checks at `f68d70a`: 223 Python and
 12 Node UI tests, Ruff, packet round trip and browser rendering passed. Opus
 independently reviewed the earlier integration and source page; later UI

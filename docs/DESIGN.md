@@ -7,8 +7,9 @@ in [ADR.md](ADR.md); this file states what is to be built.
 
 Two friends drive FH6 at different times. Each configures Data Out once. Events
 are captured without any in-game action, and afterwards either driver opens a
-private site to see records, rivalry history, overlaid telemetry and
-corner-by-corner differences.
+site to see records, rivalry history, overlaid telemetry and corner-by-corner
+differences. Viewing is public in the reference deployment; management
+requires the gateway's login and service grant (ADR 23).
 
 ## 2. Scope
 
@@ -55,7 +56,7 @@ Driver B  FH6 Data Out ──UDP :10000─┘        (size check, parse)        
 - UDP ports are above 1024 and outside 5200–5300 (the game binds its own
   socket there).
 - HTTP is reachable only by the web server in front, which terminates TLS and
-  restricts access. The app's API has no authentication of its own and exposes
+  restricts management access. The app's API has no authentication of its own and exposes
   delete, edit and reprocess endpoints, so it must never be reachable directly.
 - The app can be served at the root or under a URL prefix such as
   `/splittime/`. Pages use relative URLs; no application prefix setting is
@@ -169,8 +170,11 @@ conventional race; unknown event modes remain unknown until validated.
   **Packet size and per-driver destination ports do not authenticate a sender.**
   Apply bounded receive rates/queues and sensible storage limits.
 - The listener never replies, so it cannot be used for reflection.
-- All web access goes through the existing web server. Edit, delete and
-  reprocess are available to anyone who gets past it. Verify externally that
+- All web access goes through the existing web server. In the reference
+  deployment, GET/HEAD and WebSocket reads are public, including CSV exports
+  and packet-field telemetry. Non-GET/HEAD requests require the expected
+  Origin, gateway login and service grant. A public page link grants no
+  management access. Verify externally that
   management routes cannot be reached around the gateway before deployment.
 - The app fetches car-name and route-catalogue updates from GitHub about once a
   day. This can be turned off. Upstream's browser-side update check is removed.

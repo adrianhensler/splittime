@@ -80,7 +80,9 @@
         ? `${Math.round(Math.max(0, speedFromMps(s.speed)))} ${speedUnit()}` : "—";
       card.laps.textContent = lapText(s, st.kind === "racing");
       card.button.setAttribute("aria-label",
-        `${card.name}: ${st.label}${chosen ? ", shown below" : ", show in detail"}`);
+        [card.name, st.label, st.current && s ? `speed ${card.speed.textContent}` : "",
+          card.laps.textContent, chosen ? "shown below" : "show in detail"]
+          .filter(Boolean).join(", "));
     }
     const st = feeds.status(detail);
     if (!st) return;
