@@ -1,5 +1,8 @@
 # recorded telemetry (bind-mounted into the container)
 data/
+*.db
+*.db-wal
+*.db-shm
 
 # local compose overrides (LS_KEEP_DISCARDED capture toggle)
 .env
@@ -8,8 +11,10 @@ data/
 __pycache__/
 *.pyc
 .venv/
+.pytest_cache/
+.ruff_cache/
 
-# PyInstaller build output (the exe is published via GitHub Releases, not tracked)
+# build output
 build/
 dist/
 
