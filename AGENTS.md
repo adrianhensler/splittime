@@ -1,8 +1,11 @@
 # AGENTS.md — SplitTime
 
-Private two-driver Forza Horizon 6 telemetry site, built on LapScope. These
+Two-driver Forza Horizon 6 telemetry site, built on LapScope. These
 rules apply to any coding agent or person. Nothing here depends on a particular
 tool.
+
+The reference deployment has public viewing and protected management; see
+[DESIGN.md](docs/DESIGN.md) and its hosting record for the actual access scope.
 
 ## Current phase
 

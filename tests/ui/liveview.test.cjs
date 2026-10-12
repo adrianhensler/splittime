@@ -233,6 +233,24 @@ test("switching drivers clears every trace of the previous one, including a late
   assert.equal(env.sockets.length, 2);                          // the switch opened nothing new
 });
 
+test("driver card accessible names include telemetry and stop announcing a paused speed", async () => {
+  const env = await page({ drivers: TWO });
+  env.sockets.forEach((ws) => ws.onopen());
+  env.send("alpha", { speed: 50, race_mode: true });
+  env.refresh();
+  const alpha = env.cards()[0];
+  const racing = alpha.getAttribute("aria-label");
+  assert.match(racing, /^Driver Alpha, racing, speed 180 km\/h,/);
+  assert.ok(racing.includes(alpha.children[3].textContent));
+  assert.match(racing, /shown below$/);
+  env.now += 10000;
+  env.refresh();
+  assert.match(alpha.getAttribute("aria-label"), /Driver Alpha, paused,/);
+  assert.doesNotMatch(alpha.getAttribute("aria-label"), /speed|180 km\/h/);
+  env.cards()[1].click();
+  assert.match(alpha.getAttribute("aria-label"), /show in detail$/);
+});
+
 test("a paused driver keeps their card but loses the speed, and the other is unaffected", async () => {
   const env = await page({ drivers: TWO });
   env.sockets.forEach((ws) => ws.onopen());

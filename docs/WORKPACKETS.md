@@ -64,6 +64,9 @@ original contributors separately. A reviewer checks the packet too.
    own line in the PR body. Update those packets' status, owner, PR locator
    and checkpoint. Claims/Evidence locate the live PR. If stopping part-way,
    leave the next reproducible action and unresolved criteria in the checkpoint.
+   A trivial change that needs no packet may instead declare
+   `Workpackets: none — <reason>` on one line. The reason is required and the
+   reviewer judges whether the exemption fits; do not mix it with packet IDs.
 2. **PR becomes ready:** snapshot final claims with their basis, re-runnable
    commands, unknowns, reviewer coverage and pending admission into the packet.
    Partial criteria stay partial. Review the snapshot with the code; a passing
@@ -99,8 +102,8 @@ Marking a partial packet ready for integration does not complete its original
 criteria. **The check is advisory** (owner's decision, ADR 21): it runs as the
 `records` job in CI, shows red when it finds drift, and never blocks a merge.
 An independent test on 2026-10-12 got 25 of 26 stale or wrong records past
-it, and it rejects one-line fixes that need no packet, so it is a prompt for
-the reviewer and not a gate.
+it. Trivial changes now have the explicit exemption above, so it is a prompt
+for the reviewer and not a gate.
 
 ## Three roles, kept apart
 
