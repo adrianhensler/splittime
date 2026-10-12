@@ -68,11 +68,12 @@ mandatory pause before the next authorized POC implementation step.
 - **complete**: the worker declares it finished. Claims and evidence are
   filled in. Not yet accepted.
 - **admitted**: the owner accepted it. Later work may rely on it.
-  **A merge is not admission.** The integrator may merge reviewed work so
-  others can build on it; the packet stays `complete` until the owner says
-  otherwise. As of 2026-10-12 nothing has been admitted, including work that
-  is merged and built upon. That is a real gap between the method and the
-  practice, left visible here on purpose.
+  **In this project a merge to `main` counts as admission** (owner's decision,
+  2026-10-12, ADR 20). The pull request must have been reviewed by someone
+  other than its author, and the author does not merge it. Admission covers
+  what the pull request states and no more: anything it lists as untested,
+  unknown or asserted stays that way. Deployment and anything needing root
+  still need the owner's explicit say.
 - **parked**: waiting on something outside the worker's authority. Says what.
 - **failed**: could not be done as specified. Says why and what was learned.
 

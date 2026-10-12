@@ -152,7 +152,8 @@ took part in. Nothing was measured and there was no control.
 3. **Nothing was ever admitted.** The owner has not accepted any packet. The
    baseline was merged by the integrator and is being built on. Merge became
    acceptance in practice. The acceptor role, the method's last safeguard,
-   has not been exercised once.
+   had not been exercised once. Asked about it, the owner made the practice
+   the rule: a reviewed merge counts (ADR 20).
 4. **Status in documents rotted immediately.** The owner asked twice which
    agent was ahead. The status table said "in review" after the merge. The
    pull request list was right; the document was wrong.

@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | complete; reviewed and merged (PR #4, `ad4551b`); not admitted by the owner |
+| Status | admitted: reviewed and merged (PR #4, `ad4551b`), which counts as acceptance under ADR 20 |
 | Parent | WP-000 |
 | Children | none |
 | Worker | Opus 5.5 (Claude Code), 2026-10-12 |
@@ -146,4 +146,6 @@ Merged to `main` by the integrator as `ad4551b`.
 
 ## Acceptance
 
-Pending.
+Admitted by merge of PR #4 to `main` (`ad4551b`, 2026-10-12), per ADR 20. Scope:
+the import, cleanup, notices and checks as stated. The items under "Not
+independently checked" are not accepted as true by this.
