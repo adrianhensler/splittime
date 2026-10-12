@@ -129,6 +129,7 @@ async def status(request: Request):
                 "udp_error": getattr(request.app.state, "udp_errors", {}).get(d.id),
                 "packets_total": request.app.state.hubs[d.id].packets_total,
                 "bad_packets": request.app.state.hubs[d.id].bad_packets,
+                "source_changes": request.app.state.hubs[d.id].source_changes,
                 "session_id": request.app.state.trackers[d.id].session_id,
                 "write_error": request.app.state.trackers[d.id].write_error,
                 "frames_dropped": request.app.state.trackers[d.id].frames_dropped,
@@ -474,11 +475,13 @@ def _group_out(group: dict, members: list[dict]) -> dict:
     _session_out; members arrive oldest first."""
     out = dict(group)
     lead = members[0] if members else {}
+    drivers = {m.get("driver_id") or "legacy" for m in members}
+    out["driver_id"] = next(iter(drivers)) if len(drivers) == 1 else None
     bests = [m["best_lap"] for m in members if m["best_lap"]]
     started = group["created_at"] if not members else members[0]["started_at"]
     out["session_count"] = len(members)
     out["run_count"] = sum(m["lap_count"] for m in members)
-    out["best_lap"] = min(bests, default=None)
+    out["best_lap"] = min(bests, default=None) if len(drivers) <= 1 else None
     out["started_at"] = started
     out["ended_at"] = max((m["ended_at"] or m["started_at"] for m in members),
                           default=None)
@@ -495,12 +498,13 @@ def _group_out(group: dict, members: list[dict]) -> dict:
     # member onto another route, and a group the user can't open is worse than
     # one that says so
     out["mixed"] = (len({m["route_id"] for m in members}) > 1
-                    or len({m["car_ordinal"] for m in members}) > 1)
+                    or len({m["car_ordinal"] for m in members}) > 1
+                    or len(drivers) > 1)
     return out
 
 
 def _check_members(store, session_ids: list[int], group: dict | None = None):
-    """Same route and same car, both known, and nothing already grouped.
+    """Same driver, route and car; known metadata and nothing already grouped.
     Returns (route_id, car_ordinal)."""
     if not session_ids:
         raise HTTPException(400, "no sessions given")
@@ -513,6 +517,9 @@ def _check_members(store, session_ids: list[int], group: dict | None = None):
                                           or s["group_id"] != group["id"]):
             raise HTTPException(409, f"session {sid} is already in a group")
         rows.append(s)
+    members = rows + (store.group_sessions(group["id"]) if group else [])
+    if len({s.get("driver_id") or "legacy" for s in members}) > 1:
+        raise HTTPException(400, "sessions must belong to the same driver")
     routes = {s["route_id"] for s in rows} | (
         {group["route_id"]} if group else set())
     cars = {s["car_ordinal"] for s in rows} | (
@@ -564,6 +571,8 @@ def group_laps(group_id: int, request: Request):
     if group is None:
         raise HTTPException(404, "group not found")
     members = [_session_out(s) for s in store.group_sessions(group_id)]
+    if len({s.get("driver_id") or "legacy" for s in members}) > 1:
+        raise HTTPException(409, "group contains sessions from different drivers; ungroup it")
     laps = store.group_laps(group_id)
     best = min((lap["lap_time"] for lap in laps
                 if lap["lap_time"] and not lap["excluded"]), default=None)

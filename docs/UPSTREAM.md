@@ -145,3 +145,12 @@ and database overrides. No catalogue or recorded packet was changed.
 `app/rivalry.py` uses `flags_auto` for immutable cutoff timing evidence,
 effective flags for validity, millisecond display times, and conservative
 eligibility when an unknown effective flag appears.
+
+### PR #6 review corrections, 2026-10-12
+
+Port registration now reconciles atomically without deleting old identities.
+Source tracking is isolated in `app/telemetry/sources.py`; watchdog/shutdown
+flush pending provenance and warnings/writes are coalesced. Existing analysis
+group suggestions and API membership/scoring checks are scoped by driver.
+Mixed groups already stored remain intact and are refused for combined scoring.
+No detector thresholds, `laps.py`, or upstream scenario tests were changed.

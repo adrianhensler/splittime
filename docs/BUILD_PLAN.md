@@ -28,8 +28,8 @@ corrections and independent acceptance tests.
 | Milestone | Packet | State |
 |---|---|---|
 | Planning docs | [WP-000](../work/WP-000-planning.md) | Complete, awaiting acceptance |
-| M0 Import baseline | [WP-001](../work/WP-001-import-baseline.md) | Complete, in review (branch `feat/opus-lapscope-baseline`) |
-| M1 Two drivers | [WP-002](../work/WP-002-two-drivers.md) | In progress — GPT-6 feature branch; tests pending |
+| M0 Import baseline | [WP-001](../work/WP-001-import-baseline.md) | Merged to main (PR #4, `ad4551b`) |
+| M1 Two drivers | [WP-002](../work/WP-002-two-drivers.md) | Implemented on PR #6; review fixes, tests and current head in that PR |
 | M2 Deploy and real captures | [WP-003](../work/WP-003-deploy-and-real-captures.md) | Draft |
 | M3 Rivalry views | [WP-004](../work/WP-004-rivalry-views.md) | Exploratory API on PR #7; review repairs and evidence in that PR |
 | M4 Corner comparison | [WP-005](../work/WP-005-corner-comparison.md) | Draft |

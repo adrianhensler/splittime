@@ -10,6 +10,7 @@ class Hub:
         self._subscribers: set[asyncio.Queue] = set()
         self.packets_total = 0
         self.bad_packets = 0
+        self.source_changes = 0
         self.last_packet_time: float | None = None
         self.last_packet_size: int | None = None
 
