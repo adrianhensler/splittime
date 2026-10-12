@@ -36,11 +36,11 @@ hour of parallel work starting. The next slice is the first milestone not on
 |---|---|---|
 | Planning docs | [WP-000](../work/WP-000-planning.md) | yes |
 | M0 Import baseline | [WP-001](../work/WP-001-import-baseline.md) | yes (PR #4, `ad4551b`) |
-| M1 Two drivers | [WP-002](../work/WP-002-two-drivers.md) | no |
-| M2 Deploy and real captures | [WP-003](../work/WP-003-deploy-and-real-captures.md) | no |
-| M3 Rivalry views | [WP-004](../work/WP-004-rivalry-views.md) | no |
-| M4 Corner comparison | [WP-005](../work/WP-005-corner-comparison.md) | no |
-| M5 Summary page and polish | [WP-006](../work/WP-006-summary-page.md) | no |
+| M1 Two drivers | [WP-002](../work/WP-002-two-drivers.md) | yes (PR #10, `0015f01`); simulator and one real lap only |
+| M2 Deploy and real captures | [WP-003](../work/WP-003-deploy-and-real-captures.md) | no: not deployed; one real Rivals capture informed a recorder fix in PR #10 |
+| M3 Rivalry views | [WP-004](../work/WP-004-rivalry-views.md) | partly (PR #10): exploratory records page, no scoring or history |
+| M4 Corner comparison | [WP-005](../work/WP-005-corner-comparison.md) | partly (PR #10): module, endpoints and page; unverified on real two-driver data |
+| M5 Summary page and polish | [WP-006](../work/WP-006-summary-page.md) | partly (PR #10): lap comparison page only |
 
 ## Milestones in one line each
 
