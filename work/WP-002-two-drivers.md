@@ -95,6 +95,14 @@ Pending independent re-review and integration decision.
 
 ## Integration checkpoint, 2026-10-12
 
+First real user-confirmed Rivals capture: one game-reported lap of 150.807556 s,
+1970 GMC Jimmy C500, wall contact and no rewind. A false rewind arose from the
+first start-line CurrentLap reset while approaching from negative route position.
+The narrow re-anchor repair has a sanitized regression in `tests/test_rivals_start.py`.
+Replaying separate copies removes false rewind and clock warnings, retains
+contact and the exact lap time. Live data is untouched; no raw capture is in Git.
+Capture-derived validation is limited to this one run, not cross-driver fairness.
+
 Repair commit `8ab5ee2` from PR #6 is now included in the PR #10 branch through
 the repaired PR #7 merge `8684f17`. Fetch current refs and inspect
 [PR #10](https://github.com/adrianhensler/splittime/pull/10) before continuing;

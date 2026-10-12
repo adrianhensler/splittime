@@ -792,6 +792,20 @@ class SessionTracker:
         self._diag_max_ln = max(self._diag_max_ln, ln)
         self._diag_max_cur = max(self._diag_max_cur, cur)
 
+        # Rivals can count CurrentLap during the approach from negative route
+        # position, then reset it at the first start line without incrementing
+        # LapNumber. The race clock keeps advancing: this is launch, not rewind.
+        # Verified on the owner's 2026-10-12 capture; keep thresholds unchanged.
+        if (self._lap_id is not None and self._completed_laps == 0
+                and ln == 0 and self._launch_rt is None
+                and self._prev_dist is not None and self._prev_dist < 0 <= dist
+                and cur < self._lap_max_elapsed - REWIND_TIME_JUMP
+                and self._prev_frame_rt is not None and rt >= self._prev_frame_rt):
+            log.info("Session %d: first start-line lap clock reset; re-anchoring lap",
+                     self.session_id)
+            self._reanchor_lap(t, dist, frame)
+            self._launch_rt = rt
+
         if self._lap_fields_dead and (ln > 0 or cur > 0.001 or last > 0.001):
             self._lap_fields_dead = False  # normal lap telemetry; forever
 
@@ -932,15 +946,7 @@ class SessionTracker:
             # boundary is excluded by the age check)
             log.info("Session %d: lap timer started mid-session, re-anchoring lap",
                      self.session_id)
-            self._lap_opened_t = t
-            self._lap_start_dist = dist
-            self._lap_start_pos = (frame["pos_x"], frame["pos_z"])
-            self._bbox_reset(frame["pos_x"], frame["pos_z"])
-            self._cur_d, self._cur_t = [], []
-            self._lap_flags = set()  # the lap starts here; earlier flags aren't its
-            self._lap_max_elapsed = 0.0
-            self._lap_open_rt = rt
-            self.store.restart_lap(self._lap_id, t, dist)
+            self._reanchor_lap(t, dist, frame)
         self._prev_cur_lap = cur
 
         if self._lap_fields_dead and self._lap_id is not None:
@@ -1069,6 +1075,18 @@ class SessionTracker:
                 self._ref_d, self._ref_t = self._cur_d, self._cur_t
                 log.info("Session %d: new best lap %.3fs (lap %d)",
                          self.session_id, lap_time, ln + 1)
+
+    def _reanchor_lap(self, t: float, dist: float, frame: dict) -> None:
+        """Start the existing lap at its actual launch, clearing pre-launch flags."""
+        self._lap_opened_t = t
+        self._lap_start_dist = dist
+        self._lap_start_pos = (frame["pos_x"], frame["pos_z"])
+        self._bbox_reset(frame["pos_x"], frame["pos_z"])
+        self._cur_d, self._cur_t = [], []
+        self._lap_flags = set()
+        self._lap_max_elapsed = 0.0
+        self._lap_open_rt = frame["current_race_time"]
+        self.store.restart_lap(self._lap_id, t, dist)
 
     def _open_lap(self, t: float, ln: int, dist: float, frame: dict,
                   stored_ln: int | None = None) -> None:

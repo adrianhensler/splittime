@@ -143,6 +143,22 @@ small and put new features in new files where possible.
 Code and tests are in the two-driver PR; this is **not** independent verification
 and has not been exercised with actual Forza traffic.
 
+### First real Rivals capture: first-line clock reset, 2026-10-12
+
+The owner confirmed Rivals, no rewind, and wall contact. A private snapshot
+contained 16,333 frames and one 150.807556 s lap, matching packet LastLap/BestLap.
+During approach to the first line, route distance was negative and CurrentLap
+counted to 2.493 s. At the line it reset while CurrentRaceTime continued. The
+old high-water rewind rule incorrectly flagged that as rewind.
+
+`laps.py` now re-anchors the existing first lap for this observed signature,
+using the same flag/trace reset as the existing mid-session re-anchor. No
+threshold was changed. The sanitized scalar regression failed before repair;
+after repair, real backwards-race-clock and existing dirty-lap tests stay intact.
+Replays of separate snapshot copies keep the exact game lap time and contact,
+remove false rewind and the spurious clock warning. Original live data and the
+read-only snapshot were not reprocessed or edited. Raw captures stay outside Git.
+
 ### PR #7 review corrections, 2026-10-12
 
 `app/cars.py` owns a shared name resolver; the session API keeps its existing
