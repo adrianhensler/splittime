@@ -166,6 +166,8 @@ PTP_MIN_RUN_TIME = 10.0       # shortest believable point-to-point run
 PARKED_LAP_DIST = 25.0        # a recognized post-finish hold never moved this far
 PARKED_LAP_SPEED = 5.0        # or reached this speed (m/s). Necessary, never
                               # sufficient: see _drop_parked_lap
+PARKED_OPEN_SPEED = 1.0       # a hold opens stopped: under the speed (m/s) that
+                              # _final_lap_time_at_cutoff reads as still moving
 FINAL_LAP_DIST_FRACTION = 0.97  # open lap covering this much of a typical lap
                                 # when the stream cuts = finished final lap
 
@@ -287,10 +289,12 @@ class SessionTracker:
         self._lap_moved = 0.0
         self._lap_top_speed = 0.0
         # how the game opened this lap, for _drop_parked_lap: "line" = a
-        # LapNumber increment that posted a time, "reset" = the counter and
-        # odometer reset that ends a recognized hold, None = anything else
+        # LapNumber increment that posted a time with the car stopped,
+        # "reset" = the counter and odometer reset that ends a recognized
+        # hold, None = anything else
         self._lap_origin: str | None = None
-        self._lap_halt = False  # an IMPACT_PEAK spike landed in this lap
+        self._lap_line_frame = 0  # frame count when a "line" lap opened
+        self._lap_halt = False    # IMPACT_PEAK spike on the very next frame
         self._lap_open_rt: float | None = None
         self._launch_rt: float | None = None  # race clock when DistanceTraveled
                                                # started growing (= GO); the run
@@ -432,7 +436,8 @@ class SessionTracker:
                     log.info("Session %s: contact spike (%.0f m/s^2), flagging lap",
                              self.session_id, g)
                 self._lap_flags.add("contact")
-                if g >= IMPACT_PEAK:
+                if (g >= IMPACT_PEAK and self._lap_origin == "line"
+                        and self._frame_count == self._lap_line_frame + 1):
                     self._lap_halt = True
             self._over_impact = True
         else:
@@ -949,8 +954,9 @@ class SessionTracker:
             lap_time = last if last > 0 else None
             self._complete_current_lap(t, lap_time, self._lap_number)
             self._open_lap(t, ln, dist, frame)
-            if lap_time is not None:
+            if lap_time is not None and frame["speed"] < PARKED_OPEN_SPEED:
                 self._lap_origin = "line"
+                self._lap_line_frame = self._frame_count
         elif (self._lap_id is not None and last > 0
               and self._lap_open_last_lap is not None
               and abs(last - self._lap_open_last_lap) > 1e-3
@@ -977,9 +983,12 @@ class SessionTracker:
         if self._lap_id is not None:
             self._lap_moved = max(self._lap_moved, abs(dist - self._lap_start_dist))
             self._lap_top_speed = max(self._lap_top_speed, frame["speed"])
-            if self._lap_origin == "reset" and rt < self._lap_open_rt:
-                # the race clock restarted without splitting the session:
-                # the wait is over and whatever follows may be an attempt
+            if self._lap_origin == "reset" and (cur > 0.001
+                                                or rt < self._lap_open_rt):
+                # the lap clock started (same dead-clock epsilon as
+                # lap_elapsed), or the race clock restarted without
+                # splitting the session: the wait is over and whatever
+                # follows may be an attempt
                 self._lap_origin = None
 
         if self._lap_fields_dead and self._lap_id is not None:
@@ -1126,13 +1135,15 @@ class SessionTracker:
         stretch is an attempt, and the halt reads as a contact.
 
         The hold is recognized by all of: opened at a line crossing that
-        posted a time, the halt spike (IMPACT_PEAK, which no driving
-        approaches, on a car that never reached PARKED_LAP_SPEED), and never
-        driving off. The wait is recognized only as the lap a recognized
-        hold handed over to through an odometer hard-reset, and only while
-        the race clock has not restarted. Being slow, short or stationary is
-        not enough: without the halt spike this could be an attempt the
-        driver abandoned at the line, and it is kept."""
+        posted a time, with the car already stopped on that frame; the halt
+        spike (IMPACT_PEAK, which no driving approaches) on the very next
+        frame; and never driving off. The wait is recognized only as the
+        lap a recognized hold handed over to through an odometer
+        hard-reset, and only while the lap clock stays dead and the race
+        clock has not restarted. Being slow, short or stationary is not
+        enough, and neither is a contact later in the lap: that could be an
+        attempt the driver abandoned or crashed at the line, and it is
+        kept, contact flag included."""
         parked = (self._lap_moved < PARKED_LAP_DIST
                   and self._lap_top_speed < PARKED_LAP_SPEED)
         held = self._lap_origin == "line" and self._lap_halt

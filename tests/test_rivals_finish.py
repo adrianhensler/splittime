@@ -192,6 +192,65 @@ def test_an_attempt_after_an_unsplit_clock_restart_is_kept(tmp_path):
     assert [lap["lap_time"] is None for lap in d.finish()] == [False, True]
 
 
+def test_a_late_contact_in_a_slow_attempt_is_not_the_halt(tmp_path):
+    """Reviewer's case on PR #19 at 83adcd7: the halt is the frame after the
+    line. A spike two seconds into a crawl is a contact on a real attempt."""
+    d = Driver(tmp_path)
+    timed_lap(d)
+    slow_attempt(d, 4.0)
+    d.send(current_lap=2 + 1 / 60, speed=0, accel_x=196)
+    laps = d.finish()
+    assert [(lap["lap_number"], lap["lap_time"] is None, lap["flags"]) for lap in laps] == [
+        (0, False, None), (1, True, "contact")]
+
+
+@pytest.mark.parametrize("after", [0.0, 3.0])
+def test_crossing_at_speed_then_an_immediate_contact_is_not_the_halt(tmp_path, after):
+    """A hold opens stopped. Crossing at 50 m/s and hitting something on the
+    next frame is a crash, even if the car never moves again."""
+    d = Driver(tmp_path)
+    d.send(current_lap=0, distance_traveled=0)
+    for i in range(1, 600):
+        d.send(current_lap=i / 60, distance_traveled=i * 5949.1 / 600, speed=50)
+    d.send(current_lap=0, lap_number=1, distance_traveled=5949.1, speed=50,
+           last_lap=74.654, best_lap=74.654)
+    d.send(current_lap=1 / 60, speed=after, accel_x=196)
+    for i in range(2, 120):
+        d.send(current_lap=i / 60, accel_x=0)
+    laps = d.finish()
+    assert [(lap["lap_number"], lap["lap_time"] is None, lap["flags"]) for lap in laps] == [
+        (0, False, None), (1, True, "contact")]
+
+
+def test_a_spike_one_frame_late_is_not_the_halt(tmp_path):
+    """Stopped at the line, but the spike is not on the frame after it."""
+    d = Driver(tmp_path)
+    timed_lap(d)
+    d.send(current_lap=1 / 60)
+    d.send(current_lap=2 / 60, accel_x=196)
+    for i in range(3, 120):
+        d.send(current_lap=i / 60, accel_x=0)
+    assert [lap["flags"] for lap in d.finish()] == [None, "contact"]
+
+
+def test_an_attempt_whose_lap_clock_starts_after_the_reset_is_kept(tmp_path):
+    """Reviewer's case on PR #19 at 83adcd7: the wait is only a wait while
+    the lap clock is dead. It starts 20 frames in, before the 5 s re-anchor."""
+    d = Driver(tmp_path)
+    timed_lap(d)
+    held_at_line(d)
+    d.send(current_lap=0, lap_number=0, distance_traveled=0, last_lap=0, best_lap=0,
+           race_position=0, pos_x=0, speed=0, accel=0, accel_x=0)
+    for _ in range(20):
+        d.send()
+    for i in range(1, 121):
+        d.send(current_lap=i / 60, distance_traveled=4 * i / 60, pos_x=4 * i / 60,
+               speed=4, accel=200, accel_x=0)
+    laps = d.finish()
+    assert [lap["lap_time"] is None for lap in laps] == [False, True]
+    assert laps[0]["lap_time"] == pytest.approx(74.654, abs=.001)
+
+
 def test_crossing_the_line_and_carrying_on_is_untouched(tmp_path):
     """No hold: two timed laps and the open third, times as the game posted."""
     d = Driver(tmp_path)
