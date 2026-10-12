@@ -30,6 +30,7 @@ One entry per decision. Status is **Accepted** (the owner decided),
 | 21 | Less merge friction: reviewer merges; packet check advisory | Accepted |
 | 22 | Optional two-driver Live view | Accepted |
 | 23 | Record public viewing separately from protected management | Proposed |
+| 24 | Collector and web may run as separate processes | Proposed |
 
 Each entry lists what it **rests on**, so that reversing one decision shows
 which others to revisit.
@@ -334,3 +335,46 @@ changed by this documentation repair. Host-specific evidence stays in the
 [hosting record](hosting/test-hensler-work.md).
 
 *Rests on:* 6, 17, 22. *Revisit if* the intended public data scope changes.
+
+## 24. Collector and web may run as separate processes
+
+**Proposed, 2026-10-12** (owner asked for an always-on collector after the
+third rebuild of the day; not yet deployed).
+
+One process did everything, so every rebuild for a page or analysis change
+also stopped the recorder, and a driver mid-lap lost that lap. `SPLITTIME_ROLE`
+now selects what a process is:
+
+| Role | UDP, lap detection, recording | HTTP |
+|---|---|---|
+| `all` (default) | yes | everything, as before |
+| `collector` | yes | `GET /api/status` and `/ws/live` only |
+| `web` | no | pages and the whole API; no live socket |
+
+Both halves run the same code and open the same SQLite file. The web half
+never binds a driver port and skips the startup cleanup, which closes every
+open session and would end the collector's live one. It gets live state by
+asking the collector (`SPLITTIME_COLLECTOR_URL`), and when the collector does
+not answer it refuses reprocess, import, compact and delete with 503 rather
+than assume nothing is recording. Session ids are allocated in the database,
+not from a counter in memory, so the two cannot hand out the same one. The
+front web server sends `/ws/live` to the collector and everything else to web.
+
+"Collector" here is a server-side process. ADR 5's rejected collector is a
+home-side one on each player's network; that decision is unchanged.
+
+Limits:
+
+- Lap detection still lives in the collector, so a recorder fix needs a
+  collector restart. Kept sessions can be rebuilt afterwards with reprocess;
+  discarded free roam cannot.
+- A session that starts while the web half is in the middle of a reprocess or
+  import waits for that write: the collector retries every 0.25 s, logs each
+  failed attempt, and the session begins when the write ends. Frames of an
+  already open session are buffered and lose nothing.
+- The collector reads car and route catalogues at start. A refresh done on
+  the web half reaches it at its next restart.
+- A release that changes the schema must update both halves.
+
+*Rests on:* 6, 15. *Work:* WP-007. *Revisit if* detection is ever moved out of
+the recording path, which would let the collector store raw packets only.

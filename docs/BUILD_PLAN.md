@@ -41,6 +41,7 @@ checkpoint says what its milestone still owes.
 | M3 Rivalry views | [WP-004](../work/WP-004-rivalry-views.md) |
 | M4 Corner comparison | [WP-005](../work/WP-005-corner-comparison.md) |
 | M5 Summary page and polish | [WP-006](../work/WP-006-summary-page.md) |
+| Always-on collector (after v1 scope; ADR 24) | [WP-007](../work/WP-007-collector-split.md) |
 
 ## Milestones in one line each
 
@@ -129,6 +130,7 @@ progress on two humans' availability.
 | R5 | Upstream moves on and our copy drifts. | Keep edits to upstream files small; record syncs in UPSTREAM.md | Ongoing |
 | R6 | Corner boundaries differ between cars or lines, so numbering is unstable. | Derive corners once per route from a reference lap, not per lap | M4 |
 | R7 | Serving under a URL prefix touches upstream frontend files, which works against R5. | Keep URLs relative; PR #13 adds a regression guard; review later upstream diffs | M2 |
+| R9 | Collector and web are two writers on one SQLite file (ADR 24). A web-side reprocess or import can delay the start of a session that begins during it. | Simulator drive started during a long reprocess; watch `write_error` and `frames_dropped` in `/api/status` | Before the split is deployed |
 | R8 | Inside a container the app may see Docker's bridge address instead of the driver's IP. | Check the logged source address on the first real packets | M2 |
 
 ## Deferred

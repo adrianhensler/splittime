@@ -15,6 +15,12 @@ Player's browser ──HTTPS──▶ operator's web server ──HTTP──┘
 SplitTime process ──HTTPS──▶ GitHub (car names and route catalogue, about daily; can be turned off)
 ```
 
+When SplitTime is run as two processes (ADR 24) nothing above changes for a
+driver or a viewer. The game's packets go to the collector process; the
+browser's live socket is passed to the collector and everything else to the
+web process; both use the one SQLite file. The web process also asks the
+collector, over the server's private network, which sessions are recording.
+
 ## Telemetry: game to server
 
 | | |

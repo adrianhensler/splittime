@@ -23,6 +23,13 @@ CREATE TABLE IF NOT EXISTS drivers (
     name     TEXT NOT NULL,
     udp_port INTEGER UNIQUE
 );
+-- one row: the next session id to hand out. Kept in the file, not in memory,
+-- so two processes on one database (collector + web, ADR 24) cannot both
+-- allocate the same id, and a deleted id stays retired across restarts.
+CREATE TABLE IF NOT EXISTS session_seq (
+    only_row INTEGER PRIMARY KEY CHECK (only_row = 1),
+    next_id  INTEGER NOT NULL
+);
 CREATE TABLE IF NOT EXISTS sessions (
     id              INTEGER PRIMARY KEY,
     started_at      REAL NOT NULL,
@@ -284,11 +291,12 @@ def _merge_edits(laps: list[dict], edits: list[dict]) -> list[dict]:
 
 
 class Store:
-    def __init__(self, db_path: str) -> None:
+    def __init__(self, db_path: str, timeout: float = 5.0) -> None:
         self.db_path = db_path
         Path(db_path).parent.mkdir(parents=True, exist_ok=True)
         self._in_transaction = False
-        self.db = sqlite3.connect(db_path)
+        # timeout: how long a write waits on another connection's lock
+        self.db = sqlite3.connect(db_path, timeout=timeout)
         self.db.execute("PRAGMA journal_mode=WAL")
         self.db.execute("PRAGMA foreign_keys=ON")
         self.db.executescript(SCHEMA)
@@ -316,6 +324,8 @@ class Store:
         self.db.execute(
             "INSERT OR IGNORE INTO drivers (id, name, udp_port)"
             " VALUES ('legacy', 'Legacy recording', NULL)")
+        self.db.execute(
+            "INSERT OR IGNORE INTO session_seq (only_row, next_id) VALUES (1, 1)")
         self.db.commit()
         self.backfill_route_kinds()
         self.backfill_route_names()
@@ -495,8 +505,15 @@ class Store:
 
     def create_session(self, started_at: float, frame: dict,
                        driver_id: str = "legacy") -> int:
-        sid = self._next_session_id
-        self._next_session_id += 1
+        # The claim is a write and comes first, so it takes the database's
+        # write lock before anything is read: a second process allocating at
+        # the same moment waits here and then sees this one's claim.
+        self.db.execute(
+            "UPDATE session_seq SET next_id = MAX(next_id, ?,"
+            " (SELECT COALESCE(MAX(id), 0) + 1 FROM sessions)) + 1",
+            (self._next_session_id,))
+        sid = self.db.execute("SELECT next_id - 1 FROM session_seq").fetchone()[0]
+        self._next_session_id = sid + 1
         self.db.execute(
             "INSERT INTO sessions (id, started_at, car_ordinal, car_class, car_pi,"
             " drivetrain_type, driver_id) VALUES (?, ?, ?, ?, ?, ?, ?)",

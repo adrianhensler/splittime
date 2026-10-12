@@ -151,3 +151,13 @@ labelled by driver once a comparison spans both drivers. Evidence:
 `tests/ui/driver-labels.test.cjs` runs the real card builders; a headless
 screenshot of the list against a copy of the live database showed the badge on
 all four cards. The session header and comparison tray were not rendered.
+
+## PR #22 checkpoint (2026-10-12, Claude Opus 5.5)
+
+Draft [PR #22](https://github.com/adrianhensler/splittime/pull/22)
+([WP-007](WP-007-collector-split.md)) changes one thing in this packet's
+modules: `app/recorder/store.py` allocates session ids in the database
+(`session_seq`) instead of from a counter in memory, and `Store` takes a lock
+timeout. Driver attribution, port registration and the listeners are untouched;
+`tests/test_multi_driver.py` and `tests/test_driver_review.py` pass unchanged.
+Not merged, not deployed. Evidence and limits are in that pull request.

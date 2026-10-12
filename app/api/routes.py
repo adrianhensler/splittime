@@ -17,7 +17,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from .. import OFFLINE, __version__, cars, tracks
+from .. import OFFLINE, __version__, cars, roles, tracks
 from ..cars import CAR_NAMES, resolve_name
 from ..recorder.laps import (AIRBORNE_MIN_S, AIRBORNE_SLIP_MAX,
                              AIRBORNE_SUSP_MAX, IMPACT_ACCEL, LANDING_GRACE_S,
@@ -104,8 +104,27 @@ def _session_out(row: dict) -> dict:
     return row
 
 
+def _is_web(request: Request) -> bool:
+    return getattr(request.app.state, "role", roles.ALL) == roles.WEB
+
+
+def _collector_status() -> dict:
+    """What the collector says is live (web role only). 503 when it cannot be
+    asked: every caller is either reporting live state or deciding whether a
+    write is safe, and neither may guess."""
+    try:
+        return roles.collector_status()
+    except roles.CollectorUnavailable as exc:
+        log.warning("Collector status unavailable: %s", exc)
+        raise HTTPException(
+            503, "the collector is not answering, so what is recording is unknown")
+
+
 @router.get("/status")
 async def status(request: Request):
+    if _is_web(request):
+        # the recorder lives in the collector; pass its answer through
+        return await run_in_threadpool(_collector_status)
     hub = request.app.state.hub
     tracker = request.app.state.tracker
     now = time.time()
@@ -143,6 +162,11 @@ async def status(request: Request):
 
 
 def _any_session_active(request: Request) -> bool:
+    # In the web role this is a short blocking call from async handlers. That
+    # is deliberate: this process has no UDP to stall, and the answer has to
+    # be in hand before the write starts.
+    if _is_web(request):
+        return bool(roles.recording_session_ids(_collector_status()))
     trackers = getattr(request.app.state, "trackers", None)
     if trackers is not None:
         return any(t.session_id is not None for t in trackers.values())
@@ -151,6 +175,8 @@ def _any_session_active(request: Request) -> bool:
 
 
 def _session_active(request: Request, session_id: int) -> bool:
+    if _is_web(request):
+        return session_id in roles.recording_session_ids(_collector_status())
     trackers = getattr(request.app.state, "trackers", None)
     if trackers is not None:
         return any(t.session_id == session_id for t in trackers.values())
