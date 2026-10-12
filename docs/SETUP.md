@@ -4,8 +4,10 @@ For someone with a running Linux server who knows their way around it. This is
 the generic guide. A worked example behind an existing gateway is in
 [hosting/test-hensler-work.md](hosting/test-hensler-work.md).
 
-Nothing here has been run yet. Correct this file as the build proves or
-disproves each step. Commands assume Debian or Ubuntu.
+This is a generic guide, not a claim that every command below was executed.
+The container/gateway worked example has been deployed and checked; its exact
+settings and retained limits are in the hosting record. Commands assume Debian
+or Ubuntu.
 
 Read [DATA_FLOW.md](DATA_FLOW.md) first: you are opening UDP ports on a public
 address and storing other people's recordings.
@@ -207,7 +209,8 @@ Pitfalls:
   Apply the same authentication gate and allowed-host setting as for root
   hosting. App routing was independently checked at root and under single
   and nested prefixes in [PR #13](https://github.com/adrianhensler/splittime/pull/13);
-  the real proxy's authentication and WebSocket upgrade still need checking.
+  each deployment's real proxy authentication and WebSocket upgrade still need
+  checking. The worked hosting example records its completed gateway checks.
 - The upgrade headers are needed for the WebSocket.
 - On SELinux systems nginx needs `setsebool -P httpd_can_network_connect 1`.
 - Confirm `curl http://<server-ip>:8000/` from outside fails.

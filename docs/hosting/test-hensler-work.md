@@ -1,140 +1,126 @@
 # Reference deployment: test.hensler.work
 
-**This is the owner's personal hosting, not part of SplitTime.** It shows one
-way to run the software behind an existing gateway. For the generic guide see
-[../SETUP.md](../SETUP.md). Nothing here has been applied yet; it is the plan
-for milestone M2. The app side was checked on 2026-10-12 (see "Checked before
-deploying"); the gateway side has not been touched.
+This is the owner's personal hosting. The generic guide is
+[../SETUP.md](../SETUP.md). This record describes the deployment checked on
+2026-10-12; it replaces the earlier unexecuted gateway plan.
 
-## The gateway
+## Running installation
 
-`/opt/prod/test.hensler.work` is a Docker Compose stack. Caddy listens on host
-port 8081 and is reached only through a Cloudflare Tunnel, which terminates
-HTTPS. Every service is gated by `forward_auth` to the gateway's auth API. The
-procedure for adding a service is that repo's `ADDING_SERVICES.md`.
+- Public site: <https://test.hensler.work/splittime/rivalry.html>, also linked
+  from the public projects page.
+- SplitTime runtime: `1e51eb96b658c502c37df01e692072391b0c30ef` (#15).
+- Gateway deployment: `b950101ea36d39295740917280f71ddcec472bb8`, from reviewed
+  [PR #113](https://github.com/adrianhensler/test.hensler.work/pull/113).
+  #112 is closed as superseded. #111's footer removal is also deployed.
+- Gateway checkout: `/opt/prod/test.hensler.work`; dedicated runtime checkout:
+  `/home/adrian/splittime-runtime`; container: `test-splittime`.
+- Data bind mount: `/home/adrian/splittime-data:/app/data`, owned by `adrian`.
+  The application runs as UID/GID `1001:1001`. HTTP 8000 stays on the Compose
+  network; only UDP 9999 and 10000 are published.
+- `LS_OFFLINE=1` disables optional catalogue/update requests in this installation.
 
-## Two separate paths
+The authoritative deployment configuration and operational commands are in
+[the gateway's deployment guide](https://github.com/adrianhensler/test.hensler.work/blob/main/docs/splittime-deployment.md).
+Use that reviewed configuration rather than the obsolete root-container,
+shared named-volume or all-path login snippets from the initial plan.
 
-| Traffic | Path |
+## Driver setup
+
+Enable **Data Out** in the game and enter:
+
+| Driver | Permanent ID | Destination IP | UDP port |
+|---|---|---|---|
+| Captn Compass | `captn-compass` | `167.88.46.12` | **10000** |
+| FishFighterNS | `fishfighterns` | `167.88.46.12` | **9999** |
+
+The hostname resolves through Cloudflare. Game UDP goes directly to the VPS
+IP; it does not travel through the HTTP tunnel. The assigned destination port
+identifies the driver, not the sender IP. UDP is not authenticated.
+
+The inherited Live-page overlay suggests loopback/LAN settings and the first
+configured port. Those are not this deployment's settings; use the table above.
+Repairing that inherited help is a small remaining UI task, separate from
+whether the two listeners can receive data.
+
+## Viewing and management
+
+The owner explicitly requested public projects-page access on 2026-10-12.
+GET/HEAD and browser WebSocket viewing are public. Every other HTTP method
+requires both:
+
+1. The exact `Origin: https://test.hensler.work`.
+2. The existing gateway login and `splittime` service grant.
+
+Missing, null, sibling, foreign, wrong-scheme and lookalike Origins return 403
+before authentication or application handling. Anonymous requests with the
+expected Origin redirect to login. The public card grants no management access.
+Responses are `Cache-Control: no-store`; the bare `/splittime` redirects with
+308 to `/splittime/`. Caddy strips the prefix inside an explicitly ordered route.
+
+## Import and data preservation
+
+A corrected copy of the owner's local session 5 seeded a new database via
+SQLite online backup, with exclusive first-file reservation and no overwrite:
+
+- Live database: `/home/adrian/splittime-data/telemetry.db`.
+- Staged source: `/home/adrian/splittime-import/staged-for-deploy/telemetry.db`.
+- Original export remains in
+  `/home/adrian/splittime-import/captn-compass-20261012-session5/`.
+- One real session, 16,333 original 324-byte packets; simulated sessions excluded.
+- Completed lap: 150.80755615234375 s (**2:30.808**), contact only; the owner
+  confirmed Rivals and no rewind. The subsequent unfinished lap is retained.
+- Original export, corrected staging and new live seed have the same ordered
+  raw-packet SHA256:
+  `b8c8b21703827913ce1b33f58635e2337134465b9423eef352d400468e2dce09`.
+
+The run appears under **Inspect attempts and missing evidence**. Wall contact
+keeps it out of clean candidate bests. The displayed mode is a heuristic
+("probably Rivals"), not an official packet field. No raw recording is in Git.
+
+## What was checked
+
+[Deployment receipt](https://github.com/adrianhensler/test.hensler.work/pull/113#issuecomment-6126431312).
+Codex reviewed the gateway preparation and performed these deployment self-checks:
+
+| Check | Observed result |
 |---|---|
-| Web | Browser → Cloudflare → tunnel → Caddy `:8081` → `splittime:8000` on the compose network |
-| Telemetry | Game → **this server's public IPv4**, UDP 9999 or 10000 → published container port |
+| Real prefixed pages/API | Live, Analysis, Rivalry and Compare return 200; imported name/time visible; sender address absent from public API |
+| Browser through Cloudflare/Caddy | Rivalry shows imported attempts; Live WebSocket connected; projects card opens the site |
+| Mutation boundary | Anonymous expected-Origin writes redirect to login; invalid/missing Origin writes return 403; nonexistent-ID probes do not alter data |
+| External UDP | One valid race-off packet sent from the owner's workstation to each port; each configured listener counter increments to 1 |
+| Recording preservation | Probes add no sessions/frames; still one session and 16,333 frames with unchanged lap values |
+| Runtime isolation | UID/GID 1001; HTTP internal only; unrelated container identities, including photography, unchanged |
+| Reviewed gateway | 77 API tests pass in fresh disposable non-root image; actual Caddy route tested with auth/app stubs; separate source review of final Origin gate/seed/probe instructions found no blockers |
 
-The tunnel carries HTTP only, so telemetry cannot use it. Consequences:
+Only the auth API was recreated; Caddy was hot-reloaded as UID 1001 with the
+configuration on stdin. No sudo/root helper or broad firewall change was used.
+An old API image tag was retained for rollback. Existing source checkouts and
+original captures were preserved.
 
-- These are the first inbound ports this deployment opens.
-- The other driver is given the server's real IP address, which Cloudflare
-  otherwise hides.
-- `test.hensler.work` resolves to Cloudflare, not to this server. The game
-  needs the IP address, not the hostname.
-
-## Steps
-
-### 1. Compose service
-
-Add to the gateway's `docker-compose.yml`, built from a checkout of this repo:
-
-```yaml
-  splittime:
-    build: /path/to/splittime
-    container_name: test-splittime
-    restart: unless-stopped
-    environment:
-      - DATA_DIR=/app/data
-      - LS_ALLOWED_HOSTS=test.hensler.work
-      - LS_OFFLINE=1          # no catalogue downloads from inside the gateway
-      # one entry per driver; the id is permanent, the name is what pages show
-      - 'SPLITTIME_DRIVERS=[{"id":"driver-a","name":"Driver A","udp_port":9999},{"id":"driver-b","name":"Driver B","udp_port":10000}]'
-      # no prefix variable: the pages use relative URLs, so stripping
-      # /splittime in Caddy is all that is needed
-    networks:
-      - test-hensler-network
-    expose:
-      - "8000"
-    ports:
-      - "9999:9999/udp"
-      - "10000:10000/udp"
-    volumes:
-      - splittime-data:/app/data
-```
-
-and `splittime-data:` under `volumes:`. HTTP port 8000 is exposed to the compose
-network only, never published to the host.
-
-### 2. Caddy route
-
-Inside the `:80` block, modelled on the existing gated services:
-
-```caddyfile
-    handle /splittime/* {
-        forward_auth api:8000 {
-            uri /api/auth/caddy-gate?service=splittime
-            header_up Authorization "Bearer {http.request.cookie.session_token}"
-        }
-
-        uri strip_prefix /splittime
-        reverse_proxy splittime:8000 {
-            header_up Host {host}
-            header_up Upgrade {http.request.header.Upgrade}
-            header_up Connection {http.request.header.Connection}
-        }
-    }
-```
-
-Check how existing services order `uri strip_prefix` and `forward_auth`; the
-Caddyfile's `/autism/*` block has a comment on why order matters.
-
-### 3. Dashboard and access
-
-Per `ADDING_SERVICES.md`: add the card in `frontend/dashboard.html` and the URL
-mapping in `frontend/assets/dashboard.js`. Grant both drivers the `splittime`
-service in the gateway's user admin.
-
-### 4. Firewalls (root)
-
-- Docker publishes ports by writing its own firewall rules, which bypass ufw.
-  Publishing the two UDP ports opens them on the host without a ufw rule.
-- The hosting provider's firewall, if one is in front of this server, still
-  needs UDP 9999 and 10000 opened.
-- Confirm nothing else became reachable.
-
-### 5. Verify
+The private deployment command/result records are under
+`/home/adrian/splittime-import/deploy-control-20261012-01/`, including
+`live-deploy-status.json`, `live-deploy-commands.log` and
+`containers-before-deploy.json`. These are receipts, not scripts to rerun over
+an existing data directory. Read-only rechecks include:
 
 ```sh
 docker compose ps splittime
-sudo ss -ulnp | grep -E ':(9999|10000)\b'
-sudo tcpdump -ni any udp port 9999            # then drive, or send a test packet from outside
-curl -s -o /dev/null -w '%{http_code}\n' https://test.hensler.work/splittime/   # expect a redirect to login when signed out
+docker inspect --format '{{.Config.User}} {{json .HostConfig.PortBindings}}' test-splittime
 ```
 
-## Checked before deploying (2026-10-12, Opus 5.5)
+Visit the public Rivalry/Live/projects pages in a browser. Scripted Python HTTP
+was rejected by Cloudflare's browser integrity check (1010); no protection was
+changed to accommodate the probe. External UDP receipt was read through trusted
+SSH loopback API checks instead. Browser access and game UDP are separate paths.
 
-On this server, with test ports and simulated drivers only. Nothing in
-`/opt/prod` was changed.
+## Remaining field checks
 
-| Check | Result |
-|---|---|
-| Pages under `/splittime/` through a prefix-stripping proxy | Live, Analysis, Rivalry and Compare all load; every request stayed inside `/splittime/` (the browser's own `/favicon.ico` aside). The live page asks for `/splittime/ws/live`. |
-| Container built from this repo's `Dockerfile` | Starts, listens on both driver ports, records both simulated drivers, serves the rivalry API. |
-| `LS_ALLOWED_HOSTS=test.hensler.work` | `Host: test.hensler.work` answered 200, another host 400. |
-| Source address inside the container | Packets sent from the host showed as `172.17.0.1`, the Docker bridge. Expect the evidence field to be unreliable; identity is by port. |
-| Container user | Runs as root and writes the database as root. Not changed here. |
-
-Not checked: the WebSocket through Caddy and Cloudflare, `forward_auth`
-with the real gateway, packets arriving from the internet, the provider
-firewall.
-
-## Things to confirm during M2
-
-| Item | Why |
-|---|---|
-| The app works under `/splittime/` behind the real gateway | Checked with a stand-in proxy only (above). |
-| Source address seen inside the container | Depending on Docker's proxy mode, the app may see the bridge address instead of the driver's real IP. Identity uses the port, so this only affects the evidence field. |
-| WebSocket through Cloudflare and Caddy | Only matters if the live view is kept. |
-| The gateway's `/api/*` rule is matched before or after `/splittime/*` | A request to `/splittime/api/...` must reach SplitTime, not the gateway API. |
-
-## Unrelated observation
-
-On 2026-10-12 the `demando` web terminal was listening on `0.0.0.0:7681` on
-this host. If no firewall blocks that port, it is reachable without the login
-gate. Worth checking from outside.
+The two reachability packets were not game recordings. Each driver next sends
+one fresh real event, verifies attribution/game time, and later records on a
+different day without server intervention. The friend's own network is untested.
+Complete WP-003's circuit/Rivals/sprint/quit/rewind/free-roam matrix, observed
+packet rates, internet jitter/loss/timing comparison and storage-churn measurement.
+Source-address evidence may show Docker's bridge rather than the game sender;
+identity remains by port. Direction, official validity and cross-car equivalence
+are unproven. Scheduled backups/retention monitoring are not installed by this
+slice. Do not edit or replay recordings in the live data directory.
