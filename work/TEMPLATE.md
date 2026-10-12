@@ -31,6 +31,9 @@ Files, sections and pinned commits the worker needs. Nothing else is assumed.
 
 ## Claims
 
+While a pull request is open, write "see PR #N" here and under Evidence. Fill
+both in once, when the pull request is ready to merge.
+
 | # | Claim | Basis |
 |---|---|---|
 | C1 | | E1, or `asserted` |

@@ -37,13 +37,20 @@ pull requests, not `work/` files, and keeping the same tables in both places
 doubled the writing on WP-001 and WP-005 for no benefit.
 
 The packet file holds what the pull request cannot: intent, authority and
-limits, acceptance criteria (written before the work), and after the work a
-short closing note with the PR number, the head commit, what the reviewer did
-and did not check, and whatever is still unresolved. Do not copy the PR's
-evidence table into it; link the PR.
+limits, and acceptance criteria, all written before the work. While the pull
+request is open, the packet's Claims and Evidence sections say only
+"see PR #N"; do not keep the same tables up to date in both places.
 
-Current status lives in the pull request list. Do not maintain status columns
-in documents; the one in `BUILD_PLAN.md` was stale within an hour.
+**When the pull request is ready to merge, write the record into the packet
+once**, in the same pull request: the final claims with their basis, the
+commands that re-run the evidence, what is unknown or asserted, the head
+commit, and what the reviewer did and did not check. After the merge the
+packet must stand without the pull request, because the repository is the
+handoff and a pull request may not be readable by the next worker.
+
+Status that changes hour to hour (who is on what, what is in review) lives in
+the pull request list. `BUILD_PLAN.md` records only what has merged to `main`,
+which changes once per milestone and is updated in the merging pull request.
 
 ## Three roles, kept apart
 
@@ -113,7 +120,10 @@ mandatory pause before the next authorized POC implementation step.
 1. Read `AGENTS.md`, then the packet, then only the context it references.
 2. Set status `in-progress` and name yourself as worker. Check the remote first (rule 9).
 3. Do the work within authority and limits. Commit as you go.
-4. Fill in claims, evidence, known/unknown/unproven, unresolved, checkpoint.
+4. Keep claims, evidence and limits in the pull request description while it
+   is open. Keep the packet's checkpoint current if you stop part-way.
+   Before merge, write the final record into the packet once (see "One
+   record, not two").
 5. Set status `complete` with explicit limitations. Continue into another
    *authorized* slice if useful; do not label it independently verified or
    owner-accepted. Keep checkpoints small and actionable.
