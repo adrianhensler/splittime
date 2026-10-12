@@ -46,11 +46,15 @@
    }).join("");
    const uncertainty=(Array.isArray(group.uncertainty)?group.uncertainty:[])
     .map(s=>esc(String(s).replaceAll("_"," "))).join("; ");
+   const pair=Object.values(best).filter(lap=>Number.isSafeInteger(lap.lap_id)&&lap.lap_id>0).slice(0,2);
+   const comparison=group.route_id!=null&&pair.length===2?
+    '<p><a href="compare.html?lap_a='+pair[0].lap_id+'&amp;lap_b='+pair[1].lap_id+'">Compare candidate laps · traces and corners</a></p>':
+    '<p class="muted">Corner comparison needs candidate laps from two drivers on a known route.</p>';
    return '<article class="route"><div class="routeHead"><div><h2>'+
     esc(group.route_name||"Unknown route")+'</h2><p class="muted">'+
     esc(group.car_class_label||"?")+" class · "+esc(group.total_attempts??0)+
     ' attempts</p></div><span class="pill">Unverified · no winner</span></div>'+
-    '<div class="cards">'+cards+'</div><details><summary>Inspect attempts and missing evidence ('+
+    '<div class="cards">'+cards+'</div>'+comparison+'<details><summary>Inspect attempts and missing evidence ('+
     laps.length+')</summary><p class="muted">'+uncertainty+'</p><div class="table"><table><thead><tr>'+
     '<th>Driver</th><th>Lap time</th><th>Status</th><th>Started (UTC)</th><th>PI</th>'+
     '</tr></thead><tbody>'+rows+'</tbody></table></div></details></article>';

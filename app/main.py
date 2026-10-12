@@ -16,6 +16,7 @@ from fastapi.staticfiles import StaticFiles
 
 from . import cars, tracks
 from .api.routes import router
+from .corners.api import router as corners_router
 from .recorder.laps import SessionTracker
 from .recorder.store import Store
 from .telemetry.hub import Hub
@@ -93,6 +94,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="LapScope", lifespan=lifespan)
 app.include_router(router, prefix="/api")
+app.include_router(corners_router, prefix="/api")
 
 
 # extra Host names to answer to, comma-separated (a reverse proxy, a hostname

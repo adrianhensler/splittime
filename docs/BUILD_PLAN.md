@@ -99,4 +99,28 @@ platform (both PC); server (this host, direct UDP, ADR 5); run mode
 
 ## Findings
 
+### Integrated local POC checkpoint, 2026-10-12
+
+Branch `feat/codex-integrated-poc` combines the two-driver backend, rivalry API,
+rivalry page and isolated corner module. Corner endpoints are now registered in
+the app; candidate records link to a read-only comparison page with speed,
+throttle and brake overlays, timing/quality labels and corner measurements.
+The corner response attributes A/B to driver names; no winner is awarded.
+
+Validation on Windows/Python 3.13: full combined suite 205 passed; Node UI
+controllers 8 passed; Ruff passed. After adding driver labels to the corner
+response, its regressions are run separately. Browser smoke check followed
+Rivalry to the comparison page with two simulated drivers. This is synthetic
+validation, not field accuracy or deployment acceptance.
+
+`scripts/seed_demo.py <new-directory>` creates a fresh simulator-only database,
+refusing to overwrite an existing one. Run offline with the printed driver
+configuration, HTTP bound to 127.0.0.1:8100, UDP 19999/20000.
+
+Remaining: review/integrate pending PRs; real FH6 recordings; verified gateway
+and URL-prefix deployment; zero-completed-lap attempt retention; bounded storage
+and per-driver storage totals; durable corner numbering/reference; rivalry
+history and competitive-equivalence evidence. No VPS runtime or gateway was
+changed at this checkpoint.
+
 Record what real captures show here, dated, as WP-003 produces them.

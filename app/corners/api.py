@@ -1,9 +1,6 @@
 """HTTP endpoints for corner analysis (docs/CORNER_CONTRACT.md section 5).
 
-Not included in the app yet. To wire it in, add to app/main.py:
-
-    from app.corners.api import router as corners_router
-    app.include_router(corners_router, prefix="/api")
+Included in app.main under /api; the rivalry page links to compare.html.
 
 This is the only module in the package that knows about the store, and it only
 reads: `get_lap`, `lap_frames`, `get_session`, `get_route`, `session_laps`
@@ -90,4 +87,11 @@ def corners_compare(request: Request, lap_a: int = Query(...), lap_b: int = Quer
     reference, warnings = _reference(store, route_a)
     route = _detect(store, reference or laps[0], warnings)
     result = compare_laps(_trace(store, laps[0]), _trace(store, laps[1]), route)
+    names = {d.id: d.name for d in getattr(request.app.state, "drivers", ())}
+    for side, lap in zip(("a", "b"), laps):
+        session = store.get_session(lap["session_id"])
+        driver_id = session.get("driver_id") or "legacy"
+        result[side].update(driver_id=driver_id,
+                            driver_name=names.get(driver_id, driver_id),
+                            car_pi=session.get("car_pi"))
     return {"route_id": route_a, "corners": route.to_dict(), **result}
