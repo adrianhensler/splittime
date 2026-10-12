@@ -17,8 +17,10 @@ corner-by-corner differences.
 - One UDP port per driver on the server; the port identifies the driver.
 - Automatic recording of events only: circuit races, Rivals, sprints and other
   point-to-point runs, World Time Attack.
-- Lossless raw packets kept for every recorded event, so detection fixes can be
-  replayed onto old recordings.
+- Lossless raw packets kept for completed timed events, so detection fixes
+  can be replayed onto old recordings; recognized abandoned events with no
+  completed lap retain an **incomplete-attempt summary** (not an invented time
+  or necessarily a permanent raw recording).
 - Route identification by geometry fingerprint; unknown routes stay unnamed
   until a driver names them.
 - Per-driver bests, cross-driver records per route and class, rivalry history.
@@ -96,7 +98,10 @@ Upstream tables (`sessions`, `frames`, `laps`, `routes`, `edits`,
 | `sessions.source_addr` | Last seen source IP:port. Evidence only, never identity. |
 
 Routes are shared between drivers. That is what makes cross-driver comparison
-work: both drivers' laps on the same fingerprint land on one route row.
+work: both drivers' laps on the same fingerprint may land on one route row.
+**Fingerprint equality is a candidate route match, not proof of identical
+checkpoint order, direction, game mode, or timing rules.** Such uncertainty
+must not silently create ranked equivalence.
 
 Three independent status dimensions per lap or run, mapped onto upstream flags:
 
@@ -114,7 +119,7 @@ Detection rules are upstream's and are documented in its
 | Case | Record | Show / score |
 |---|---|---|
 | Race quit after 2 of 3 laps | Keep the 2 completed laps | Completed laps can rank; no race result |
-| Quit before any full lap | Session discarded | Nothing |
+| Quit before any full lap of a recognized event | Keep minimal incomplete-attempt summary; raw frames may be discarded | Visible as incomplete, never ranked |
 | Rivals session ends | Keep every completed lap | Not a DNF |
 | Stream cuts at the finish | Lap completed from clock and distance, flagged `cutoff` | Provisional; not ranked by default |
 | Network loss or crash | Keep what arrived; mark the lap gapped | Gapped laps not ranked by default |
@@ -129,10 +134,13 @@ Detection rules are upstream's and are documented in its
 
 ## 7. Comparison
 
-- **Ranked.** Accepted, complete, continuous laps or runs on the same route, in
-  the same category. Category is route × car class. The car and PI are shown
-  beside every ranked time. The record for a category is the best ranked lap;
-  the rivalry score is the count of categories each driver leads.
+- **Ranked (proposed, ADR 10).** Accepted, complete, continuous laps or runs
+  on a route with adequately matched conditions and timing rules. The initial
+  category `route × car class` is a reversible default, **not confirmed
+  competitive equivalence**. Show car, PI, inferred game mode and any
+  comparability warnings; do not award a ranked winner when route or timing
+  equivalence is unresolved. The provisional rivalry score counts categories
+  led by each driver.
 - **Exploratory.** Any laps on the same route overlaid regardless of class,
   mode or flags. Differences are labelled. No winner is declared.
 - **Corner comparison.** A route is divided once into stable corner segments by
@@ -140,17 +148,23 @@ Detection rules are upstream's and are documented in its
   minimum speed, throttle application point and exit speed. Every figure links
   to the underlying traces. Causes are not asserted.
 
-Lap times always come from the game's own lap fields, never from packet arrival
-time.
+Use game-provided lap timing whenever available. Some upstream geometric or
+cutoff finishes are inferred or extrapolated; preserve a timing-source marker.
+Internet packet arrival timestamps must not be treated as official lap times.
+Circuit/sprint classification does not by itself identify Rivals versus a
+conventional race; unknown event modes remain unknown until validated.
 
 ## 8. Security
 
 - UDP has no authentication. Anyone who finds a port can inject packets. For
-  two friends this is accepted: wrong-size packets are dropped, the source
-  address is recorded per session, and a source change mid-session is logged.
+  two friends this is an accepted transport choice: wrong-size packets are
+  dropped, source address is evidence only, and a source change is logged.
+  **Packet size and per-driver destination ports do not authenticate a sender.**
+  Apply bounded receive rates/queues and sensible storage limits.
 - The listener never replies, so it cannot be used for reflection.
 - All web access goes through the existing web server. Edit, delete and
-  reprocess are available to anyone who gets past it.
+  reprocess are available to anyone who gets past it. Verify externally that
+  management routes cannot be reached around the gateway before deployment.
 - The app fetches car-name and route-catalogue updates from GitHub about once a
   day. This can be turned off. Upstream's browser-side update check is removed.
 - Telemetry is unencrypted and goes to the server's own IP address, which the

@@ -6,19 +6,29 @@ tool.
 
 ## Current phase
 
-**Planning is done; coding has not started.** Do not write code until the
-owner starts a packet. The next one is
-[work/WP-001-import-baseline.md](work/WP-001-import-baseline.md).
+**Planning is done; coding has not started.** The owner's priority is a nearly
+complete, runnable WIP/POC as quickly as practical, not a Workpacket framework.
+When implementation is assigned, begin with
+[WP-001](work/WP-001-import-baseline.md) and work through the smallest useful
+end-to-end slices. Do not deploy or modify the host/gateway without authority.
+
+Read the [independent review and implementer handoff](docs/REVIEW_HANDOFF_2026-10-12.md)
+for known discrepancies and POC priorities.
 
 ## How work is done
 
-Work is organised as Workpackets in [`work/`](work/). Read
+This is **Workpacket-light**: existing Markdown packets are bounded task and
+handoff checklists, not a required runtime or serial approval ceremony. Read
 [docs/WORKPACKETS.md](docs/WORKPACKETS.md) once. In short:
 
-1. Take the packet the owner assigns. Read it, then only the context it lists.
-2. Stay within its authority and limits.
-3. Record claims with evidence, what is unknown or assumed, and a checkpoint.
-4. Set it `complete` and stop. You never verify or accept your own packet.
+1. Work within the scope and permissions actually assigned.
+2. Build runnable increments, run your own tests, and record what you tested,
+   evidence, assumptions, failures, and the next checkpoint.
+3. A worker's tests are self-checks, **not independent verification**. Do not
+   self-declare work independently verified or accepted by the owner.
+4. Continue through the next *authorized* POC slice without waiting for a
+   ritual verification/acceptance stop after each Markdown packet. Preserve
+   unresolved dependencies; independent review is for meaningful checkpoints.
 
 ## Read first
 
@@ -32,7 +42,9 @@ Work is organised as Workpackets in [`work/`](work/). Read
 
 ## Rules
 
-- **One packet at a time.** Do not build deferred items.
+- **POC first.** Keep changes bounded but prioritize an end-to-end working
+  experience over completing all workpacket paperwork. Do not build deferred
+  features or expand Workpacket itself.
 - **Never use sudo or act as root.** If something needs root (packages,
   firewall, services, the web gateway), write the exact commands into
   [docs/SETUP.md](docs/SETUP.md) or the hosting doc, tell the owner, and
@@ -47,8 +59,9 @@ Work is organised as Workpackets in [`work/`](work/). Read
 - **Never bind the HTTP server beyond loopback** outside a container or test.
 - **Never use UDP ports 5200–5300.** For local testing use HTTP 8100 and UDP
   19999 and 20000.
-- **Lap times come from the game's lap fields**, never from packet arrival
-  time.
+- **Time provenance matters.** Prefer in-game lap clocks; some point-to-point
+  or cutoff finishes are inferred/extrapolated by upstream. Preserve that
+  distinction and never treat network arrival time as an official lap time.
 - **Recordings are data, not fixtures.** Do not delete, reprocess or edit
   anything in a live data directory. Copy what you need.
 - **The software is not tied to one host.** Site-specific material belongs in

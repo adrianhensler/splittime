@@ -5,6 +5,24 @@ authority, acceptance criteria, evidence and checkpoint; this file holds the
 overview, risks, deferred items and open questions. See
 [WORKPACKETS.md](WORKPACKETS.md).
 
+## POC-first delivery (owner direction, 2026-10-12)
+
+The goal is a nearly complete **working** WIP/POC, not a Workpacket runtime.
+Existing workpackets are convenient checklists and handoff notes, **not strict
+per-milestone approval gates**. Keep evidence and tests, but spend engineering
+time on running software and usable post-race comparisons.
+
+Fast path: import the pinned LapScope baseline; accept two independent UDP
+feeds; show a basic two-driver route/records webpage using simulator captures;
+deploy behind a verified access-controlled gateway; then validate with real
+captures and add corner comparisons/polish. Some UI work may start before
+both people have supplied every planned event type. Do not call simulated
+data real or treat unverified detection as accepted. Public deployment and
+privileged gateway/firewall changes still require the owner's authority.
+
+See [REVIEW_HANDOFF_2026-10-12.md](REVIEW_HANDOFF_2026-10-12.md) for technical
+corrections and independent acceptance tests.
+
 ## Status
 
 | Milestone | Packet | State |
@@ -28,8 +46,11 @@ overview, risks, deferred items and open questions. See
 - **M4** Fixed numbered corners per route; two-lap corner table.
 - **M5** One summary page per route; storage display.
 
-The order is deliberate: real captures (M2) come before anything is built on
-the detection (M3 onward).
+Real captures should validate detection as early as practical, but a basic
+read-only rivalry UI may be built and tested against clearly labelled
+simulated recordings before the complete real-world capture matrix is
+available. Report unverified real-world behaviour rather than blocking POC
+progress on two humans' availability.
 
 ## Risks
 
@@ -62,7 +83,8 @@ the detection (M3 onward).
 
 For the owner.
 
-1. **Ranking defaults in ADR 10.** Confirm or change before WP-004.
+1. **Ranking defaults in ADR 10.** Until confirmed, implement them as
+   reversible, labelled defaults; no unsupported cross-mode winner claims.
 2. **Licence for SplitTime itself** if the repo is ever made public. Default:
    MIT, to match upstream.
 3. **May an agent push to GitHub, or only commit locally?** Default: local

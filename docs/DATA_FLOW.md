@@ -47,11 +47,13 @@ telemetry only.
 
 ## What the server keeps
 
-- **Kept:** every packet of sessions that contain at least one completed lap
-  or timed run, plus the derived laps, routes and flags. Kept until deleted.
-- **Not kept:** free roam and abandoned attempts with no completed lap. These
-  packets do arrive and are written temporarily, then deleted when the session
-  closes.
+- **Kept:** raw packets for sessions containing completed laps or timed runs,
+  plus derived laps, routes and flags (until deleted). For recognized events
+  abandoned before a completed lap, retain a **minimal incomplete-attempt
+  summary** only; raw packets need not be retained indefinitely.
+- **Not kept:** free-roam sessions and raw buffers discarded from attempts
+  without completed laps. These packets can still arrive and be stored
+  temporarily before event classification is settled.
 - Deleting a session on the site removes its packets and laps.
 
 ## Web: browser to server

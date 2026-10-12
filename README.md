@@ -23,4 +23,5 @@ records events automatically and lets both compare laps afterwards.
 | [work/](work/) | One Workpacket per milestone |
 | [AGENTS.md](AGENTS.md) | Rules for any coding agent or person working here |
 | [docs/WORKPACKET_TAKEAWAYS.md](docs/WORKPACKET_TAKEAWAYS.md) | Notes for the separate Workpacket project |
+| [docs/REVIEW_HANDOFF_2026-10-12.md](docs/REVIEW_HANDOFF_2026-10-12.md) | Independent design review, corrections and coding-agent handoff |
 | [docs/archive/](docs/archive/) | Original concept PDF (superseded by DESIGN.md) |

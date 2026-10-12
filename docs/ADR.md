@@ -23,6 +23,7 @@ One entry per decision. Status is **Accepted** (the owner decided),
 | 15 | Runs as a container or a plain process; nothing privileged | Accepted |
 | 16 | The app works under a URL prefix; browser update check removed | Accepted |
 | 17 | The owner's deployment is documented separately from the software | Accepted |
+| 18 | Workpacket-light, POC-first development | Accepted |
 
 Each entry lists what it **rests on**, so that reversing one decision shows
 which others to revisit.
@@ -202,3 +203,20 @@ server's public IP. That is one deployment, described in
 name, path or assumption goes into the code or the generic documents.
 
 *Rests on:* 5, 6, 15, 16.
+
+## 18. Workpacket-light, POC-first development
+
+**Accepted, 2026-10-12 (owner's direction).** The objective is to produce a
+nearly complete usable SplitTime WIP/POC quickly. The Workpacket method is a
+secondary, lightweight experiment: retain bounded intent, evidence, honest
+unknowns and a checkpoint, but do **not** build a Workpacket runtime or require
+a ritual verification/acceptance stop between every small development step.
+
+A worker may test its own work and continue across authorized coding slices.
+Self-checks remain distinguishable from independent verification; only the
+owner accepts outcomes or authorizes deployment and consequential access
+changes. This qualifies ADR 14 rather than superseding its agent neutrality,
+least privilege or separation of verification from acceptance.
+
+*Consequence:* the implementation handoff and workflow guidance live in
+`docs/REVIEW_HANDOFF_2026-10-12.md`, `AGENTS.md` and `docs/WORKPACKETS.md`.

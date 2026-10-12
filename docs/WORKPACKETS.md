@@ -2,7 +2,9 @@
 
 SplitTime uses a light, git-native form of the owner's Workpacket method
 (`adrianhensler/workpacket`). It works with any coding agent, or a person,
-because everything needed is in plain files in this repo.
+because everything needed is in plain files in this repo. This is
+**Workpacket-light**, not a second software product or a mandatory gate after
+every small coding step.
 
 A **Workpacket** is the durable record of one bounded piece of work: what was
 wanted, what the worker was allowed to do, what they claim, the evidence, what
@@ -22,8 +24,10 @@ the previous worker's conversation.
 
 Packets are markdown files in [`work/`](../work/), one per file, named
 `WP-NNN-short-name.md`. Start from [`work/TEMPLATE.md`](../work/TEMPLATE.md).
-Git supplies history, authorship and content addressing, so packets carry no
-signatures or digests of their own.
+Git provides versioned content and a useful edit trail, so this private POC
+needs no extra signatures or digest machinery. **Git author metadata is not
+proof of identity or authority; a commit or hash is not evidence that claims
+are true or that tests actually passed.** Record reproducible checks separately.
 
 ## Three roles, kept apart
 
@@ -33,8 +37,11 @@ signatures or digests of their own.
 | **Verifier** | Checks the claims against the acceptance criteria. | A different session, agent or person from the worker |
 | **Acceptor** | Decides the result is accepted. | The owner only |
 
-A worker never verifies or accepts their own packet. If no independent verifier
-was available, the packet says so; it does not say "verified".
+Workers may run tests and report them as **self-checks**, but cannot describe
+those checks as independent verification or owner acceptance. If no independent
+verifier was available, record that explicitly. Independent review is most
+valuable before accepting or deploying consequential results; it is not a
+mandatory pause before the next authorized POC implementation step.
 
 ## States
 
@@ -59,8 +66,9 @@ was available, the packet says so; it does not say "verified".
    next action and anything a replacement worker needs.
 4. **Stay inside the authority.** If the packet does not grant it, do not do
    it. Record the need and park or ask.
-5. **Proceeding on an assumption is allowed and recorded.** Write the
-   assumption as an unproven claim so it can be found if it turns out wrong.
+5. **Reversible defaults may be assumed and recorded.** Mark them unproven
+   and easy to reverse. Never assume away missing authority, security gates,
+   evidence, or acceptance criteria.
 6. **Children do not prove the parent.** A packet split into child packets is
    still verified as a whole.
 7. **Decisions go to the ADR, not the packet.** Mark who decided: the owner
@@ -74,4 +82,6 @@ was available, the packet says so; it does not say "verified".
 2. Set status `in-progress` and name yourself as worker.
 3. Do the work within authority and limits. Commit as you go.
 4. Fill in claims, evidence, known/unknown/unproven, unresolved, checkpoint.
-5. Set status `complete`. Stop. Verification and acceptance are for others.
+5. Set status `complete` with explicit limitations. Continue into another
+   *authorized* slice if useful; do not label it independently verified or
+   owner-accepted. Keep checkpoints small and actionable.
