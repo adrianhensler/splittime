@@ -67,7 +67,7 @@ const lapNo = (lap) => lap.run_index ?? lap.lap_number + 1;
 function chipLabel(pick, crossSession) {
   const n = lapNo(pick.lap);
   return crossSession
-    ? `${shortName(pick.session)} · ${pick.session.route_kind === "sprint" ? "R" : "L"}${n}`
+    ? `${pickOwner(pick.session)} · ${pick.session.route_kind === "sprint" ? "R" : "L"}${n}`
     : lapLabel(pick.session.route_kind, n);
 }
 
@@ -101,6 +101,24 @@ function fmtDate(ts) {
    the browser's timezone (the container runs UTC) */
 function displayName(s) {
   return s.name || s.route_name || fmtDate(s.started_at);
+}
+
+/* Two drivers share this site: every session says whose it is. */
+const driverLabel = (s) => s.driver_name || s.driver_id || "";
+/* What a picked lap from another session is called: once the picks span
+   both drivers the driver's name tells them apart (their sessions usually
+   share one route name); otherwise the session's own name does. */
+function pickOwner(session) {
+  const drivers = new Set(state.picks.map((p) => p.session.driver_id || "legacy"));
+  return drivers.size > 1 && driverLabel(session) ? driverLabel(session) : shortName(session);
+}
+function driverBadge(s) {
+  const b = document.createElement("span");
+  if (!driverLabel(s)) return b;
+  b.className = "group-badge driver-badge";
+  b.title = "The driver whose game sent this recording";
+  b.textContent = driverLabel(s);
+  return b;
 }
 
 /* ---------------- sessions sidebar ---------------- */
@@ -162,7 +180,7 @@ onServerReachable((ok) =>
 const cardSig = (s) =>
   [s.id, s.name, s.route_name, s.lap_count, s.best_lap, s.car_name, s.car_known,
    s.car_class_letter, s.car_pi, s.drivetrain, s.track_type, s.conditions,
-   s.route_kind, s.group_id, s.group_name].join("|");
+   s.route_kind, s.group_id, s.group_name, s.driver_name].join("|");
 
 let lastListSig = null;
 
@@ -310,6 +328,8 @@ function cardBody(card, s, titleText) {
   const title = document.createElement("span");
   title.className = "title";
   title.textContent = titleText;
+  // whose session it is sits right beside the track's name
+  if (driverLabel(s)) title.append(driverBadge(s));
   // the race type is a property of the track, so it rides with the track's
   // name rather than sitting on the car's line as if it described the car
   title.insertAdjacentHTML("beforeend", trackBadge(s.track_type));
@@ -490,6 +510,7 @@ async function reviewMerges() {
     title.append(name, count);
     const sub = document.createElement("span");
     sub.className = "rv-sub";
+    if (driverLabel(s)) name.append(driverBadge(s));
     sub.textContent = `${fmtDate(Math.min(...cluster.map((x) => x.started_at)))}`
       + ` · ${s.car_name} · ${runs} ${lapWord(s.route_kind, runs)}`
       + ` · best ${fmtLap(bests.length ? Math.min(...bests) : null)}`;
@@ -732,6 +753,7 @@ function editableTitle(text, { label, tip, onEdit }) {
 }
 
 function wireSessionHeader(s) {
+  $("#header-badges").replaceChildren(driverBadge(s));
   $("#session-title").replaceChildren(editableTitle(displayName(s), {
     label: "Rename this session",
     tip: "Rename this session — the label in the list on the left, this session only",
@@ -840,6 +862,7 @@ function wireGroupHeader(g, members) {
   }));
   $("#header-badges").innerHTML =
     `<span class="group-badge" title="${members.length} sessions merged into one run group">⛓ merged</span>`;
+  $("#header-badges").prepend(driverBadge(members[0]));
   // members[0] carries the route: the group's own row has no route_id
   $("#header-route").replaceChildren(
     routeChip(members[0], { edit: () => renameRoute(members[0]) }));
@@ -2228,7 +2251,7 @@ function exportMapPng() {
   // session's name so a cross-session overlay stays readable
   const lapsTxt = state.picks.map((p) => {
     const t = `${lapLabel(p.session.route_kind, lapNo(p.lap))} — ${fmtLap(p.lap.lap_time)}`;
-    return p.session.id !== s.id ? `${shortName(p.session)} ${t}` : t;
+    return p.session.id !== s.id ? `${pickOwner(p.session)} ${t}` : t;
   }).join("  ·  ");
   ctx.fillStyle = color("--muted", "#8494a7");
   ctx.font = "13px 'Segoe UI', system-ui, sans-serif";

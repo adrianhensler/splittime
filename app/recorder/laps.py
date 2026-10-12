@@ -163,6 +163,11 @@ LANDING_GRACE_S = 0.35        # spikes this soon after touchdown = the landing
 RT_FREEZE_SECONDS = 1.5       # frozen race clock for this long = event finished
 FINISH_MIN_RT = 5.0           # ignore freezes before the clock really ran
 PTP_MIN_RUN_TIME = 10.0       # shortest believable point-to-point run
+PARKED_LAP_DIST = 25.0        # a recognized post-finish hold never moved this far
+PARKED_LAP_SPEED = 5.0        # or reached this speed (m/s). Necessary, never
+                              # sufficient: see _drop_parked_lap
+PARKED_OPEN_SPEED = 1.0       # a hold opens stopped: under the speed (m/s) that
+                              # _final_lap_time_at_cutoff reads as still moving
 FINAL_LAP_DIST_FRACTION = 0.97  # open lap covering this much of a typical lap
                                 # when the stream cuts = finished final lap
 
@@ -281,6 +286,15 @@ class SessionTracker:
         self._prev_speed = 0.0
         self._lap_distances: list[float] = []  # completed-lap lengths this session
         self._lap_max_elapsed = 0.0
+        self._lap_moved = 0.0
+        self._lap_top_speed = 0.0
+        # how the game opened this lap, for _drop_parked_lap: "line" = a
+        # LapNumber increment that posted a time with the car stopped,
+        # "reset" = the counter and odometer reset that ends a recognized
+        # hold, None = anything else
+        self._lap_origin: str | None = None
+        self._lap_line_frame = 0  # frame count when a "line" lap opened
+        self._lap_halt = False    # IMPACT_PEAK spike on the very next frame
         self._lap_open_rt: float | None = None
         self._launch_rt: float | None = None  # race clock when DistanceTraveled
                                                # started growing (= GO); the run
@@ -422,6 +436,9 @@ class SessionTracker:
                     log.info("Session %s: contact spike (%.0f m/s^2), flagging lap",
                              self.session_id, g)
                 self._lap_flags.add("contact")
+                if (g >= IMPACT_PEAK and self._lap_origin == "line"
+                        and self._frame_count == self._lap_line_frame + 1):
+                    self._lap_halt = True
             self._over_impact = True
         else:
             self._over_impact = False
@@ -597,7 +614,8 @@ class SessionTracker:
                         *self._lap_extents(), kind=self._route_kind())
                     self.store.set_session_route(self.session_id, rid)
                     self._route_id = rid
-            self.store.complete_lap(self._lap_id, end_t, lap_time, self._flags())
+            if lap_time is not None or not self._drop_parked_lap():
+                self.store.complete_lap(self._lap_id, end_t, lap_time, self._flags())
             if lap_time is not None:
                 self._completed_laps += 1
             self._lap_id = None
@@ -651,6 +669,9 @@ class SessionTracker:
         self._prev_speed = 0.0
         self._lap_distances = []
         self._lap_max_elapsed = 0.0
+        self._lap_moved = 0.0
+        self._lap_top_speed = 0.0
+        self._lap_origin, self._lap_halt = None, False
         self._lap_open_rt = None
         self._launch_rt = None
         self._lap_open_last_lap = None
@@ -918,13 +939,24 @@ class SessionTracker:
         if self._lap_number is None or ln < self._lap_number:
             # first frame of the session, or the lap counter was reset
             # (a rewind back across the start line also lands here)
-            if self._lap_id is not None:
+            # did the odometer hard-reset in the same frame? Then the game
+            # put the car back at the start (same test as the point-to-point
+            # finish above; a rewind scrubs the odometer back gradually)
+            odo_reset = (dist < POINT_FINISH_DIST
+                         and dist < self._lap_start_dist - WTA_DIST_COLLAPSE)
+            dropped = self._lap_id is not None and self._drop_parked_lap()
+            if self._lap_id is not None and not dropped:
                 self.store.complete_lap(self._lap_id, t, None, self._flags())
             self._open_lap(t, ln, dist, frame)
+            if dropped and odo_reset:
+                self._lap_origin = "reset"
         elif ln > self._lap_number:
             lap_time = last if last > 0 else None
             self._complete_current_lap(t, lap_time, self._lap_number)
             self._open_lap(t, ln, dist, frame)
+            if lap_time is not None and frame["speed"] < PARKED_OPEN_SPEED:
+                self._lap_origin = "line"
+                self._lap_line_frame = self._frame_count
         elif (self._lap_id is not None and last > 0
               and self._lap_open_last_lap is not None
               and abs(last - self._lap_open_last_lap) > 1e-3
@@ -948,6 +980,16 @@ class SessionTracker:
                      self.session_id)
             self._reanchor_lap(t, dist, frame)
         self._prev_cur_lap = cur
+        if self._lap_id is not None:
+            self._lap_moved = max(self._lap_moved, abs(dist - self._lap_start_dist))
+            self._lap_top_speed = max(self._lap_top_speed, frame["speed"])
+            if self._lap_origin == "reset" and (cur > 0.001
+                                                or rt < self._lap_open_rt):
+                # the lap clock started (same dead-clock epsilon as
+                # lap_elapsed), or the race clock restarted without
+                # splitting the session: the wait is over and whatever
+                # follows may be an attempt
+                self._lap_origin = None
 
         if self._lap_fields_dead and self._lap_id is not None:
             self._wta_logic(t, frame, rt, dist)
@@ -994,6 +1036,9 @@ class SessionTracker:
                 self._cur_d, self._cur_t = [], []
                 self._lap_flags = set()  # pre-launch junk frames must not dirty lap 1
                 self._lap_max_elapsed = 0.0
+                self._lap_moved = 0.0
+                self._lap_top_speed = 0.0
+                self._lap_origin, self._lap_halt = None, False
                 self._lap_open_rt = rt
                 self.store.restart_lap(self._lap_id, t, dist)
                 log.info("Session %d: launch detected (race clock at %.1fs)",
@@ -1076,6 +1121,41 @@ class SessionTracker:
                 log.info("Session %d: new best lap %.3fs (lap %d)",
                          self.session_id, lap_time, ln + 1)
 
+    def _drop_parked_lap(self) -> bool:
+        """Delete the open, untimed lap only if it is positively the game's
+        post-finish hold, or the wait at the start that follows one.
+
+        Seen identically on all four of the owner's 2026-10-12 Rivals
+        captures. At the line LapNumber increments and posts the lap time,
+        and the game halts the car: speed 0 from the first frame, a
+        196 m/s^2 spike, then about 20 s with the odometer moving at most
+        5.8 and speed peaking at 3.0 m/s (throttle held at 255 did nothing).
+        Then LapNumber and the odometer reset and the car sits at the start
+        until the race clock restarts, which splits the session. Neither
+        stretch is an attempt, and the halt reads as a contact.
+
+        The hold is recognized by all of: opened at a line crossing that
+        posted a time, with the car already stopped on that frame; the halt
+        spike (IMPACT_PEAK, which no driving approaches) on the very next
+        frame; and never driving off. The wait is recognized only as the
+        lap a recognized hold handed over to through an odometer
+        hard-reset, and only while the lap clock stays dead and the race
+        clock has not restarted. Being slow, short or stationary is not
+        enough, and neither is a contact later in the lap: that could be an
+        attempt the driver abandoned or crashed at the line, and it is
+        kept, contact flag included."""
+        parked = (self._lap_moved < PARKED_LAP_DIST
+                  and self._lap_top_speed < PARKED_LAP_SPEED)
+        held = self._lap_origin == "line" and self._lap_halt
+        if not (parked and (held or self._lap_origin == "reset")):
+            return False
+        log.info("Session %s: dropping %s (moved %.1f, top speed %.1f m/s,"
+                 " flags %s)", self.session_id,
+                 "post-finish hold" if held else "wait at the start after a hold",
+                 self._lap_moved, self._lap_top_speed, self._flags())
+        self.store.delete_lap(self._lap_id)
+        return True
+
     def _reanchor_lap(self, t: float, dist: float, frame: dict) -> None:
         """Start the existing lap at its actual launch, clearing pre-launch flags."""
         self._lap_opened_t = t
@@ -1085,6 +1165,9 @@ class SessionTracker:
         self._cur_d, self._cur_t = [], []
         self._lap_flags = set()
         self._lap_max_elapsed = 0.0
+        self._lap_moved = 0.0
+        self._lap_top_speed = 0.0
+        self._lap_origin, self._lap_halt = None, False
         self._lap_open_rt = frame["current_race_time"]
         self.store.restart_lap(self._lap_id, t, dist)
 
@@ -1100,6 +1183,9 @@ class SessionTracker:
         self._cur_d, self._cur_t = [], []
         self._lap_flags = set()
         self._lap_max_elapsed = 0.0
+        self._lap_moved = 0.0
+        self._lap_top_speed = 0.0
+        self._lap_origin, self._lap_halt = None, False
         self._lap_open_rt = frame["current_race_time"]
         self._lap_open_last_lap = frame["last_lap"]
         self._lap_id = self.store.add_lap(

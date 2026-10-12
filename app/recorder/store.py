@@ -218,12 +218,13 @@ def _spans_match(ax: float, az: float, bx: float, bz: float) -> bool:
 _SESSION_SELECT = """
 SELECT s.*, r.name AS route_name, cn.name AS car_name_override,
        COALESCE(r.kind_user, r.kind) AS route_kind, r.kind AS route_kind_auto,
-       g.name AS group_name,
+       g.name AS group_name, d.name AS driver_name,
        COUNT(l.lap_time) AS lap_count, MIN(l.lap_time) AS best_lap
 FROM sessions s
 LEFT JOIN routes r ON r.id = s.route_id
 LEFT JOIN car_names cn ON cn.ordinal = s.car_ordinal
 LEFT JOIN session_groups g ON g.id = s.group_id
+LEFT JOIN drivers d ON d.id = s.driver_id
 -- excluded laps (manual edit) don't count: same half-open span-match as
 -- session_laps, so a session's lap_count agrees with the laps it lists
 LEFT JOIN laps l ON l.session_id = s.id AND NOT EXISTS

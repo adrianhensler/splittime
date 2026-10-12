@@ -26,6 +26,11 @@ const BROWSE_SORTS = [
    matching. "none" is the untagged/unidentified bucket for every facet. */
 const FACETS = [
   {
+    key: "driver", label: "Driver", bar: true,
+    value: (s) => String(s.driver_id || "none"),
+    text: (s) => s.driver_name || s.driver_id || "Unknown driver",
+  },
+  {
     /* Only NAMED routes get a row of their own. A fingerprint you have never
        named says nothing a "Route #37" row could help you pick, and there are
        more of those than named ones - they all share one bucket instead. */
@@ -99,7 +104,7 @@ let browseAll = [];  // the last fetched session list, for the facet menus
 /* ---------------- matching ---------------- */
 
 function browseMatchesText(s, q) {
-  return [s.name, s.route_name, s.car_name, s.display_name]
+  return [s.name, s.route_name, s.car_name, s.display_name, s.driver_name]
     .some((v) => v && v.toLowerCase().includes(q));
 }
 

@@ -38,6 +38,16 @@
       "No eligible completed lap")+'</div></div>';
    }).join("")||'<p class="muted">No configured drivers.</p>';
    const laps=Array.isArray(group.attempts)?group.attempts:[];
+   // any two completed laps on one route can be laid over each other, the
+   // same driver's included; each row offers itself against the fastest other
+   const usable=lap=>lap.completion==="complete"&&Number.isSafeInteger(lap.lap_id)&&lap.lap_id>0&&
+    typeof lap.time_s==="number"&&lap.time_s>0;
+   const timed=group.route_id!=null?laps.filter(usable).sort((a,b)=>a.time_s-b.time_s):[];
+   const versus=lap=>{
+    const other=usable(lap)?timed.find(x=>x.lap_id!==lap.lap_id):null;
+    return other?'<a href="compare.html?lap_a='+other.lap_id+'&amp;lap_b='+lap.lap_id+'">vs '+
+     esc(other.driver_name||other.driver_id||"lap")+" "+fmt(other.time_s)+'</a>':"—";
+   };
    const rows=laps.map(lap=>{
     const state=lap.completion!=="complete"?lap.completion||"incomplete":
      lap.validity!=="accepted"?lap.validity||"unknown":"candidate";
@@ -45,21 +55,23 @@
     return '<tr><td>'+esc(lap.driver_name||lap.driver_id)+'</td><td>'+
      fmt(lap.time_s)+'</td><td class="'+css+'">'+esc(state)+'</td><td>'+
      esc(lap.started_at_utc||"unknown")+'</td><td>'+esc(lap.car_pi??"?")+'</td><td>'+
-     esc(event(lap))+'</td></tr>';
+     esc(event(lap))+'</td><td>'+versus(lap)+'</td></tr>';
    }).join("");
    const uncertainty=(Array.isArray(group.uncertainty)?group.uncertainty:[])
     .map(s=>esc(String(s).replaceAll("_"," "))).join("; ");
    const pair=ids.map(id=>best[id]).filter(lap=>lap&&Number.isSafeInteger(lap.lap_id)&&lap.lap_id>0).slice(0,2);
    const comparison=group.route_id!=null&&pair.length===2?
     '<p><a href="compare.html?lap_a='+pair[0].lap_id+'&amp;lap_b='+pair[1].lap_id+'">Compare candidate laps · traces and corners</a></p>':
-    '<p class="muted">Corner comparison needs candidate laps from two drivers on a known route.</p>';
+    timed.length>1?
+    '<p><a href="compare.html?lap_a='+timed[0].lap_id+'&amp;lap_b='+timed[1].lap_id+'">Compare the two fastest laps · traces and corners</a></p>':
+    '<p class="muted">Corner comparison needs two completed laps on a known route.</p>';
    return '<article class="route"><div class="routeHead"><div><h2>'+
     esc(group.route_name||"Unknown route")+'</h2><p class="muted">'+
     esc(group.car_class_label||"?")+" class · "+esc(group.total_attempts??0)+
     ' attempts</p></div><span class="pill">Unverified · no winner</span></div>'+
     '<div class="cards">'+cards+'</div>'+comparison+'<details><summary>Inspect attempts and missing evidence ('+
     laps.length+')</summary><p class="muted">'+uncertainty+'</p><div class="table"><table><thead><tr>'+
-    '<th>Driver</th><th>Lap time</th><th>Status</th><th>Started (UTC)</th><th>PI</th><th>Event (guess)</th>'+
+    '<th>Driver</th><th>Lap time</th><th>Status</th><th>Started (UTC)</th><th>PI</th><th>Event (guess)</th><th>Compare</th>'+
     '</tr></thead><tbody>'+rows+'</tbody></table></div></details></article>';
   }).join("")||'<div class="empty">No routes match this filter.</div>';
  }

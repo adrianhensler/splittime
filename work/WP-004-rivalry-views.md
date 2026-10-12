@@ -130,3 +130,17 @@ the PR #10 branch, subsequently merged at `0015f01`. Source PRs #7 and #9
 closed as superseded; original API/page commits `5d09fd1` / `6ad4b57` are
 historical baselines. Competitive scoring and real two-driver route equivalence
 remain unverified; later deployment evidence is in WP-003.
+
+## PR #19 checkpoint (2026-10-12, Opus 5.5)
+
+[PR #19](https://github.com/adrianhensler/splittime/pull/19), branch
+`fix/rivals-finish-artifacts`. Page change only for this packet: each
+completed lap links to a comparison against the fastest other lap on the
+route, same driver included, so one driver can compare their own laps.
+Evidence: `node --test tests/ui/rivalry.test.cjs`. The lap-detection change in
+the same pull request is outside this packet's authority and is recorded in
+[WP-003](WP-003-deploy-and-real-captures.md); driver labels are in
+[WP-002](WP-002-two-drivers.md). Ranking is unchanged: still exploratory, no winner.
+The review repair on top of `560aa52` changes no page or rivalry code;
+`node --test tests/ui/*.test.cjs` re-run there: 49 passed. Incomplete attempts
+the recorder now keeps are untimed, so they add no comparison link.
