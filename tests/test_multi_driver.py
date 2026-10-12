@@ -113,6 +113,8 @@ def test_two_ports_same_source_and_size_counter(tmp_path):
 
     # The second driver's source port changes, but its driver identity does not.
     listeners["beta"].datagram_received(raw, ("203.0.113.9", 40223))
+    # Last source is coalesced; explicit final flush persists it without per-packet commits.
+    listeners["beta"].sources.flush(0, force=True)
     found = {row["driver_id"]: row for row in store.list_sessions()}
     assert found["beta"]["source_addr"] == "203.0.113.9:40223"
     assert found["beta"]["id"] != found["alpha"]["id"]

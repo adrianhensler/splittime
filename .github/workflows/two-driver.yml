@@ -21,4 +21,9 @@ jobs:
       - name: Lint Python
         run: ruff check .
       - name: Driver/isolation regression tests
-        run: pytest -q tests/test_multi_driver.py
+        run: pytest -q tests/test_multi_driver.py tests/test_driver_review.py
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Driver-scoped browser grouping
+        run: node --test tests/ui/driver-groups.test.cjs
