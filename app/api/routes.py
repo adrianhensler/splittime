@@ -18,7 +18,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from .. import OFFLINE, __version__, cars, tracks
-from ..cars import CAR_NAMES
+from ..cars import CAR_NAMES, resolve_name
 from ..recorder.laps import (AIRBORNE_MIN_S, AIRBORNE_SLIP_MAX,
                              AIRBORNE_SUSP_MAX, IMPACT_ACCEL, LANDING_GRACE_S,
                              impulsive)
@@ -81,9 +81,7 @@ def _class_letter(v) -> str:
 
 
 def _car_name(ordinal, override=None) -> str:
-    if ordinal is None:  # imported sessions carry no car metadata at all
-        return override or "Unknown car"
-    return override or CAR_NAMES.get(ordinal) or f"Car #{ordinal}"
+    return resolve_name(ordinal, override)
 
 
 def _session_out(row: dict) -> dict:

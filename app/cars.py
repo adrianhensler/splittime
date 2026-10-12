@@ -38,6 +38,13 @@ CAR_NAMES: dict[int, str] = {}
 _data_dir: str | None = None
 
 
+def resolve_name(ordinal, override=None) -> str:
+    """Shared session/rivalry name precedence; the catalogue refreshes in place."""
+    if ordinal is None:
+        return override or "Unknown car"
+    return override or CAR_NAMES.get(ordinal) or f"Car #{ordinal}"
+
+
 class RefreshError(Exception):
     """A refresh attempt failed; the message is user-readable."""
 
