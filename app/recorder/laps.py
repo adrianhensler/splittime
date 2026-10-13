@@ -1091,6 +1091,14 @@ class SessionTracker:
                  self._completed_laps + 1, lap_time, d,
                  ", finalized at stream end" if frame is None else "")
         self._geometric_laps += 1  # loop closure to the anchor: reads as wtc
+        # The lap ended at the closest approach, but a crossing is only
+        # finalized once the car has left the crossing circle, so the trace
+        # has run on up to WTA_CROSS_DIST past the line. Left in, that tail
+        # became the route's length: on a real capture (2026-10-13) a 5954-
+        # unit circuit fingerprinted as 6275, past the length tolerance, and
+        # one course became two routes.
+        keep = bisect.bisect_right(self._cur_d, bdist - self._lap_start_dist)
+        del self._cur_d[keep:], self._cur_t[keep:]
         self._complete_current_lap(bt, lap_time, self._lap_number)
         if frame is None:
             self._lap_id = None  # session is ending: nothing to reopen
