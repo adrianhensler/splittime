@@ -6,7 +6,7 @@
 | Parent | WP-000 |
 | Children | none |
 | Worker | Codex (checkpoint owner); original implementation by GPT-6 |
-| Verifier | Opus 5.5: API/page repairs and final browser review at `f68d70a` |
+| Verifier | Opus 5.5 at `f68d70a`; GPT-6 Astra: Rivalry v2 source and targeted tests at `0a483cd` |
 | Acceptor | owner |
 
 ## Intent
@@ -80,7 +80,7 @@ Final application snapshot at `f68d70a`; candidate bests are not ranked leaders.
 ## Unresolved
 
 Competitive scoring, real route equivalence, event mode, full quality
-classification and record-change history remain unresolved. The current
+classification and ranked record-change history remain unresolved. The current
 projection explicitly has no winner and preserves unknowns.
 
 ## Event-type guess (2026-10-12, Opus 5.5, `feat/event-guess`)
@@ -152,7 +152,9 @@ the recorder now keeps are untimed, so they add no comparison link.
 Owner approved the compact preview, requested a main-page “Rivalry v2” link
 while retaining the original, and requested a merge/grouping UX review.
 Checkpoint owner: Codex. Branch `feat/rivalry-v2`, based on `5059dbb`.
-PR locator and final head will be recorded before ready.
+[PR #23](https://github.com/adrianhensler/splittime/pull/23), implementation head
+`0a483cd215ef3247efd5225c21ee4e445197be0a`. This snapshot changes documentation
+only on that tested code; the PR contains the final head and CI receipt.
 
 Implemented: dense route/class rows in configured driver order, candidate
 bests and recorded differences, real recorded outlines, search, finish-dated
@@ -163,13 +165,18 @@ is shipped. Undated clean attempts suppress uncertain record chronology;
 simultaneous timestamps are batched; refresh resets reused lap identities.
 
 Self-checks: Python 3.13 isolated environment, full `python -m pytest -q`:
-300 passed; `ruff check .` (0.17) and packet round-trip passed. Node UI suite
-passed before the final refresh regression; final count is recorded at ready.
+300 passed; `ruff check .` (0.17) and packet round-trip passed. Node UI suite:
+61 passed, including refresh/reused-identity regression.
 Browser on synthetic data under `/splittime/`: rendered compact layout, history
 filter 6 to 4 attempts, selected B changed actual comparison URL from laps 2/5
 to 2/1. No live management API was called. Grouping properties were checked
 with existing synthetic API regressions; findings and proposal are in
 `docs/MERGE_RUNS_UX_REVIEW.md`, with no grouping behaviour changed.
+Browser followed the link to the existing comparison under the same prefix.
+Narrow viewport request of 390 px was clamped by this browser to an observed
+500 px: page width stayed within that viewport, tables scrolled internally
+and the comparison inspector stacked beneath history. Actual phone behaviour
+has not been independently verified.
 
 Re-run: `python -m pytest -q`; `ruff check .`;
 `python app/telemetry/packet.py`; `node --test tests/ui/*.test.cjs`.
@@ -182,7 +189,14 @@ real two-driver field validation and global standings. This admits no ranked
 winner or accuracy claim. Finish dates are capture timestamps, not official
 achievement timestamps. Existing full acceptance criteria remain partial.
 
-Independent verification: fresh Codex reviewer pending final-head review/CI.
+Independent verification: **GPT-6 Astra**, source review at `0a483cd`, Node
+61/61 and focused rivalry/grouping Python tests 22 passed (52 deselected).
+No blockers; original Rivalry files unchanged, relative URLs, eligibility,
+chronology, escaping and selection identity verified. It did not rerun the
+full Python suite or independently verify browser/live/deployment behaviour.
+The same-model review was stopped after owner feedback and is not admission
+evidence. Different-model review does not guarantee correctness. Final docs
+head/CI check remains the reviewer's responsibility before merging.
 Acceptance: pending reviewed merge. Deployment: not yet performed. Next action:
 open PR, address review, snapshot final evidence before ready; reviewer merges
 green CI, then update only the existing web service and static gallery link,
