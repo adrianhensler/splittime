@@ -471,7 +471,8 @@ class Sim:
         if lag > 0:
             time.sleep(lag)
 
-    def dirt_sprint(self, seconds: float, cut: bool = False) -> None:
+    def dirt_sprint(self, seconds: float, cut: bool = False,
+                    grid_freeze: float = 0.0) -> None:
         """Real point-to-point race, modeled on verified FH6 captures. Unlike
         --sprint (all lap fields dead), the running lap clock CurrentLap
         counts the whole way while LapNumber, LastLap and BestLap stay 0; the
@@ -481,7 +482,10 @@ class Sim:
         (~12 s, the race clock counting through it), then control is handed
         back parked at the line with the brake held and the odometer reset to
         0; with cut=True the stream instead just stops dead at the line at
-        speed (touge, 2026-07-04) - no reset, no freeze, no handback."""
+        speed (touge, 2026-07-04) - no reset, no freeze, no handback.
+        grid_freeze: hold the race clock still for that many seconds on the
+        grid, after it has counted past 5 s (real capture, 2026-10-13: the
+        clock sat at 8.6 s before the run began)."""
         print(f"dirt sprint: ~{seconds:.0f}s point-to-point, CurrentLap"
               f" counting, {'cut-dead-at-line' if cut else 'DistanceTraveled-reset'} finish")
         self.s = 0.0
@@ -499,9 +503,16 @@ class Sim:
         while t < 4.0:
             t += self.dt
             self._send_parked(t, self._oc_x, self._oc_z, cur_lap=t)
+        if grid_freeze:
+            while t < 8.6:
+                t += self.dt
+                self._send_parked(t, self._oc_x, self._oc_z, cur_lap=t)
+            for _ in range(int(grid_freeze / self.dt)):
+                self._send_parked(t, self._oc_x, self._oc_z, cur_lap=t)
         launch_rt = t
         print(f"  launch at rt={t:.1f}s")
-        while t < 4.0 + seconds:
+        end_rt = launch_rt + seconds
+        while t < end_rt:
             self._pace_tick()
             t += self.dt
             # CurrentLap tracks the race clock (single segment, never resets)
