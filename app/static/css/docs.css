@@ -1,0 +1,51 @@
+#st-rivalry-workspace .st-doc{max-width:920px}
+#st-rivalry-workspace .st-doc h2{font-size:18px;margin:34px 0 8px;padding-top:14px;border-top:1px solid var(--st-line);scroll-margin-top:12px}
+#st-rivalry-workspace .st-doc h3{font-size:14px;margin:20px 0 6px}
+#st-rivalry-workspace .st-doc p,#st-rivalry-workspace .st-doc li{max-width:76ch}
+#st-rivalry-workspace .st-doc p{margin:8px 0}
+#st-rivalry-workspace .st-doc ul,#st-rivalry-workspace .st-doc ol{margin:8px 0;padding-left:20px}
+#st-rivalry-workspace .st-doc li{margin:4px 0}
+#st-rivalry-workspace .st-doc code{font:12px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:var(--st-panel);border:1px solid var(--st-line);border-radius:3px;padding:0 4px;overflow-wrap:anywhere}
+#st-rivalry-workspace .st-doc table{margin:10px 0}
+#st-rivalry-workspace .st-doc td{vertical-align:top}
+#st-rivalry-workspace .st-doc td.st-num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+#st-rivalry-workspace .st-toc{background:var(--st-panel);border-radius:6px;padding:12px 16px;margin:14px 0;columns:2 240px;column-gap:28px}
+#st-rivalry-workspace .st-toc a{display:block;padding:3px 0;text-decoration:none;break-inside:avoid}
+#st-rivalry-workspace .st-lede{font-size:15px;color:var(--st-fg)}
+
+/* flow charts: boxes joined by arrows, top to bottom */
+#st-rivalry-workspace .st-flow{display:flex;flex-direction:column;align-items:stretch;margin:14px 0;max-width:680px}
+#st-rivalry-workspace .st-flow figcaption{color:var(--st-muted);font-size:12px;margin-top:8px}
+#st-rivalry-workspace .st-box{background:var(--st-panel);border:1px solid var(--st-line);border-radius:6px;padding:9px 12px;min-width:0}
+#st-rivalry-workspace .st-box b{display:block;font-weight:600}
+#st-rivalry-workspace .st-box span{display:block;color:var(--st-muted);font-size:12px}
+#st-rivalry-workspace .st-box.st-key{border-color:var(--st-accent)}
+#st-rivalry-workspace .st-box.st-bad{border-color:var(--st-warn)}
+#st-rivalry-workspace .st-box.st-bad b{color:var(--st-warn)}
+#st-rivalry-workspace .st-arrow{text-align:center;color:var(--st-muted);font-size:12px;line-height:1.2;padding:3px 0}
+#st-rivalry-workspace .st-arrow::after{content:"↓";display:block;font-size:15px;color:var(--st-accent)}
+#st-rivalry-workspace .st-split{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr));gap:10px}
+#st-rivalry-workspace .st-split>div{display:flex;flex-direction:column;min-width:0}
+
+/* decision ladder: tested top to bottom, first match wins */
+#st-rivalry-workspace .st-ladder{margin:14px 0;max-width:820px;counter-reset:rung}
+#st-rivalry-workspace .st-rung{display:grid;grid-template-columns:minmax(0,1.25fr) 52px minmax(0,1fr);align-items:stretch;counter-increment:rung}
+#st-rivalry-workspace .st-rung+.st-rung{margin-top:22px;position:relative}
+#st-rivalry-workspace .st-rung+.st-rung::before{content:"no ↓";position:absolute;top:-19px;left:14px;font-size:11px;color:var(--st-muted)}
+#st-rivalry-workspace .st-if{border:1px dashed var(--st-accent);border-radius:6px;padding:9px 12px;min-width:0}
+#st-rivalry-workspace .st-if b{display:block;font-weight:600}
+#st-rivalry-workspace .st-if b::before{content:counter(rung) ". ";color:var(--st-accent)}
+#st-rivalry-workspace .st-if span{display:block;color:var(--st-muted);font-size:12px}
+#st-rivalry-workspace .st-yes{display:flex;align-items:center;justify-content:center;color:var(--st-accent);font-size:11px;white-space:nowrap}
+#st-rivalry-workspace .st-yes::after{content:"yes →"}
+#st-rivalry-workspace .st-ladder figcaption{color:var(--st-muted);font-size:12px;margin-top:8px}
+#st-rivalry-workspace .st-tag{display:inline-block;border:1px solid var(--st-line);border-radius:10px;padding:0 7px;font-size:11px;white-space:nowrap}
+#st-rivalry-workspace .st-tag.st-fixed{border-color:var(--st-accent);color:var(--st-accent)}
+#st-rivalry-workspace .st-tag.st-open{border-color:var(--st-warn);color:var(--st-warn)}
+@media(max-width:620px){
+  #st-rivalry-workspace .st-rung{grid-template-columns:minmax(0,1fr)}
+  #st-rivalry-workspace .st-yes{justify-content:flex-start;padding:3px 14px}
+  #st-rivalry-workspace .st-yes::after{content:"yes ↓"}
+}
+#st-rivalry-workspace .st-doc .st-wide{min-width:800px}
+#st-rivalry-workspace .st-doc .st-mid{min-width:600px}
