@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en"><head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SplitTime · Replay</title>
+  <link rel="stylesheet" href="css/rivalry-v2.css">
+  <link rel="stylesheet" href="css/replay.css">
+</head>
+<body id="st-rivalry-workspace"><div class="st-window">
+  <header><a class="st-brand" href="index.html">Split<span>//</span>Time</a>
+    <nav aria-label="Site"><a href="index.html">Live</a><a href="analysis.html">Analysis</a>
+      <a href="rivalry-v2.html">Rivalry</a><a href="stats.html">Stats</a><a href="rivalry.html">Rivalry_legacy</a></nav>
+  </header>
+  <main>
+    <div class="st-top"><div><h1>Replay</h1><div class="st-sub" id="rp-label">Recorded laps, raced against each other</div></div>
+      <div class="st-search"><button id="rp-share" type="button" hidden>Copy link</button></div></div>
+    <p id="st-message" class="st-quiet" role="status" aria-live="polite">Loading…</p>
+
+    <section id="rp-picker" hidden aria-label="Choose laps">
+      <label class="st-filter">Route and class <select id="rp-route"></select></label>
+      <div class="st-scroll"><table aria-label="Laps on this route"><thead><tr><th scope="col">Race</th>
+        <th scope="col">Time</th><th scope="col">Driver · car</th><th scope="col">Recorded at</th></tr></thead>
+        <tbody id="rp-laps"></tbody></table></div>
+      <button id="rp-go" class="st-compare" type="button" disabled>Choose two or more laps</button>
+    </section>
+
+    <section id="rp-stage" hidden aria-label="Replay">
+      <div class="rp-layout">
+        <div class="rp-map"><canvas id="rp-canvas" aria-label="Map of the route with one dot per lap"></canvas>
+          <div class="rp-views" role="group" aria-label="Camera">
+            <button type="button" data-view="top" aria-pressed="true">Top</button>
+            <button type="button" data-view="tilt" aria-pressed="false">3D</button>
+            <button type="button" data-view="follow" aria-pressed="false">Follow</button>
+            <label class="sr-only" for="rp-follow">Car to follow</label><select id="rp-follow"></select>
+          </div>
+          <p class="st-quiet rp-hint" id="rp-hint">Drag to move · scroll to zoom</p>
+        </div>
+        <aside class="st-inspector rp-side" id="rp-side" aria-label="Live numbers"></aside>
+      </div>
+      <div class="rp-controls">
+        <button id="rp-play" type="button" aria-label="Play">Play</button>
+        <button id="rp-restart" type="button">Restart</button>
+        <label class="sr-only" for="rp-scrub">Position in the lap</label>
+        <input id="rp-scrub" type="range" min="0" max="1000" value="0">
+        <span class="st-time" id="rp-clock">0:00.000</span>
+        <label class="st-filter">Speed <select id="rp-speed"><option value="0.25">¼×</option><option value="0.5">½×</option>
+          <option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option><option value="8">8×</option></select></label>
+      </div>
+      <p class="st-quiet"><a id="rp-change" href="replay.html">Choose other laps</a> · Every lap starts together at its own start line.
+        Gaps are the time each car reaches the leader’s spot on the route.</p>
+    </section>
+  </main>
+</div><script src="js/rivalry-v2-model.js"></script><script src="js/replay-model.js"></script><script src="js/replay.js"></script></body>
+</html>

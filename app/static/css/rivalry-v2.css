@@ -71,3 +71,4 @@
     #st-rivalry-workspace .st-more-bests{margin-top:16px;padding-top:12px;border-top:1px solid var(--st-line)}
     #st-rivalry-workspace h3{font-size:14px;margin:0 0 8px;font-weight:600}
     #st-rivalry-workspace .st-more-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:16px;align-items:start}
+    #st-rivalry-workspace .st-replay{display:block;border:1px solid var(--st-accent);border-radius:5px;padding:8px;text-align:center;text-decoration:none;font-weight:600;margin-top:8px}
