@@ -166,6 +166,14 @@ Internet packet arrival timestamps must not be treated as official lap times.
 Circuit/sprint classification does not by itself identify Rivals versus a
 conventional race; unknown event modes remain unknown until validated.
 
+Rivalry v2 is an additional read-only workspace, retaining the original page.
+It presents compact route/class rows, both configured drivers' candidate bests,
+recorded time differences, searchable attempts and finish-dated improvement
+history. Actual recorded outlines lead to explicit A/B lap selection and the
+existing trace/corner comparison. Differences remain exploratory; missing
+finish timestamps cannot establish record chronology. It does not introduce
+recording controls or change grouping, flags, storage or scoring (ADR 25).
+
 ## 8. Security
 
 - UDP has no authentication. Anyone who finds a port can inject packets. For

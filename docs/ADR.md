@@ -378,3 +378,22 @@ Limits:
 
 *Rests on:* 6, 15. *Work:* WP-007. *Revisit if* detection is ever moved out of
 the recording path, which would let the collector store raw packets only.
+
+## 25. Compact Rivalry v2 alongside the original
+
+**Proposed, 2026-10-12** (owner approved the compact workspace preview and
+requested Rivalry v2 on the main page while retaining the original).
+
+Use one dense route/class table and one selected history/comparison region.
+Search covers routes, drivers, cars, dates and flags. Show recorded bests,
+gaps and dated improvements, with one expandable provenance explanation.
+Keep configured driver order, real route outlines and explicit A/B choices;
+never populate a missing opponent with illustrative data. The read projection
+adds the stored capture-finish timestamp without changing recordings.
+Missing chronology remains unknown. All differences remain exploratory.
+
+The separate merge/grouping review proposes clearer wording and deliberate
+selection in `MERGE_RUNS_UX_REVIEW.md`; this slice changes no grouping semantics.
+Deploy only the existing web process; the existing collector stays running.
+
+*Rests on:* 10, 23, 24. *Work:* WP-004.

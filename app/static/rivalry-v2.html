@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>SplitTime · Rivalry v2</title>
+  <link rel="stylesheet" href="css/rivalry-v2.css">
+</head>
+<body id="st-rivalry-workspace"><div class="st-window">
+  <header><a class="st-brand" href="index.html">Split<span>//</span>Time</a>
+    <nav aria-label="Site"><a href="index.html">Live</a><a href="analysis.html">Analysis</a>
+      <a href="rivalry.html">Rivalry</a><a href="rivalry-v2.html" aria-current="page">Rivalry v2</a></nav>
+  </header>
+  <main>
+    <div class="st-top"><div><h1>Rivalry</h1><div class="st-sub" id="st-overview-label">Recorded times · loading…</div></div>
+      <div class="st-search"><label class="sr-only" for="st-find">Find recordings</label>
+        <input id="st-find" type="search" placeholder="Find route, car, driver, date or flag…">
+        <button id="st-refresh" type="button">Refresh</button></div>
+    </div>
+    <p id="st-message" class="st-quiet" role="status" aria-live="polite">Loading recordings…</p>
+    <div class="st-scroll"><table class="st-overview" aria-label="Recorded bests by route and class">
+      <thead id="st-event-columns"></thead><tbody id="st-events"></tbody>
+    </table></div>
+    <section class="st-context" id="st-context" aria-label="Selected event workspace" hidden>
+      <div class="st-context-heading"><div><h2 id="st-event-heading"></h2><div class="st-quiet" id="st-event-meta"></div></div>
+        <label class="st-filter">History<select id="st-history-filter"><option value="all">All attempts</option>
+          <option value="improvements">Improvements / lead changes</option><option value="flagged">Flagged / estimated / incomplete</option>
+        </select></label></div>
+      <div class="st-context-body"><div class="st-scroll"><table class="st-history" aria-label="Attempt history">
+        <thead><tr><th scope="col">Lap / progress</th><th scope="col">Driver · car</th><th scope="col">Recorded at</th><th scope="col">A / B</th></tr></thead>
+        <tbody id="st-history"></tbody></table></div>
+        <aside class="st-inspector" id="st-inspector" aria-label="Route and selected laps"></aside>
+      </div>
+    </section>
+    <details><summary>About recorded times</summary><p>Local recorded bests and time differences are exploratory.
+      Shared route fingerprints and car classes do not prove equivalent events. Official validity, game mode,
+      timing and capture quality remain unverified. Flags and estimates remain visible and do not enter bests.</p>
+      <p>“Recorded at” is the captured finish timestamp, shown in your browser’s time zone. If missing, the lap start is labelled
+      explicitly and record chronology is not inferred. Route outlines come from captured geometry, rather than a map of the world.</p>
+    </details>
+    <p class="st-quiet">The <a href="rivalry.html">original Rivalry</a> remains available. Manage recordings in <a href="analysis.html">Analysis</a>.</p>
+  </main>
+</div><script src="js/rivalry-v2-model.js"></script><script src="js/rivalry-v2.js"></script></body>
+</html>
