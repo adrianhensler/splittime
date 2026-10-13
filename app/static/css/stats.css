@@ -1,0 +1,16 @@
+    #st-rivalry-workspace .st-section{border-bottom:1px solid var(--st-line);margin:0;font-size:13px;color:var(--st-fg)}
+    #st-rivalry-workspace .st-section>summary{display:flex;align-items:baseline;gap:10px;padding:12px 4px;min-height:44px;list-style:none;font-size:15px;font-weight:600}
+    #st-rivalry-workspace .st-section>summary::-webkit-details-marker{display:none}
+    #st-rivalry-workspace .st-section>summary::before{content:"+";color:var(--st-accent);width:12px;font-weight:400}
+    #st-rivalry-workspace .st-section[open]>summary::before{content:"−"}
+    #st-rivalry-workspace .st-section>summary span{color:var(--st-muted);font-size:12px;font-weight:400}
+    #st-rivalry-workspace .st-section-body{padding:0 4px 16px 26px;display:grid;grid-template-columns:minmax(0,1fr);gap:18px}
+    #st-rivalry-workspace .st-section-body>div{min-width:0}
+    #st-rivalry-workspace .st-section h3{margin:0 0 4px}
+    #st-rivalry-workspace .st-section td.st-num,#st-rivalry-workspace .st-section th.st-num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+    #st-rivalry-workspace .st-section table{width:auto;min-width:min(100%,420px)}
+    #st-rivalry-workspace .st-section td:first-child{font-weight:500}
+    #st-rivalry-workspace .st-note{color:var(--st-muted);font-size:12px;margin:6px 0 0;max-width:70ch}
+    #st-rivalry-workspace #st-open-all{border:1px solid var(--st-line);border-radius:5px;background:var(--st-panel);color:var(--st-fg);padding:8px 10px;font:inherit;white-space:nowrap}
+    #st-rivalry-workspace .st-search{justify-content:flex-end}
+    @media(max-width:740px){#st-rivalry-workspace .st-section-body{padding-left:4px}}

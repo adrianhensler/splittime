@@ -34,6 +34,7 @@ One entry per decision. Status is **Accepted** (the owner decided),
 | 25 | Compact Rivalry v2 alongside the original | Proposed |
 | 26 | Rivalry v2 is Rivalry; the original is Rivalry_legacy | Accepted |
 | 27 | Which laps count as a best; sittings are grouped automatically | Accepted |
+| 28 | Stats page: server-described sections over the recorded index | Accepted |
 
 Each entry lists what it **rests on**, so that reversing one decision shows
 which others to revisit.
@@ -447,3 +448,24 @@ reading of the telemetry, decided in one place (`app/rivalry.py`):
   fingerprint and class do not prove equal conditions.
 
 *Rests on:* 9, 10, 25. *Work:* WP-008.
+
+## 28. Stats page: server-described sections over the recorded index
+
+**Accepted, 2026-10-13** (owner request: ten or more sections of statistics,
+leaderboards measured several ways, goals and achievements, in the same calm
+styling, under Stats next to Rivalry).
+
+- `app/stats.py` derives every table from the session list and the rivalry
+  projection, so "valid" means exactly what it means on Rivalry (27) and no
+  frames are read. `GET /api/stats` returns display-ordered sections; the page
+  renders whatever it is given, so a new statistic is a server change only.
+- Every table is keyed by driver id for any number of drivers.
+- Comparisons stay exploratory (10): the response carries `scoring`, ranking
+  tables say so, an identical time is a tie that counts for nobody, and a
+  time taken from the last packet keeps its "est." marker.
+- Unknown route, car or class (imported sessions) is never counted as one.
+- Achievements are a rule table over the same numbers; goals are the nearest
+  unearned ones.
+- Not yet: charts, and numbers that need every frame (top speed, air time).
+
+*Rests on:* 10, 25, 27. *Work:* WP-008.

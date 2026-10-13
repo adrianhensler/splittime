@@ -24,6 +24,7 @@ from ..recorder.laps import (AIRBORNE_MIN_S, AIRBORNE_SLIP_MAX,
                              impulsive)
 from ..recorder.reprocess import reprocess_session
 from ..rivalry import rivalry_summary
+from ..stats import stats_summary
 from ..recorder.store import (ROUTE_KINDS as store_kinds, ROUTE_OUTLINE_BOX,
                               ROUTE_OUTLINE_DETAIL, lap_anchor, lap_span)
 from ..telemetry.packet import FIELDS, empty_fields, pack, parse
@@ -251,6 +252,13 @@ def rivalry(request: Request):
     """Read-only display projection; no unverified competitive winners."""
     return rivalry_summary(request.app.state.store,
                            getattr(request.app.state, "drivers", ()))
+
+@router.get("/stats")
+def stats(request: Request):
+    """Read-only statistics, as display-ordered sections (app/stats.py)."""
+    return stats_summary(request.app.state.store,
+                         getattr(request.app.state, "drivers", ()))
+
 
 @router.get("/sessions")
 def sessions(request: Request, driver_id: str | None = None):
