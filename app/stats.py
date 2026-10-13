@@ -409,7 +409,8 @@ def stats_summary(store, configured_drivers=()) -> dict:
         "totals": {"sessions": len(sessions), "laps": len(timed), "valid": len(valid),
                    "routes": len({lap["route_id"] for lap in timed})},
         "sections": [{"id": sid, "title": title,
-                      "tables": [t for t in tables if t["rows"]]}
+                      # no drivers at all: nothing recorded, nothing to show
+                      "tables": [t for t in tables if t["rows"] and drivers]}
                      for sid, title, tables in sections],
     }
 
