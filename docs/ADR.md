@@ -35,6 +35,7 @@ One entry per decision. Status is **Accepted** (the owner decided),
 | 26 | Rivalry v2 is Rivalry; the original is Rivalry_legacy | Accepted |
 | 27 | Which laps count as a best; sittings are grouped automatically | Accepted |
 | 28 | Stats page: server-described sections over the recorded index | Accepted |
+| 29 | Race replay: recorded laps played together on the map | Accepted |
 
 Each entry lists what it **rests on**, so that reversing one decision shows
 which others to revisit.
@@ -469,3 +470,22 @@ styling, under Stats next to Rivalry).
 - Not yet: charts, and numbers that need every frame (top speed, air time).
 
 *Rests on:* 10, 25, 27. *Work:* WP-008.
+
+## 29. Race replay: recorded laps played together on the map
+
+**Accepted, 2026-10-13** (owner request: pick two races and watch the dots race
+together, with a 3D option, a follow camera and live stats, shareable).
+
+- `replay.html?laps=a,b[,c…]` plays up to six recorded laps in sync, each from
+  its own start line. It is a picture of recordings, not a result: the laps
+  were driven at different times, and the gap shown is how much later a car
+  reaches the leader's spot on the route. Laps from different routes still
+  play, with a notice that the gaps mean little.
+- No new API: `GET api/laps/{id}/data` and `api/rivalry`. Viewing is public
+  like every other read (23), so the address is the share link.
+- The maths lives in `js/replay-model.js`, tested without a browser. The
+  projection is a small one of its own; Analysis's map drawing is tied to that
+  page's state and was not pulled apart for this.
+- Top, tilted and follow cameras. Nothing assumes two cars.
+
+*Rests on:* 9, 23, 25. *Work:* WP-008.
