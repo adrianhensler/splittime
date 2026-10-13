@@ -1,12 +1,15 @@
-/* Read-only recorded history. No competitive-equivalence or game-validity claims. */
+/* Read-only recorded history. No competitive-equivalence or game-validity claims.
+   Which laps may be a best is decided once, on the server (app/rivalry.py):
+   no rewind, no contact, not excluded; a last-packet time only when the
+   whole route was covered. */
 "use strict";
 (function (root) {
   const timed = lap => Number.isFinite(lap.time_s) && lap.time_s > 0;
   const usable = lap => Number.isSafeInteger(lap.lap_id) && lap.lap_id > 0 &&
-    timed(lap) && lap.completion === "complete";
-  const clean = lap => usable(lap) && lap.candidate_clean === true &&
-    lap.validity === "accepted" && !(lap.flags || []).length &&
-    !(lap.flags_auto || []).includes("cutoff");
+    timed(lap) && lap.completion !== "incomplete";
+  const clean = lap => usable(lap) && lap.candidate_clean === true;
+  // the game stopped sending at the line: the time is our last clock reading
+  const estimated = lap => lap.finish === "last_packet";
   const stamp = lap => typeof lap.finished_at_utc === "string" &&
     Number.isFinite(Date.parse(lap.finished_at_utc)) ? Date.parse(lap.finished_at_utc) : null;
   const identity = lap => lap ? JSON.stringify([lap.lap_id, lap.session_id,
@@ -102,12 +105,32 @@
     return group.attempts.length ? group.attempts.some(lap => matches(group,lap,query)) :
       `${group.route_name} ${group.car_class_label}`.toLowerCase().includes(query.trim().toLowerCase());
   }
+  /* Every driver's best on one route, beyond the headline route + class:
+     per car (within the route) and overall (any class, any car). */
+  function routeBests(categories, routeId) {
+    const overall = new Map(), cars = new Map();
+    if (!Number.isSafeInteger(routeId)) return {overall, cars:[]};
+    const faster = (lap, old) => !old || lap.time_s < old.time_s;
+    for (const group of categories) if (group.route_id === routeId)
+      for (const lap of group.attempts) if (clean(lap)) {
+        const row = {...lap, car_class_label:group.car_class_label};
+        if (faster(lap, overall.get(lap.driver_id))) overall.set(lap.driver_id, row);
+        const k = JSON.stringify([lap.driver_id, lap.car_ordinal ?? lap.car_name]);
+        if (faster(lap, cars.get(k))) cars.set(k, row);
+      }
+    return {overall, cars:[...cars.values()].sort((a,b) => a.time_s-b.time_s)};
+  }
+  /* Drivers with a best, fastest first: works for any number of drivers. */
+  function standings(group) {
+    return [...bests(group).values()].sort((a,b) => a.time_s-b.time_s ||
+      (stamp(a) ?? Infinity)-(stamp(b) ?? Infinity));
+  }
   function compare(a,b) {
     return usable(a || {}) && usable(b || {}) && a.lap_id !== b.lap_id ?
       `compare.html?lap_a=${a.lap_id}&lap_b=${b.lap_id}` : null;
   }
-  const model = {timed, usable, clean, stamp, identity, key, time, date, drivers,
-    bests, timeline, defaults, matches, visible, compare};
+  const model = {timed, usable, clean, estimated, stamp, identity, key, time, date, drivers,
+    bests, timeline, defaults, matches, visible, compare, routeBests, standings};
   if (typeof module !== "undefined" && module.exports) module.exports = model;
   else root.RivalryModel = model;
 })(globalThis);

@@ -2,6 +2,19 @@
 
 Never fabricate competitive winners: the upstream route fingerprint, mode and
 capture quality have not yet been verified for cross-driver scoring.
+
+Which laps may be a driver's best (owner decision, 2026-10-13) - as close to
+the game's own Rivals rule as the packet allows, since the game never sends
+its verdict:
+
+* a rewind or a contact disqualifies the lap (the effective flags, so a
+  contact the driver dismissed as a false alarm no longer counts against it);
+* an excluded lap never counts;
+* a run timed from the last packet ("cutoff": the game stopped sending at the
+  line and never reported a time) has to have covered the whole route, because
+  a run abandoned at speed looks the same to the recorder. It counts only when
+  it demonstrably went the distance, and is reported with
+  `finish: "last_packet"` so the page can mark it.
 """
 from __future__ import annotations
 
@@ -11,6 +24,35 @@ from datetime import datetime, timezone
 from .cars import resolve_name
 
 from .eventtype import guess_event
+from .telemetry.packet import parse
+
+# DistanceTraveled is normalised per route in FH6: it reads ~5950 at the end
+# of every completed lap or run whatever the true length (store.py, route
+# fingerprint note). Over every lap in the first real two-driver database a
+# full lap covered 5934-5960 and the two abandoned runs 2483 and 4080.
+FULL_ROUTE_UNITS = 5950.0
+FULL_ROUTE_MIN = 0.985 * FULL_ROUTE_UNITS
+
+_covered_cache: dict[tuple, float | None] = {}
+
+
+def lap_covered(store, lap: dict) -> float | None:
+    """Odometer distance a finished lap covered, from its last frame. None
+    when it cannot be known (open lap, no frames, a store without frames)."""
+    reader = getattr(store, "reader", None)
+    end, start = lap.get("ended_t"), lap.get("start_distance")
+    if reader is None or end is None or start is None:
+        return None
+    key = (getattr(store, "db_path", None), lap["id"], lap.get("started_t"), end)
+    if key not in _covered_cache:
+        with reader() as conn:
+            row = conn.execute(
+                "SELECT raw FROM frames WHERE session_id = ? AND t >= ? AND t <= ?"
+                " ORDER BY t DESC LIMIT 1",
+                (lap["session_id"], lap.get("started_t") or 0.0, end)).fetchone()
+        _covered_cache[key] = (
+            parse(row[0])["distance_traveled"] - start if row else None)
+    return _covered_cache[key]
 
 CLASS_LABELS = ("D", "C", "B", "A", "S1", "S2", "R", "X")
 
@@ -21,7 +63,8 @@ def _utc(t):
     return datetime.fromtimestamp(t, timezone.utc).isoformat().replace("+00:00", "Z")
 
 
-def _lap_out(session: dict, lap: dict, names: dict, event: dict) -> dict:
+def _lap_out(session: dict, lap: dict, names: dict, event: dict,
+             covered: float | None = None) -> dict:
     raw_flags = lap.get("flags") or ""
     flags = sorted({item.strip() for item in raw_flags.split(",") if item.strip()})
     auto_flags = {item.strip() for item in (lap.get("flags_auto", raw_flags) or "").split(",")
@@ -31,8 +74,20 @@ def _lap_out(session: dict, lap: dict, names: dict, event: dict) -> dict:
     timed = isinstance(duration, (int, float)) and math.isfinite(duration) and duration > 0
     completion = ("incomplete" if not timed else
                   "provisional" if estimated else "complete")
+    # "cutoff" says how the time was obtained, not that the driving was
+    # dirty; any other flag - known or from a detector added later - is
     validity = ("excluded" if lap.get("excluded") else
-                "suspect" if flags else "accepted")
+                "suspect" if set(flags) - {"cutoff"} else "accepted")
+    full_route = None if covered is None else covered >= FULL_ROUTE_MIN
+    # a last-packet time has to prove it went the distance. A time the game
+    # itself reported is taken as a finished lap: the game does not report
+    # one for a lap that was not completed.
+    went_distance = full_route is True if estimated else True
+    reason = (None if timed and validity == "accepted" and went_distance else
+              "incomplete" if not timed else
+              "excluded" if validity == "excluded" else
+              next((f for f in ("rewind", "contact") if f in flags), None)
+              or ("flagged" if validity == "suspect" else "route_not_completed"))
     driver_id = session.get("driver_id") or "legacy"
     ordinal = session.get("car_ordinal")
     return {
@@ -52,13 +107,17 @@ def _lap_out(session: dict, lap: dict, names: dict, event: dict) -> dict:
         "validity": validity,
         "capture_quality": "unknown",
         "timing_source": "cutoff_estimate" if estimated else "unverified",
+        "finish": "last_packet" if estimated else "confirmed",
+        "covered": None if covered is None else round(covered, 1),
+        "full_route": full_route,
+        "not_best_because": reason,
         # inferred, never reported by the game: see app/eventtype.py
         "event_mode": event["kind"],
         "event_mode_basis": event["basis"],
         "event_evidence": event["evidence"],
         "flags": flags,
         "flags_auto": sorted(auto_flags),
-        "candidate_clean": timed and completion == "complete" and validity == "accepted",
+        "candidate_clean": reason is None,
     }
 
 
@@ -87,7 +146,8 @@ def rivalry_summary(store, configured_drivers=()) -> dict:
         })
         event = guess_event(store, session)
         for lap in store.session_laps(session["id"]):
-            group["attempts"].append(_lap_out(session, lap, names, event))
+            group["attempts"].append(
+                _lap_out(session, lap, names, event, lap_covered(store, lap)))
 
     categories = []
     for group in groups.values():
@@ -103,6 +163,7 @@ def rivalry_summary(store, configured_drivers=()) -> dict:
         group["best_by_driver"] = {driver: {
             "lap_id": lap["lap_id"], "time_s": lap["time_s"],
             "car_pi": lap["car_pi"], "car_name": lap["car_name"],
+            "finish": lap["finish"],
         } for driver, lap in best.items()}
         group["ranking_state"] = "exploratory"
         group["winner"] = None

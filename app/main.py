@@ -59,6 +59,9 @@ async def lifespan(app: FastAPI):
         removed = store.cleanup_sessions()
         if removed:
             log.info("Startup cleanup: removed %d untimed session(s)", removed)
+        grouped = store.auto_group()
+        if grouped:
+            log.info("Startup: grouped %d session(s) into sittings", grouped)
     else:
         log.info("Role web: no UDP, no recorder; live state comes from %s",
                  roles.collector_url())

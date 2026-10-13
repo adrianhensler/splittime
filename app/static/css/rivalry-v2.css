@@ -66,3 +66,8 @@
     #st-rivalry-workspace .st-inspector .st-route-host{margin:8px 0}
     #st-rivalry-workspace .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
   
+    #st-rivalry-workspace .st-est{font-size:11px;color:var(--st-muted);text-decoration:underline dotted;cursor:help;margin-left:4px}
+    #st-rivalry-workspace .st-more{border:1px solid var(--st-line);border-radius:5px;background:var(--st-panel);color:var(--st-fg);padding:7px 10px;font:inherit;font-size:12px;margin-top:8px}
+    #st-rivalry-workspace .st-more-bests{margin-top:16px;padding-top:12px;border-top:1px solid var(--st-line)}
+    #st-rivalry-workspace h3{font-size:14px;margin:0 0 8px;font-weight:600}
+    #st-rivalry-workspace .st-more-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:16px;align-items:start}

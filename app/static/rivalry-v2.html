@@ -22,18 +22,24 @@
     </table></div>
     <section class="st-context" id="st-context" aria-label="Selected event workspace" hidden>
       <div class="st-context-heading"><div><h2 id="st-event-heading"></h2><div class="st-quiet" id="st-event-meta"></div></div>
-        <label class="st-filter">History<select id="st-history-filter"><option value="all">All attempts</option>
-          <option value="improvements">Improvements / lead changes</option><option value="flagged">Flagged / estimated / incomplete</option>
+        <label class="st-filter">History<select id="st-history-filter"><option value="best">Best times</option><option value="all">All attempts</option>
+          <option value="improvements">Improvements / lead changes</option><option value="flagged">Not counted as a best</option>
         </select></label></div>
       <div class="st-context-body"><div class="st-scroll"><table class="st-history" aria-label="Attempt history">
         <thead><tr><th scope="col">Lap / progress</th><th scope="col">Driver · car</th><th scope="col">Recorded at</th><th scope="col">A / B</th></tr></thead>
-        <tbody id="st-history"></tbody></table></div>
+        <tbody id="st-history"></tbody></table>
+        <button id="st-more" class="st-more" type="button" hidden></button></div>
         <aside class="st-inspector" id="st-inspector" aria-label="Route and selected laps"></aside>
       </div>
+      <div id="st-more-bests" class="st-more-bests" hidden></div>
     </section>
     <details><summary>About recorded times</summary><p>Local recorded bests and time differences are exploratory.
       Shared route fingerprints and car classes do not prove equivalent events. Official validity, game mode,
-      timing and capture quality remain unverified. Flags and estimates remain visible and do not enter bests.</p>
+      timing and capture quality remain unverified.</p>
+      <p>A lap counts as a best when it has no rewind and no contact and is not excluded.
+      The game does not send its own verdict, so this is SplitTime’s reading of the telemetry. “est.” marks a time taken
+      from the last packet because the game stopped sending at the finish line; such a run counts only if it covered the whole route. Other laps stay available under
+      “Show other laps”.</p>
       <p>“Recorded at” is the captured finish timestamp, shown in your browser’s time zone. If missing, the lap start is labelled
       explicitly and record chronology is not inferred. Route outlines come from captured geometry, rather than a map of the world.</p>
     </details>

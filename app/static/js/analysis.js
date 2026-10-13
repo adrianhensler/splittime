@@ -398,6 +398,11 @@ const MERGE_HINT_MIN_SESSIONS = 5;
 function renderMergeHint() {
   const host = $("#merge-hint");
   if (!host) return;
+  // Sittings are grouped by the recorder now (store.py AUTO_GROUP_GAP_S), so
+  // there is nothing left to ask. What remains ungrouped is what a person
+  // split by hand; "Merge runs" on a session still does it manually.
+  host.style.display = "none";
+  return;
   const all = mergeSuggestions();
   const worthAsking = all.length >= MERGE_HINT_MIN_SITTINGS
     || state.allSessions.length >= MERGE_HINT_MIN_SESSIONS;

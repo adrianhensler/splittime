@@ -128,6 +128,10 @@ MIGRATIONS = (
     # SplitTime: attribute sessions independently of the source address.
     "ALTER TABLE sessions ADD COLUMN driver_id TEXT NOT NULL DEFAULT 'legacy'",
     "ALTER TABLE sessions ADD COLUMN source_addr TEXT",
+    # automatic run groups (see AUTO_GROUP_GAP_S below): which groups the
+    # recorder made, and which sessions a person took out of a group
+    "ALTER TABLE session_groups ADD COLUMN auto INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE sessions ADD COLUMN no_auto_group INTEGER NOT NULL DEFAULT 0",
 )
 
 # Merged runs. A point-to-point route can only be attempted by restarting the
@@ -142,6 +146,18 @@ MIGRATIONS = (
 # a reprocess can legitimately re-fingerprint a session onto another route,
 # and refusing to *read* a group the user can no longer repair would be worse
 # than reporting it as mixed.
+
+# Automatic groups (owner decision, 2026-10-13). Restarting an event makes a
+# new session, so one sitting at one route used to arrive as a pile of cards
+# the user was asked to merge by hand. The recorder now groups them itself by
+# the rule the Analysis page used for its suggestions: same driver, route and
+# car, each attempt within AUTO_GROUP_GAP_S of the one before. Measured over a
+# real database every such gap was under 19 minutes and the next one up was 22
+# hours, so anywhere in that gulf gives the same groups.
+#
+# A person's decision outranks it: a session taken out of a group, or left
+# over when a group is ungrouped, is marked `no_auto_group` and never regrouped.
+AUTO_GROUP_GAP_S = 2 * 3600
 
 # Route shape. A Horizon sprint is point-to-point: one visit produces exactly
 # one timed run, so calling it a "lap" is wrong everywhere in the UI. The
@@ -906,6 +922,57 @@ class Store:
             conn.commit()
         return gid
 
+    def auto_group(self, gap_s: float = AUTO_GROUP_GAP_S) -> int:
+        """Group sittings: finished sessions with at least one timed lap, same
+        driver, route and car, each starting within `gap_s` of the previous
+        one. Idempotent - run at startup (which also covers sessions recorded
+        before this existed) and whenever a session closes. A sitting that
+        already holds a group grows it; nothing is ever moved between groups.
+        Returns how many sessions were newly grouped."""
+        if self._in_transaction:
+            # a reprocess replays a session inside one write transaction; a
+            # second connection would only wait on that lock. The next close
+            # or startup picks the sitting up.
+            return 0
+        with self.reader() as conn:
+            rows = conn.execute(
+                "SELECT s.id, s.driver_id, s.route_id, s.car_ordinal,"
+                " s.started_at, s.group_id FROM sessions s"
+                " WHERE s.ended_at IS NOT NULL AND s.route_id IS NOT NULL"
+                " AND s.car_ordinal IS NOT NULL AND s.no_auto_group = 0"
+                " AND EXISTS (SELECT 1 FROM laps l WHERE l.session_id = s.id"
+                "             AND l.lap_time IS NOT NULL)"
+                " ORDER BY s.driver_id, s.route_id, s.car_ordinal, s.started_at"
+            ).fetchall()
+            sittings: list[list] = []
+            for row in rows:
+                last = sittings[-1][-1] if sittings else None
+                if (last is not None and tuple(last)[1:4] == tuple(row)[1:4]
+                        and row["started_at"] - last["started_at"] <= gap_s):
+                    sittings[-1].append(row)
+                else:
+                    sittings.append([row])
+            grouped = 0
+            for sitting in sittings:
+                loose = [r["id"] for r in sitting if r["group_id"] is None]
+                if len(sitting) < 2 or not loose:
+                    continue
+                gid = next((r["group_id"] for r in sitting
+                            if r["group_id"] is not None), None)
+                if gid is None:
+                    gid = conn.execute(
+                        "INSERT INTO session_groups"
+                        " (name, route_id, car_ordinal, created_at, auto)"
+                        " VALUES (NULL, ?, ?, ?, 1)",
+                        (sitting[0]["route_id"], sitting[0]["car_ordinal"],
+                         time.time())).lastrowid
+                conn.executemany(
+                    "UPDATE sessions SET group_id = ? WHERE id = ?"
+                    " AND group_id IS NULL", [(gid, sid) for sid in loose])
+                grouped += len(loose)
+            conn.commit()
+        return grouped
+
     def get_group(self, group_id: int) -> dict | None:
         with self.reader() as conn:
             row = conn.execute("SELECT * FROM session_groups WHERE id = ?",
@@ -958,7 +1025,7 @@ class Store:
         (issue #63)."""
         with self.reader() as conn:
             cur = conn.execute(
-                "UPDATE sessions SET group_id = NULL"
+                "UPDATE sessions SET group_id = NULL, no_auto_group = 1"
                 " WHERE id = ? AND group_id = ?", (session_id, group_id))
             conn.commit()
         return cur.rowcount > 0
@@ -969,8 +1036,8 @@ class Store:
         keys, so an ON DELETE SET NULL here would silently leave dangling
         group_ids behind."""
         with self.reader() as conn:
-            conn.execute("UPDATE sessions SET group_id = NULL WHERE group_id = ?",
-                         (group_id,))
+            conn.execute("UPDATE sessions SET group_id = NULL, no_auto_group = 1"
+                         " WHERE group_id = ?", (group_id,))
             conn.execute("DELETE FROM session_groups WHERE id = ?", (group_id,))
             conn.commit()
 
