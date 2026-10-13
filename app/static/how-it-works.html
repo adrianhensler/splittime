@@ -12,7 +12,14 @@
   </header>
   <main class="st-doc">
     <div class="st-top"><div><h1>How it works</h1>
-      <div class="st-sub">The recorder, the rules and the known faults · as of 2026-10-13</div></div></div>
+      <div class="st-sub">The recorder, the rules and the known faults · as of 2026-10-13</div></div>
+      <svg class="st-race" viewBox="0 0 224 80" aria-hidden="true" focusable="false">
+        <path class="st-race-road" d="M30 62 C12 62 8 30 28 20 C48 10 78 14 96 26 C108 34 116 34 128 26 C146 14 176 8 196 18 C220 30 218 62 196 66 C172 70 150 58 128 58 C100 58 62 62 30 62 Z"/>
+        <path class="st-race-line" d="M30 62 C12 62 8 30 28 20 C48 10 78 14 96 26 C108 34 116 34 128 26 C146 14 176 8 196 18 C220 30 218 62 196 66 C172 70 150 58 128 58 C100 58 62 62 30 62 Z"/>
+        <g class="st-car st-car-a"><rect x="-5" y="-5" width="10" height="4.4" rx="1.6"/><rect class="st-car-glass" x="0.5" y="-4.3" width="2.4" height="3" rx=".8"/></g>
+        <g class="st-car st-car-b"><rect x="-5" y="0.6" width="10" height="4.4" rx="1.6"/><rect class="st-car-glass" x="0.5" y="1.3" width="2.4" height="3" rx=".8"/></g>
+      </svg>
+    </div>
 
     <p class="st-lede">SplitTime records the telemetry Forza Horizon 6 sends while you drive, works out
       where each lap or run starts and ends, and compares drivers' best times. The game sends
@@ -35,6 +42,7 @@
       <a href="#faults">12. Where it fails</a>
       <a href="#fixes">13. What might be fixed</a>
       <a href="#numbers">14. Thresholds</a>
+      <a href="#thanks">15. Thanks</a>
     </nav>
 
     <h2 id="pieces">1. The pieces</h2>
@@ -289,6 +297,19 @@
     <p class="st-quiet">Lap and finish detection: <code>app/recorder/laps.py</code>. Storage, routes and sittings:
       <code>app/recorder/store.py</code>. Best-lap rule: <code>app/rivalry.py</code>. Catalogue: <code>app/tracks.py</code>.
       Event-type guess: <code>app/eventtype.py</code>.</p>
+
+    <h2 id="thanks">15. Thanks</h2>
+    <p>SplitTime is built on <a href="https://github.com/darcane/LapScope" rel="noopener">LapScope</a> by
+      <a href="https://github.com/darcane" rel="noopener">Erdem Darcan</a>. The packet parser, the recorder,
+      the lap and finish detection described above, the route fingerprint, the track catalogue and the Live
+      and Analysis pages are his work, tuned against a great many real captures. SplitTime adds a second
+      driver, the Rivalry, Stats and Replay pages and the rules for comparing drivers. Thank you, Erdem.
+      He announced LapScope in
+      <a href="https://www.reddit.com/r/ForzaHorizon/comments/1v3vn9l/i_built_a_free_opensource_telemetry_dashboard_lap/" rel="noopener">this post on r/ForzaHorizon</a>.</p>
+    <p>Corner detection is adapted from
+      <a href="https://github.com/ClickClickMedia/Forza-6-telemetry" rel="noopener">Forza-6-telemetry</a> by
+      ClickClickMedia. Both projects are MIT-licensed. The faults listed on this page are about SplitTime as
+      it runs here; several come from event types LapScope had not yet seen.</p>
   </main>
 </div></body>
 </html>
