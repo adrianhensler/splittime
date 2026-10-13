@@ -3,7 +3,10 @@
   const M = globalThis.RivalryModel, R = globalThis.ReplayModel, $ = id => document.getElementById(id);
   const esc = value => String(value ?? "").replace(/[&<>"']/g, char =>
     ({"&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"}[char]));
-  const CHANNELS = "pos_x,pos_y,pos_z,speed_kmh,gear,throttle,brake";
+  const CHANNELS = "pos_x,pos_y,pos_z,speed_kmh,gear,throttle,brake,lap_time";
+  const EST = "The game stopped sending data at the finish line, so this time is SplitTime’s last clock reading.";
+  const est = car => car.estimated ? ` <abbr class="st-est" title="${EST}">est.</abbr>` : "";
+  const CAVEAT = "Recorded laps, driven at different times. Places and gaps are exploratory: a shared route does not prove the same direction, checkpoints or timing.";
   const state = {cars:[], time:0, playing:false, speed:1, mode:"top", follow:0, duration:0,
     view:null, box:null, last:null, categories:[]};
   const canvas = $("rp-canvas"), ctx = canvas.getContext("2d");
@@ -127,8 +130,8 @@
   function side(rows) {
     $("rp-side").innerHTML = rows.map(({car,state:s,place,gap}) => `<div class="rp-car">
       <div class="rp-car-head"><strong><span class="rp-dot" style="background:${car.color}"></span>${place}. ${esc(car.meta.driver_name || `Lap ${car.id}`)}</strong>
-        <span class="st-time">${place === 1 ? (s.finished ? M.time(car.duration) : "Leader") : `+${gap.toFixed(3)} s`}</span></div>
-      <div class="st-quiet">${esc(car.meta.car_name || "")}${car.meta.car_pi ? ` · PI ${esc(car.meta.car_pi)}` : ""} · ${M.time(car.duration)}${s.finished ? " · finished" : ""}</div>
+        <span class="st-time">${place === 1 ? (s.finished ? M.time(car.duration) : "Ahead") : `+${gap.toFixed(3)} s`}</span></div>
+      <div class="st-quiet">${esc(car.meta.car_name || "")}${car.meta.car_pi ? ` · PI ${esc(car.meta.car_pi)}` : ""} · ${M.time(car.duration)}${est(car)}${s.finished ? (car.estimated ? " · finished (estimated)" : " · finished") : ""}</div>
       <div class="rp-nums"><span><b>${Math.round(s.speed)}</b><span class="st-quiet">km/h</span></span>
         <span><b>${gear(s.gear)}</b><span class="st-quiet">gear</span></span>
         <span><b>${Math.round(100 * Math.min(1, s.dist / (car.mono[car.mono.length-1] || 1)))}%</b><span class="st-quiet">of route</span></span></div>
@@ -169,10 +172,10 @@
     state.box = R.bounds(state.cars);
     const first = state.cars[0].meta, routes = new Set(state.cars.map(c => c.meta.route_name));
     $("rp-label").textContent = `${[...routes].filter(Boolean).join(" / ") || "Recorded laps"} · ${state.cars.length} laps`;
-    $("rp-follow").innerHTML = state.cars.map((c,i) => `<option value="${i}">${esc(c.meta.driver_name || `Lap ${c.id}`)} · ${M.time(c.duration)}</option>`).join("");
+    $("rp-follow").innerHTML = state.cars.map((c,i) => `<option value="${i}">${esc(c.meta.driver_name || `Lap ${c.id}`)} · ${M.time(c.duration)}${c.estimated ? " est." : ""}</option>`).join("");
     $("rp-picker").hidden = true; $("rp-stage").hidden = false; $("rp-share").hidden = false;
-    say(routes.size > 1 ? "These laps are on different routes, so the gaps mean little." :
-      `${first.route_name || "Route"} · press Play. Every lap starts together.`);
+    say(routes.size > 1 ? `These laps are on different routes, so the places and gaps mean little. ${CAVEAT}` :
+      `${first.route_name || "Route"} · press Play. ${CAVEAT}`);
     resize(); setMode("top");
   }
 
