@@ -126,10 +126,10 @@
       rungs 4 to 6 only when the stream has stopped.</p>
     <figure class="st-ladder">
       <div class="st-rung"><div class="st-if"><b>LastLap changed, LapNumber did not</b><span>the game posted a time at the line</span></div><div class="st-yes"></div><div class="st-box"><b>Lap closed with the game's time</b><span>finish: confirmed</span></div></div>
-      <div class="st-rung"><div class="st-if"><b>Odometer hard-reset to near zero</b><span>was above 500, now under 200, fell by more than 1000 in one frame, car did not teleport, LapNumber never rose, and the car was gridded or launched</span></div><div class="st-yes"></div><div class="st-box"><b>Run closed at the previous packet</b><span>time = that packet's race clock − clock at launch. finish: confirmed</span></div></div>
-      <div class="st-rung"><div class="st-if"><b>Race clock frozen for 1.5 s</b><span>after it has passed 5 s, while IsRaceOn is still 1</span></div><div class="st-yes"></div><div class="st-box"><b>Marked finished</b><span>the run is timed frozen clock − launch when the session ends. Undone if the clock resumes and the car drives 500 units further</span></div></div>
+      <div class="st-rung"><div class="st-if"><b>Odometer hard-reset to near zero</b><span>was above 500, now under 200, fell by more than 1000 in one frame, car did not teleport, LapNumber never rose, and the car was gridded or launched. A gridded run must also have covered the full route (5861 units)</span></div><div class="st-yes"></div><div class="st-box"><b>Run closed at the previous packet</b><span>time = that packet's race clock − clock at launch. finish: confirmed</span></div></div>
+      <div class="st-rung"><div class="st-if"><b>Race clock frozen for 1.5 s</b><span>after it has passed 5 s, while IsRaceOn is still 1</span></div><div class="st-yes"></div><div class="st-box"><b>Marked finished</b><span>the run is timed frozen clock − launch when the session ends. Undone if the clock resumes and the car drives 500 units further. A gridded run must have covered the full route when the clock froze</span></div></div>
       <div class="st-rung"><div class="st-if"><b>Stream ended inside a geometric crossing</b><span>see section 6</span></div><div class="st-yes"></div><div class="st-box"><b>Lap closed at the closest approach</b><span>flag: cutoff</span></div></div>
-      <div class="st-rung"><div class="st-if"><b>Stream ended on a gridded run</b><span>launched, LapNumber never rose, more than 500 units covered, last speed above 5 m/s, run longer than 10 s</span></div><div class="st-yes"></div><div class="st-box"><b>Run timed to the last packet</b><span>last race clock − clock at launch. flag: cutoff</span></div></div>
+      <div class="st-rung"><div class="st-if"><b>Stream ended on a gridded run</b><span>launched, LapNumber never rose, the full route covered (5861 units), last speed above 5 m/s, run longer than 10 s</span></div><div class="st-yes"></div><div class="st-box"><b>Run timed to the last packet</b><span>last race clock − clock at launch. flag: cutoff</span></div></div>
       <div class="st-rung"><div class="st-if"><b>Stream ended on a circuit's open lap</b><span>the lap covered at least 97% of this session's typical lap</span></div><div class="st-yes"></div><div class="st-box"><b>Final lap recovered</b><span>lap clock + remaining distance ÷ last speed (2 s at most)</span></div></div>
       <figcaption>Finish detection. Rungs 1 to 3 are separate signals and whichever arrives first closes the run; rungs 4 to 6 are tried in order at the end. If nothing matches, the open lap is stored without a time, and a session with no timed lap is deleted.</figcaption>
     </figure>
@@ -176,7 +176,7 @@
     </figure>
     <p>Because the odometer is normalised to about 5950 on every course, the length test separates
       nothing among <em>completed</em> runs. Start position and span do the work. The length test
-      matters in one case only: a run that stopped short, which is fault F3.</p>
+      matters in one case only: a run that stopped short. Such a run is no longer timed (faults F3 and F4), so it no longer reaches this step.</p>
 
     <h2 id="sittings">9. Sittings</h2>
     <p>Restarting an event creates a new session, so an evening on one sprint arrives as many
@@ -192,7 +192,7 @@
       <div class="st-rung"><div class="st-if"><b>Flagged rewind or contact</b><span>or any flag other than cutoff</span></div><div class="st-yes"></div><div class="st-box st-bad"><b>Not a best</b></div></div>
       <div class="st-rung"><div class="st-if"><b>Flagged cutoff and not shown to have covered 5861 units</b><span>98.5% of 5950, read from the lap's last packet. If that packet cannot be read, the distance is unproven and the time does not count</span></div><div class="st-yes"></div><div class="st-box st-bad"><b>Not a best</b><span>route not completed</span></div></div>
       <div class="st-rung"><div class="st-if"><b>Anything else</b></div><div class="st-yes"></div><div class="st-box st-key"><b>Candidate</b><span>fastest candidate per driver, per route and car class, is the headline best. Per-car and route-overall bests are listed beneath</span></div></div>
-      <figcaption>The best-lap rule (<code>app/rivalry.py</code>). The full-route test applies only to cutoff times; a time with a finish signal is assumed to be a finished run. Fault F4 is a case where that assumption is false.</figcaption>
+      <figcaption>The best-lap rule (<code>app/rivalry.py</code>). The full-route test applies only to cutoff times; a time with a finish signal is assumed to be a finished run. Fault F4 was a case where that assumption was false.</figcaption>
     </figure>
     <p>This is the closest available match to the game's Rivals rule. The game's own verdict is not in
       the packet, and leaving the track is not detected at all.</p>
@@ -217,8 +217,8 @@
       <tbody>
         <tr><td>F1</td><td>A complete run is deleted</td><td>A 155 s gridded sprint, odometer +5952, discarded with no timed lap</td><td>The race clock paused at 8.6 s before the run. Rung 3 latched "finished", which made the run time under 10 s and switched rung 5 off</td><td><span class="st-tag st-fixed">fixed</span> The latch is undone when the clock resumes. A run already deleted cannot be recovered</td></tr>
         <tr><td>F2</td><td>One circuit becomes two routes</td><td>The same circuit stored with length 5945 on one row and 6275 on another</td><td>A geometric lap is closed only after the car leaves the 60 m circle, and the trace past the line was counted in the lap's length. 6275 is outside the 5% tolerance</td><td><span class="st-tag st-fixed">fixed</span> The trace is cut at the crossing</td></tr>
-        <tr><td>F3</td><td>An abandoned run gets a time and its own route</td><td>A gridded sprint that stopped at odometer 4080 (69%) while rolling at 22 km/h, shown as an unnamed route</td><td>Rung 5 treats "gridded, over 500 units, still moving faster than 5 m/s" as a finish at the line. A driver quitting while rolling meets all of it. The short length then fails the 5% test, so a new route is created</td><td><span class="st-tag st-open">open</span></td></tr>
-        <tr><td>F4</td><td>An abandoned run gets a <em>confirmed</em> time</td><td>The stream paused 5.5 s at odometer 2483 (42%) with the car at 1.3 m/s, then the odometer read 0 with the car in the same place. Also shown as an unnamed route</td><td>Rung 2 calls any hard reset of the odometer a finish. It checks that the car did not teleport, not that it reached the end. Because the time is "confirmed", the full-route test in section 10 is skipped; only a rewind or contact flag would keep it from being a best</td><td><span class="st-tag st-open">open</span></td></tr>
+        <tr><td>F3</td><td>An abandoned run got a time and its own route</td><td>A gridded sprint that stopped at odometer 4080 (69%) while rolling at 22 km/h, shown as an unnamed route</td><td>Rung 5 treated "gridded, over 500 units, still moving faster than 5 m/s" as a finish at the line. A driver quitting while rolling met all of it. The short length then failed the 5% test, so a new route was created</td><td><span class="st-tag st-fixed">fixed</span> Rung 5 now needs the full route</td></tr>
+        <tr><td>F4</td><td>An abandoned run got a <em>confirmed</em> time</td><td>The stream paused 5.5 s at odometer 2483 (42%) with the car at 1.3 m/s, then the odometer read 0 with the car in the same place. Also shown as an unnamed route</td><td>Rung 2 called any hard reset of the odometer a finish. It checked that the car did not teleport, not that it reached the end. Because the time was "confirmed", the full-route test in section 10 was skipped</td><td><span class="st-tag st-fixed">fixed</span> For gridded runs, rung 2 now needs the full route. Runs with no lap clock (section 6) are unchanged</td></tr>
         <tr><td>F5</td><td>Sprint and drag times are probably short</td><td>A drag run recorded as 14.449 s while the game's own <code>CurrentLap</code> field reads 16.7 s in the last packet. A sprint recorded as 2:52.7 against about 2:55.1 on the game clock</td><td>The clock is started when the odometer reaches 1.0, which on these events is the start line, not the grid (section 5). The gap is the time from the grid to the line</td><td><span class="st-tag st-open">open</span> Not yet checked against a result screen</td></tr>
         <tr><td>F6</td><td>A real course has no name</td><td>Complete runs on a dead-straight 1 km strip, about 14.4 s each, shown as an unnamed route</td><td>The catalogue lists 77 courses and that strip is not among them</td><td><span class="st-tag st-open">open</span> Needs the in-game name</td></tr>
         <tr><td>F7</td><td>Sessions are deleted for reasons nobody can reconstruct</td><td>Sessions of 125 s and 184 s, not gridded, lap clock dead, discarded</td><td>Unknown, because a discarded session's packets are deleted with it. Possibly drift zones, which the recorder has never seen. The "keep discarded" setting exists to capture such a session once</td><td><span class="st-tag st-open">open</span></td></tr>
@@ -227,13 +227,13 @@
         <tr><td>F10</td><td>Shared replay links can break</td><td>After a reprocess, a session's five laps had new ids</td><td>A reprocess deletes and recreates lap rows. Replay and compare links carry lap ids</td><td><span class="st-tag st-open">open</span></td></tr>
         <tr><td>F11</td><td>Packets can be forged</td><td>None seen</td><td>UDP has no login. Whoever sends to a driver's port is that driver</td><td><span class="st-tag">accepted</span></td></tr>
       </tbody></table></div>
-    <h3>How F3 and F4 produce a fake route</h3>
+    <h3>How F3 and F4 produced a fake route</h3>
     <figure class="st-flow">
       <div class="st-box"><b>Driver starts a sprint from the grid</b><span>odometer −70.8, race position 8</span></div>
       <div class="st-arrow">drives part of the route, then stops or quits</div>
       <div class="st-split">
-        <div><div class="st-box st-bad"><b>Stream stops while rolling</b><span>rung 5 fires: timed to the last packet, flag cutoff</span></div></div>
-        <div><div class="st-box st-bad"><b>Odometer resets mid-route</b><span>rung 2 fires: timed as a confirmed finish</span></div></div>
+        <div><div class="st-box st-bad"><b>Stream stops while rolling</b><span>rung 5 fired: timed to the last packet, flag cutoff</span></div></div>
+        <div><div class="st-box st-bad"><b>Odometer resets mid-route</b><span>rung 2 fired: timed as a confirmed finish</span></div></div>
       </div>
       <div class="st-arrow">the run has a time, so it is fingerprinted</div>
       <div class="st-box"><b>Length 2483 or 4080 against the real course's 5950</b><span>no route within 5%; no catalogue entry within 5%</span></div>
@@ -243,16 +243,13 @@
 
     <h2 id="fixes">13. What might be fixed</h2>
     <ol>
-      <li><b>Require the distance before calling it a finish (F3, F4).</b> In rungs 2 and 5, accept a
-        sprint finish only when the odometer has reached the full-route reading (about 5950, with the
-        same 98.5% margin the best-lap rule uses). A short run would be stored as an incomplete
-        attempt with no time and no route. Risk: the 5950 figure is measured, not documented. It held
-        on every completed lap in the first two-driver database (5934 to 5960) and across the upstream
-        project's captures, but multi-lap time attack runs read about 18000 at the reset and must keep working,
-        so the test has to be "at least one full route", not "exactly one".</li>
-      <li><b>Never create a route from an unfinished or last-packet run (F3, F4).</b> Independent of
-        fix 1: a cutoff run may join an existing route but should not mint a new one. That alone
-        would have prevented both fake routes.</li>
+      <li><b>Done: require the distance before calling it a finish (F3, F4).</b> A gridded run is
+        timed only when the odometer has reached the full-route reading (98.5% of 5950), in rungs 2,
+        3 and 5. A run that stops short keeps its packets but gets no time and no route, and a
+        session with no timed run is discarded like any abandoned event. Old recordings change only
+        when they are reprocessed. Still open: the 5950 figure is measured, not documented, and the
+        test is not applied to events with no lap clock, whose odometer at a finish has not been
+        measured.</li>
       <li><b>Settle the clock origin (F5).</b> Compare one result-screen time with the recording. If the
         game counts from the grid, time runs from the first packet where the race clock moves (or
         speed leaves zero) and reprocess the sprints. The replay's alignment follows the same clock.</li>
@@ -291,7 +288,7 @@
         <tr><td><code>ROUTE_START_RADIUS_M</code></td><td class="st-num">120 m</td><td>Route match: start position</td></tr>
         <tr><td><code>ROUTE_LENGTH_TOLERANCE</code></td><td class="st-num">5%</td><td>Route match: odometer length</td></tr>
         <tr><td><code>ROUTE_SPAN_TOLERANCE</code></td><td class="st-num">15%</td><td>Route match: width and depth covered (50 m floor)</td></tr>
-        <tr><td><code>FULL_ROUTE_UNITS</code></td><td class="st-num">5950</td><td>Odometer reading at the end of any completed route; a cutoff time needs 98.5% of it</td></tr>
+        <tr><td><code>FULL_ROUTE_UNITS</code></td><td class="st-num">5950</td><td>Odometer reading at the end of any completed route; a gridded run, and any cutoff time, needs 98.5% of it</td></tr>
         <tr><td><code>AUTO_GROUP_GAP_S</code></td><td class="st-num">2 h</td><td>Longest gap between attempts in one sitting</td></tr>
       </tbody></table></div>
     <p class="st-quiet">Lap and finish detection: <code>app/recorder/laps.py</code>. Storage, routes and sittings:

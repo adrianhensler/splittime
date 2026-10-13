@@ -37,19 +37,22 @@ otherwise be lost. Five finish signals fix that:
 - CurrentRaceTime freezing for a while during IsRaceOn == 1 = an alternative
   finish-cinematic signal (kept as a fallback): the session is marked
   finished and a never-counted-a-lap run is completed with the frozen clock.
+  The same full-route test applies to a gridded race.
 - Telemetry stopping dead at the line: circuit races cut Data Out the
   instant the race ends (verified on real captures - the last frame lands
   within meters of the finish), so no signal above ever arrives. At session
   end, an open lap that covered a full lap's distance (compared to the
   session's completed laps) is the final lap; it is completed with the lap
   clock's last reading plus the remaining meters at the last speed.
+  Gridded races must also have covered the whole route (FULL_ROUTE_MIN): a
+  race abandoned partway resets the odometer the same way.
 - The same cutoff on a gridded *point-to-point race* with no completed laps
   to compare against. Some point-to-point events end this way instead of the
   odometer-reset handback above - a real touge cut Data Out dead at the line
   at speed (RacePosition 1, IsRaceOn still 1, no reset, no freeze). Recovered
   when gridded (RacePosition > 0 - never true in free roam), launched from a
   DistanceTraveled reset, LapNumber never incremented (not a circuit that
-  completed laps), real distance covered, and still at speed when the stream
+  completed laps), the whole route covered, and still at speed when the stream
   stopped -> a run timed launch-to-line. Works whether or not CurrentLap runs
   (a touge counts it, a bare sprint doesn't). A circuit race quit during lap
   one, or the game closed mid-run, looks identical, so these laps carry a
@@ -181,6 +184,15 @@ WTA_TELEPORT_JUMP = 250.0     # single-frame position jump = fast travel (free r
                               # not an event - you never teleport mid-run)
 POINT_FINISH_DIST = 200.0     # DistanceTraveled must land this close to 0 for a
                               # reset to count as a point-to-point finish
+
+# DistanceTraveled is normalised per route in FH6: it reads ~5950 at the end
+# of every completed lap or run whatever the true length (store.py, route
+# fingerprint note). Over every lap in the first real two-driver database a
+# full lap or run covered 5934-5960. Two gridded sprints abandoned partway
+# (2026-10-13, 2483 and 4080) were both timed as finished runs, and each made
+# a route of its own: see _went_the_distance.
+FULL_ROUTE_UNITS = 5950.0
+FULL_ROUTE_MIN = 0.985 * FULL_ROUTE_UNITS
 
 # Track-type auto-suggestion: thresholds calibrated on the stored real
 # captures (2026-07-12 sweep, same dump/hand-label method as the landing
@@ -761,12 +773,30 @@ class SessionTracker:
         events don't qualify - no finish was seen."""
         if (self._completed_laps == 0 and self._event_finished
                 and self._first_rt is not None and self._first_rt < 5.0
-                and self._finish_rt is not None):
+                and self._finish_rt is not None
+                # a gridded race whose clock froze partway round was given up
+                # too (see _went_the_distance). Measured where the clock froze:
+                # the handback may have reset the odometer since.
+                and not (self._gridded and self._freeze_finish_dist is not None
+                         and self._freeze_finish_dist - self._lap_start_dist
+                         < FULL_ROUTE_MIN)):
             run = self._finish_rt - (self._launch_rt if self._launch_rt is not None
                                      else (self._lap_open_rt or 0.0))
             if run > PTP_MIN_RUN_TIME:
                 return run
         return None
+
+    def _went_the_distance(self) -> bool:
+        """Did the open run cover the whole route? A gridded point-to-point
+        race is only finished at the far end. Two real captures (2026-10-13)
+        were not: one stopped rolling at 22 km/h with 4080 on the odometer and
+        the stream cut, which met every test of the cutoff recovery; the other
+        sat at 1.3 m/s with 2483 when the stream gapped 5.5 s and came back
+        with the odometer at 0 and the car where it was, which read as the
+        finish handback. Both got a run time, and their short lengths matched
+        no route, so each became an unnamed route."""
+        return (self._prev_dist is not None
+                and self._prev_dist - self._lap_start_dist >= FULL_ROUTE_MIN)
 
     def _finish_ptp_run(self, t: float, run_time: float) -> None:
         """Complete the single run of a point-to-point event at its finish,
@@ -811,7 +841,8 @@ class SessionTracker:
                 and self._prev_race_time is not None
                 and self._prev_speed > 5.0
                 and self._prev_dist is not None
-                and self._prev_dist - self._lap_start_dist > WTA_MIN_LAP_DIST):
+                and self._prev_dist - self._lap_start_dist > WTA_MIN_LAP_DIST
+                and self._went_the_distance()):
             run = self._prev_race_time - self._launch_rt
             if run > PTP_MIN_RUN_TIME:
                 return run
@@ -886,13 +917,24 @@ class SessionTracker:
         moved = (math.hypot(frame["pos_x"] - self._prev_pos[0],
                             frame["pos_z"] - self._prev_pos[1])
                  if self._prev_pos is not None else 0.0)
-        if (self._diag_max_ln == 0 and self._prev_dist is not None
-                and rt > FINISH_MIN_RT and self._prev_dist > WTA_MIN_LAP_DIST
-                and dist < POINT_FINISH_DIST
-                and dist < self._prev_dist - WTA_DIST_COLLAPSE
-                and moved < WTA_TELEPORT_JUMP
-                and (self._gridded
-                     or (self._lap_fields_dead and self._wta_anchor is not None))):
+        odo_reset = (self._diag_max_ln == 0 and self._prev_dist is not None
+                     and rt > FINISH_MIN_RT and self._prev_dist > WTA_MIN_LAP_DIST
+                     and dist < POINT_FINISH_DIST
+                     and dist < self._prev_dist - WTA_DIST_COLLAPSE
+                     and moved < WTA_TELEPORT_JUMP
+                     and (self._gridded
+                          or (self._lap_fields_dead and self._wta_anchor is not None)))
+        if (odo_reset and self._gridded and self._completed_laps == 0
+                and not self._event_finished and not self._went_the_distance()):
+            # a gridded race whose odometer resets partway round was given up,
+            # not finished (see _went_the_distance); the lap stays open and
+            # untimed. Geometric (WTA) runs are left as they were: no capture
+            # shows their odometer at a single run's finish.
+            log.info("Session %d: DistanceTraveled reset (%.0f -> %.0f) short of"
+                     " the full route - not a finish", self.session_id,
+                     self._prev_dist, dist)
+            odo_reset = False
+        if odo_reset:
             finished_now = not self._event_finished
             if finished_now:
                 self._event_finished = True

@@ -30,6 +30,7 @@ from app.telemetry.packet import empty_fields, pack  # noqa: E402
 STRAIGHT = 600.0
 RADIUS = 120.0
 PERIMETER = 2 * STRAIGHT + 2 * math.pi * RADIUS
+ROUTE_ODOMETER = 5950.0   # what FH6's odometer reads at a point-to-point finish
 
 V_STRAIGHT = 75.0     # m/s target on straights (~270 km/h)
 GRIP_LAT = 12.0       # m/s^2 usable lateral acceleration
@@ -120,6 +121,19 @@ class Sim:
         self.t0 = time.monotonic()
 
     open_course = False   # sprint mode: winding road instead of the loop
+    odo_scale = 1.0       # sprint mode: see _normalise_odometer
+
+    def _normalise_odometer(self, ticks: int) -> None:
+        """FH6 normalises DistanceTraveled per route: it reads ~5950 at the
+        finish of every point-to-point run whatever the real length (verified
+        on real captures). Dry-run the physics for the run's `ticks` frames
+        to learn its length, then scale the odometer to match."""
+        keep = (self.s, self.v, self.total_dist, self.lon_a)
+        for _ in range(ticks):
+            self._pace_tick()
+        length = self.total_dist
+        self.s, self.v, self.total_dist, self.lon_a = keep
+        self.odo_scale = ROUTE_ODOMETER / length if length > 0 else 1.0
 
     def _curv(self, s: float) -> float:
         return abs(sprint_curv(s)) if self.open_course else track_point(s)[3]
@@ -243,7 +257,7 @@ class Sim:
             speed=self.v, power=torque * rpm * math.tau / 60, torque=torque,
             tire_temp=[160 + 90 * slip + random.uniform(-3, 3) for _ in range(4)],
             boost=throttle / 255 * 14.0,
-            distance_traveled=self.total_dist,
+            distance_traveled=self.total_dist * self.odo_scale,
             best_lap=best, last_lap=last, current_lap=cur_lap,
             current_race_time=race_time, lap_number=lap_no,
             accel=throttle, brake=brake,
@@ -309,6 +323,7 @@ class Sim:
         """
         print(f"{label}: ~{seconds:.0f}s of timed laps (lap ~{PERIMETER:.0f} m)")
         self.s = 0.0  # events grid you at the start line
+        self.odo_scale = 1.0
         self.total_dist = 0.0        # events reset the odometer (real captures)
         self.f["race_position"] = random.randint(1, 8)  # gridded from frame one
         self.pace = random.uniform(0.97, 1.0)
@@ -375,6 +390,7 @@ class Sim:
         self.open_course = True
         self._oc_x, self._oc_z, self._oc_s = -STRAIGHT / 2, -RADIUS, 0.0
         self.pace = random.uniform(0.97, 1.0)
+        self._normalise_odometer(math.ceil(seconds / self.dt))
         t = 0.0
         while t < seconds:
             self._pace_tick()
@@ -404,6 +420,7 @@ class Sim:
             self._send_parked(t, -5000.0, -4000.0)
         # teleport to the grid, hold with the distance counter pinned at 0
         self.s, self.v, self.total_dist = 0.0, 0.0, 0.0
+        self.odo_scale = 1.0
         gx, _, _, _ = track_point(0.0)
         for _ in range(int(5.0 / self.dt)):
             t += self.dt
@@ -472,7 +489,8 @@ class Sim:
             time.sleep(lag)
 
     def dirt_sprint(self, seconds: float, cut: bool = False,
-                    grid_freeze: float = 0.0) -> None:
+                    grid_freeze: float = 0.0,
+                    quit_after: float | None = None) -> None:
         """Real point-to-point race, modeled on verified FH6 captures. Unlike
         --sprint (all lap fields dead), the running lap clock CurrentLap
         counts the whole way while LapNumber, LastLap and BestLap stay 0; the
@@ -485,7 +503,9 @@ class Sim:
         speed (touge, 2026-07-04) - no reset, no freeze, no handback.
         grid_freeze: hold the race clock still for that many seconds on the
         grid, after it has counted past 5 s (real capture, 2026-10-13: the
-        clock sat at 8.6 s before the run began)."""
+        clock sat at 8.6 s before the run began).
+        quit_after: give up that many seconds into a run of `seconds` (real
+        captures, 2026-10-13: abandoned at 42% and 69% of the route)."""
         print(f"dirt sprint: ~{seconds:.0f}s point-to-point, CurrentLap"
               f" counting, {'cut-dead-at-line' if cut else 'DistanceTraveled-reset'} finish")
         self.s = 0.0
@@ -511,7 +531,8 @@ class Sim:
                 self._send_parked(t, self._oc_x, self._oc_z, cur_lap=t)
         launch_rt = t
         print(f"  launch at rt={t:.1f}s")
-        end_rt = launch_rt + seconds
+        self._normalise_odometer(math.ceil(seconds / self.dt))
+        end_rt = launch_rt + (seconds if quit_after is None else quit_after)
         while t < end_rt:
             self._pace_tick()
             t += self.dt

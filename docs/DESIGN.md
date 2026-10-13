@@ -130,6 +130,7 @@ Detection rules are upstream's and are documented in its
 |---|---|---|
 | Race quit after 2 of 3 laps | Keep the 2 completed laps | Completed laps can rank; no race result |
 | Quit before any full lap of a recognized event | Keep minimal incomplete-attempt summary; raw frames may be discarded | Visible as incomplete, never ranked |
+| Gridded point-to-point run given up partway (odometer short of the full route) | No time and no route, whichever finish signal fired (ADR 30). With no timed lap the session is discarded | Not shown; the owner wants attempts counted, as a later change |
 | Rivals session ends | Keep every completed lap | Not a DNF |
 | Stream cuts at the finish | Lap completed from clock and distance, flagged `cutoff` | Provisional; not ranked by default |
 | Network loss or crash | Keep what arrived; mark the lap gapped | Gapped laps not ranked by default |
@@ -171,7 +172,8 @@ the original page is kept as **Rivalry_legacy** (`rivalry.html`) (ADR 26).
 
 A lap counts as a best with no rewind and no contact and when not excluded; a
 time taken from the last packet counts only if the run covered the whole route,
-and is marked "est." (ADR 27). Restarts of one event in one sitting are grouped
+and is marked "est." (ADR 27). The recorder itself times a gridded run only when
+it covered the whole route (ADR 30). Restarts of one event in one sitting are grouped
 automatically. Rivalry opens on best times with the other laps one click away.
 It presents compact route/class rows, both configured drivers' candidate bests,
 recorded time differences, searchable attempts and finish-dated improvement
