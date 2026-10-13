@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>SplitTime · Rivalry</title>
+<title>SplitTime · Rivalry_legacy</title>
 <style>
 :root{color-scheme:dark;--bg:#0a1420;--pane:#172536;--border:#344b60;--text:#eaf2f7;--muted:#a9bed0;--teal:#6ce0cb;--amber:#eec081}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
@@ -34,9 +34,9 @@ footer{color:var(--muted);font-size:12px;margin:30px 0}
 @media(max-width:660px){header,main{padding:14px}.cards{grid-template-columns:1fr}.stats{grid-template-columns:1fr 1fr}.stats .stat:last-child{grid-column:1/-1}}
 </style></head>
 <body>
-<header><strong>Split<span>//</span>Time</strong><nav aria-label="Site"><a href="index.html">Live</a><a href="analysis.html">Analysis</a><a href="rivalry.html" aria-current="page">Rivalry</a><a href="rivalry-v2.html">Rivalry v2</a></nav></header>
+<header><strong>Split<span>//</span>Time</strong><nav aria-label="Site"><a href="index.html">Live</a><a href="analysis.html">Analysis</a><a href="rivalry-v2.html">Rivalry</a><a href="rivalry.html" aria-current="page">Rivalry_legacy</a></nav></header>
 <main>
-<div class="intro"><div><h1>Rivalry history</h1><p class="muted">Asynchronous recordings · route and car-class summaries</p></div><span class="pill">Read-only · stored packets</span></div>
+<div class="intro"><div><h1>Rivalry_legacy</h1><p class="muted">Asynchronous recordings · route and car-class summaries</p></div><span class="pill">Read-only · stored packets</span></div>
 <div class="warning"><strong>Candidate records, not official winners.</strong> FH6 telemetry does not confirm event mode, official validity, route equivalence or uninterrupted capture. SplitTime makes uncertainty explicit and preserves flagged or incomplete laps for inspection.</div>
 <section class="stats" aria-label="Overview"><div class="stat"><strong id="routeCount">—</strong><small>Route/class groups</small></div><div class="stat"><strong id="attemptCount">—</strong><small>Recorded attempts</small></div><div class="stat"><strong id="driverCount">—</strong><small>Configured drivers</small></div></section>
 <div class="toolbar"><label for="routeSelect">Filter</label><select id="routeSelect"><option value="all">All routes</option></select><button id="refresh" type="button">Refresh recordings</button><a href="analysis.html">Open telemetry analysis</a></div>
