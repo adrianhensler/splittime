@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="en"><head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SplitTime · How it works</title>
+  <link rel="stylesheet" href="css/rivalry-v2.css">
+  <link rel="stylesheet" href="css/docs.css">
+</head>
+<body id="st-rivalry-workspace"><div class="st-window">
+  <header><a class="st-brand" href="index.html">Split<span>//</span>Time</a>
+    <nav aria-label="Site"><a href="index.html">Live</a><a href="analysis.html">Analysis</a>
+      <a href="rivalry-v2.html">Rivalry</a><a href="stats.html">Stats</a><a href="rivalry.html">Rivalry_legacy</a><a href="how-it-works.html" aria-current="page">How it works</a></nav>
+  </header>
+  <main class="st-doc">
+    <div class="st-top"><div><h1>How it works</h1>
+      <div class="st-sub">The recorder, the rules and the known faults · written 2026-10-13 against the first two-driver database (17 sessions, 8 routes)</div></div></div>
+
+    <p class="st-lede">SplitTime records the telemetry Forza Horizon 6 sends while you drive, works out
+      where each lap or run starts and ends, and compares drivers' best times. The game sends
+      physics and a few clocks. It does not send the track name, the event type, the official result
+      or whether a lap was valid. Everything on this site beyond the raw numbers is inferred, and
+      this page says how, and where the inference is currently wrong.</p>
+
+    <nav class="st-toc" aria-label="On this page">
+      <a href="#pieces">1. The pieces</a>
+      <a href="#packet">2. What the game sends</a>
+      <a href="#sessions">3. Sessions</a>
+      <a href="#laps">4. Laps on a circuit</a>
+      <a href="#finish">5. Finishing an event</a>
+      <a href="#geometric">6. Events with no lap clock</a>
+      <a href="#flags">7. Lap flags</a>
+      <a href="#routes">8. Routes and their names</a>
+      <a href="#sittings">9. Sittings</a>
+      <a href="#bests">10. Which time counts as a best</a>
+      <a href="#pages">11. What each page reads</a>
+      <a href="#faults">12. Where it fails</a>
+      <a href="#fixes">13. What might be fixed</a>
+      <a href="#numbers">14. Thresholds</a>
+    </nav>
+
+    <h2 id="pieces">1. The pieces</h2>
+    <p>Two processes share one SQLite file. The <b>collector</b> must stay up, because a packet that
+      arrives while it is down is lost for good. The <b>website</b> can be rebuilt at any time.</p>
+    <figure class="st-flow">
+      <div class="st-box"><b>The game, on each driver's PC</b><span>"Data Out" sends one 324-byte UDP packet per rendered frame (60 to 140 a second), one way, unencrypted, no login</span></div>
+      <div class="st-arrow">one UDP port per driver: the port is the driver's identity</div>
+      <div class="st-box st-key"><b>Collector</b><span>parse packet → one <code>SessionTracker</code> per driver (<code>app/recorder/laps.py</code>) → buffered write every second</span></div>
+      <div class="st-split">
+        <div><div class="st-arrow">frames, laps, routes</div>
+          <div class="st-box"><b>SQLite file (WAL)</b><span>tables: sessions, frames, laps, routes, session_groups, edits, drivers</span></div>
+          <div class="st-arrow">read; small writes</div>
+          <div class="st-box st-key"><b>Website</b><span>pages and <code>/api/*</code>. Asks the collector what is recording before any heavy write</span></div></div>
+        <div><div class="st-arrow">every frame, plus live delta</div>
+          <div class="st-box"><b>Live socket</b><span><code>/ws/live</code>, served by the collector directly</span></div></div>
+      </div>
+      <div class="st-arrow">HTTPS through the site's front door</div>
+      <div class="st-box"><b>Browser</b><span>Viewing is public. Anything that changes data needs a signed-in, allowed user</span></div>
+      <figcaption>Data path. The raw packets are stored unchanged, so any session can be replayed through newer detection code later ("Reprocess" on the Analysis page).</figcaption>
+    </figure>
+    <ul>
+      <li><b>Lossless by design.</b> Laps, routes and flags are an index over the stored packets. Deleting
+        the index and rebuilding it from the packets gives the same answer, or a better one after a fix.</li>
+      <li><b>One writer at a time.</b> The collector waits at most 0.25 s for the database, then keeps its
+        frames in memory (up to 3600) and retries on the next flush. A reprocess or import on the website
+        is refused while any session is recording.</li>
+    </ul>
+
+    <h2 id="packet">2. What the game sends, and what it leaves out</h2>
+    <div class="st-scroll"><table class="st-mid">
+      <thead><tr><th>Field</th><th>What it is</th><th>What the recorder uses it for</th></tr></thead>
+      <tbody>
+        <tr><td><code>IsRaceOn</code></td><td>1 while driving, including free roam. 0 in menus and pause</td><td>Starting and ending sessions</td></tr>
+        <tr><td><code>CurrentRaceTime</code></td><td>Event clock. Starts at 0 when the event loads</td><td>Splitting sessions, timing runs that have no lap clock</td></tr>
+        <tr><td><code>LapNumber</code>, <code>CurrentLap</code>, <code>LastLap</code>, <code>BestLap</code></td><td>The game's own lap counter and lap clock. Dead (all zero) in some event types</td><td>Lap boundaries and lap times on circuits</td></tr>
+        <tr><td><code>DistanceTraveled</code></td><td>Odometer along the route. <b>Normalised</b>: it reads about 5950 at the end of every completed lap or run, whatever the course's real length. Negative on the run-up before a start line</td><td>Aligning laps for comparison, detecting launch and finish, route length</td></tr>
+        <tr><td><code>RacePosition</code></td><td>Place in the field. 0 in free roam</td><td>"Gridded": proof this is a race and not free roam</td></tr>
+        <tr><td>Position, yaw, speed</td><td>World coordinates in metres</td><td>Maps, route fingerprint, geometric lap detection</td></tr>
+        <tr><td>Acceleration, suspension, tyre slip</td><td>Per frame, per wheel</td><td>Contact, jumps, surface guess</td></tr>
+      </tbody></table></div>
+    <p><b>Not in the packet:</b> track or event name, event type (race, Rivals, drift, drag), the result
+      screen's time, a "lap invalid" or off-track flag, the driver's identity, other cars.</p>
+
+    <h2 id="sessions">3. Sessions</h2>
+    <p>A session is one continuous attempt at one event. Restarting an event makes a new session.</p>
+    <figure class="st-flow">
+      <div class="st-box"><b>Packet with IsRaceOn = 1 and no open session</b></div>
+      <div class="st-arrow">open a session, open lap 0</div>
+      <div class="st-box st-key"><b>Recording</b><span>every packet is buffered and stored; the lap logic runs on each one</span></div>
+      <div class="st-split">
+        <div><div class="st-arrow">race clock jumps back by more than 10 s to under 5 s</div>
+          <div class="st-box"><b>Split</b><span>close this session, open a new one (event restart)</span></div></div>
+        <div><div class="st-arrow">15 s of IsRaceOn = 0, or 15 s of silence</div>
+          <div class="st-box"><b>End</b><span>try the end-of-stream finish rules (section 5)</span></div></div>
+      </div>
+      <div class="st-arrow">at the end</div>
+      <div class="st-split">
+        <div><div class="st-box"><b>At least one timed lap or run</b><span>keep; tag wet/surface; group into a sitting</span></div></div>
+        <div><div class="st-box st-bad"><b>No timed lap</b><span>delete the session and its packets, log one diagnostic line. With "keep discarded" on, keep it instead</span></div></div>
+      </div>
+      <figcaption>Session life cycle. Free-roam driving also has IsRaceOn = 1, so it opens sessions too. They end with no timed lap and are deleted.</figcaption>
+    </figure>
+
+    <h2 id="laps">4. Laps on a circuit</h2>
+    <p>Where the game runs its lap fields, the recorder trusts them:</p>
+    <ul>
+      <li><code>LapNumber</code> goes up → the open lap is closed with the game's own <code>LastLap</code> time, and the next lap opens.</li>
+      <li><code>LastLap</code> changes while <code>LapNumber</code> stays put → the final lap of a race. The game stops counting at the finish line.</li>
+      <li>The lap clock starts counting after sitting at zero → the lap is re-anchored there (free-roam time attack).</li>
+      <li>In Rivals the lap clock runs during the approach and resets at the start line. That reset is treated as the launch, not as a rewind.</li>
+    </ul>
+    <p>While a lap is open the recorder keeps a trace of (distance into lap, elapsed time). The live
+      delta is the current lap's time at this distance minus the session-best lap's time at the same
+      distance. Comparing by distance, not by clock, is what makes two laps comparable corner by corner.</p>
+
+    <h2 id="finish">5. Finishing an event</h2>
+    <p>This is the hardest part and the source of most faults. The game ends an event without
+      incrementing <code>LapNumber</code>, and a sprint, drag or touge run never has a lap boundary at
+      all. The recorder looks for a finish in this order. Rungs 1 to 3 are checked on every packet;
+      rungs 4 to 6 only when the stream has stopped.</p>
+    <figure class="st-ladder">
+      <div class="st-rung"><div class="st-if"><b>LastLap changed, LapNumber did not</b><span>the game posted a time at the line</span></div><div class="st-yes"></div><div class="st-box"><b>Lap closed with the game's time</b><span>finish: confirmed</span></div></div>
+      <div class="st-rung"><div class="st-if"><b>Odometer hard-reset to near zero</b><span>was above 500, now under 200, fell by more than 1000 in one frame, car did not teleport, LapNumber never rose, and the car was gridded or launched</span></div><div class="st-yes"></div><div class="st-box"><b>Run closed at the previous packet</b><span>time = that packet's race clock − clock at launch. finish: confirmed</span></div></div>
+      <div class="st-rung"><div class="st-if"><b>Race clock frozen for 1.5 s</b><span>after it has passed 5 s, while IsRaceOn is still 1</span></div><div class="st-yes"></div><div class="st-box"><b>Marked finished</b><span>the run is timed frozen clock − launch when the session ends. Undone if the clock resumes and the car drives 500 units further</span></div></div>
+      <div class="st-rung"><div class="st-if"><b>Stream ended inside a geometric crossing</b><span>see section 6</span></div><div class="st-yes"></div><div class="st-box"><b>Lap closed at the closest approach</b><span>flag: cutoff</span></div></div>
+      <div class="st-rung"><div class="st-if"><b>Stream ended on a gridded run</b><span>launched, LapNumber never rose, more than 500 units covered, last speed above 5 m/s, run longer than 10 s</span></div><div class="st-yes"></div><div class="st-box"><b>Run timed to the last packet</b><span>last race clock − clock at launch. flag: cutoff</span></div></div>
+      <div class="st-rung"><div class="st-if"><b>Stream ended on a circuit's open lap</b><span>the lap covered at least 97% of this session's typical lap</span></div><div class="st-yes"></div><div class="st-box"><b>Final lap recovered</b><span>lap clock + remaining distance ÷ last speed (2 s at most)</span></div></div>
+      <figcaption>Finish detection. Rungs 1 to 3 are separate signals and whichever arrives first closes the run; rungs 4 to 6 are tried in order at the end. If nothing matches, the open lap is stored without a time, and a session with no timed lap is deleted.</figcaption>
+    </figure>
+    <h3>Where the clock starts for a run</h3>
+    <p>"Launch" is the packet where the odometer first reaches 1.0. The code assumes that is the moment
+      the lights go out on the grid. On the gridded sprints and drag runs recorded so far, the grid
+      sits at a <em>negative</em> odometer reading (−70.8 on Hokubu Ascent), so the odometer reaches 1.0
+      at the start line, not on the grid. Recorded run times are therefore line-to-line. See fault F5.</p>
+
+    <h2 id="geometric">6. Events with no lap clock (World Time Attack)</h2>
+    <p>Some events send no lap fields at all. Laps are then found from position alone.</p>
+    <figure class="st-flow">
+      <div class="st-box"><b>Odometer leaves zero</b><span>the car's position is stored as the anchor; lap 1 starts here</span></div>
+      <div class="st-arrow">speed passes 10 m/s</div>
+      <div class="st-box"><b>Launch heading stored</b></div>
+      <div class="st-arrow">car gets more than 120 m from the anchor</div>
+      <div class="st-box"><b>Armed</b></div>
+      <div class="st-arrow">car comes back within 60 m, heading within about 75° of launch, at least 500 units driven</div>
+      <div class="st-box st-key"><b>Track the closest approach</b><span>remember the packet nearest the anchor</span></div>
+      <div class="st-arrow">car leaves the 60 m circle</div>
+      <div class="st-box"><b>Lap closed at the closest-approach packet</b><span>time = race clock there − race clock at the lap's start. The trace is cut at that packet, and the next lap starts from it</span></div>
+      <figcaption>Geometric lap detection. A single-frame jump of more than 250 m is a fast travel and switches this off. The odometer collapsing by more than 1000 ends the run.</figcaption>
+    </figure>
+
+    <h2 id="flags">7. Lap flags</h2>
+    <div class="st-scroll"><table class="st-mid">
+      <thead><tr><th>Flag</th><th>How it is detected</th><th>Effect</th></tr></thead>
+      <tbody>
+        <tr><td><code>rewind</code></td><td>The lap clock falls more than 0.5 s below its highest reading while the odometer is not increasing</td><td>Cannot be a best</td></tr>
+        <tr><td><code>contact</code></td><td>Ground-plane acceleration above 45 m/s² that is also an impulse: a rise of 30 m/s² within one frame, or a peak above 98 m/s². Ignored while airborne and for 0.35 s after landing</td><td>Cannot be a best</td></tr>
+        <tr><td><code>cutoff</code></td><td>The time was taken from the last packet, with no finish signal (rungs 4 and 5)</td><td>Shown as "est."; counts only if the full route was covered</td></tr>
+      </tbody></table></div>
+    <p>Flags can be corrected by hand on the Analysis page. Corrections are stored separately, keyed by
+      time, and survive a reprocess.</p>
+
+    <h2 id="routes">8. Routes and their names</h2>
+    <p>The first timed lap of a session produces a fingerprint: start position, length on the odometer,
+      and the width and depth of the ground covered. It is matched against known routes.</p>
+    <figure class="st-ladder">
+      <div class="st-rung"><div class="st-if"><b>An existing route matches</b><span>start within 120 m, length within 5%, both spans within 15% (or 50 m)</span></div><div class="st-yes"></div><div class="st-box"><b>Session joins that route</b></div></div>
+      <div class="st-rung"><div class="st-if"><b>No route matches</b></div><div class="st-yes"></div><div class="st-box"><b>A new route row is created</b><span>with no name</span></div></div>
+      <div class="st-rung"><div class="st-if"><b>The route has no name and a catalogue entry matches</b><span>same three tests against a bundled list of 77 official courses</span></div><div class="st-yes"></div><div class="st-box"><b>Named from the catalogue</b><span>a name typed by a person is never overwritten</span></div></div>
+      <figcaption>Route matching and naming. A route that matches nothing in the catalogue is shown as "Unnamed route #n".</figcaption>
+    </figure>
+    <p>Because the odometer is normalised to about 5950 on every course, the length test separates
+      nothing among <em>completed</em> runs. Start position and span do the work. The length test
+      matters in one case only: a run that stopped short, which is fault F3.</p>
+
+    <h2 id="sittings">9. Sittings</h2>
+    <p>Restarting an event creates a new session, so an evening on one sprint arrives as many
+      one-run sessions. When a session closes, finished sessions with the same driver, route and car,
+      each starting within 2 hours of the one before, are grouped into a sitting. A sitting is an
+      index entry: no lap or packet is moved. A session someone takes out of a sitting is never
+      regrouped. Bests never depended on this; it only tidies the lists.</p>
+
+    <h2 id="bests">10. Which time counts as a best</h2>
+    <figure class="st-ladder">
+      <div class="st-rung"><div class="st-if"><b>No time</b></div><div class="st-yes"></div><div class="st-box st-bad"><b>Not a best</b><span>incomplete</span></div></div>
+      <div class="st-rung"><div class="st-if"><b>Excluded by hand</b></div><div class="st-yes"></div><div class="st-box st-bad"><b>Not a best</b><span>excluded</span></div></div>
+      <div class="st-rung"><div class="st-if"><b>Flagged rewind or contact</b><span>or any flag other than cutoff</span></div><div class="st-yes"></div><div class="st-box st-bad"><b>Not a best</b></div></div>
+      <div class="st-rung"><div class="st-if"><b>Flagged cutoff and the lap covered less than 5861 units</b><span>98.5% of 5950, read from the lap's last packet</span></div><div class="st-yes"></div><div class="st-box st-bad"><b>Not a best</b><span>route not completed</span></div></div>
+      <div class="st-rung"><div class="st-if"><b>Anything else</b></div><div class="st-yes"></div><div class="st-box st-key"><b>Candidate</b><span>fastest candidate per driver, per route and car class, is the headline best. Per-car and route-overall bests are listed beneath</span></div></div>
+      <figcaption>The best-lap rule (<code>app/rivalry.py</code>). The full-route test applies only to cutoff times; a time with a finish signal is assumed to be a finished run. Fault F4 is a case where that assumption is false.</figcaption>
+    </figure>
+    <p>This is the closest available match to the game's Rivals rule. The game's own verdict is not in
+      the packet, and leaving the track is not detected at all.</p>
+
+    <h2 id="pages">11. What each page reads</h2>
+    <div class="st-scroll"><table class="st-mid">
+      <thead><tr><th>Page</th><th>Source</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td>Live</td><td>The collector's socket</td><td>Every packet as it arrives, plus the live delta</td></tr>
+        <tr><td>Analysis</td><td>Sessions, laps and stored packets</td><td>Lap tables, maps, traces; rename, flag, exclude, reprocess, delete</td></tr>
+        <tr><td>Rivalry</td><td><code>/api/rivalry</code></td><td>Every lap with the verdict from section 10; the page only sorts and filters</td></tr>
+        <tr><td>Stats</td><td><code>/api/stats</code></td><td>Twelve sections computed from the session, lap and route tables. Nothing here reads individual packets yet</td></tr>
+        <tr><td>Replay</td><td><code>/api/laps/{id}/data</code></td><td>Position and speed per packet for up to six laps, played against each lap's own clock</td></tr>
+      </tbody></table></div>
+
+    <h2 id="faults">12. Where it fails</h2>
+    <p>Each of these was found in real recordings. Session numbers refer to the live database.</p>
+    <div class="st-scroll"><table class="st-wide">
+      <thead><tr><th></th><th>Fault</th><th>Evidence</th><th>Cause</th><th>State</th></tr></thead>
+      <tbody>
+        <tr><td>F1</td><td>A complete 155 s run was deleted</td><td>Session 50: gridded, odometer +5952</td><td>The race clock paused at 8.6 s before the run. Rung 3 latched "finished", which made the run time under 10 s and switched rung 5 off</td><td><span class="st-tag st-fixed">fixed</span> for new runs. The run itself is gone</td></tr>
+        <tr><td>F2</td><td>One circuit became two routes</td><td>Shimanoyama Circuit: length 5945 on one row, 6275 on the other</td><td>A geometric lap is closed only after the car leaves the 60 m circle, and the trace past the line was counted in the lap's length. 6275 is outside the 5% tolerance</td><td><span class="st-tag st-fixed">fixed</span>; the session was reprocessed and the extra row removed</td></tr>
+        <tr><td>F3</td><td>An abandoned run got a time and its own route</td><td>Session 30, "Unnamed route #6": stopped at odometer 4080 (69%), 22 km/h</td><td>Rung 5 treats "gridded, over 500 units, still moving faster than 5 m/s" as a finish at the line. A driver quitting while rolling meets all of it. The short length then fails the 5% test, so a new route is created</td><td><span class="st-tag st-open">open</span></td></tr>
+        <tr><td>F4</td><td>A second abandoned run got a <em>confirmed</em> time</td><td>Session 29, "Unnamed route #5": the stream paused 5.5 s at odometer 2483 (42%) with the car at 1.3 m/s, then the odometer read 0 with the car in the same place</td><td>Rung 2 calls any hard reset of the odometer a finish. It checks that the car did not teleport, not that it reached the end. Because the time is "confirmed", the full-route test in section 10 is skipped; only its contact flag keeps it from being a best</td><td><span class="st-tag st-open">open</span></td></tr>
+        <tr><td>F5</td><td>Sprint and drag times are probably short</td><td>Drag run, session 43: recorded 14.449 s; the game's own <code>CurrentLap</code> field reads 16.7 s in the last packet. Ito Sprint: 2:52.7 recorded against about 2:55.1 on the game clock</td><td>The clock is started when the odometer reaches 1.0, which on these events is the start line, not the grid (section 5). The gap is the time from the grid to the line</td><td><span class="st-tag st-open">open</span>; not yet checked against a result screen</td></tr>
+        <tr><td>F6</td><td>A real course has no name</td><td>"Unnamed route #9": three complete runs on a dead-straight 1 km strip, about 14.4 s each, 8 cars</td><td>The strip is not among the catalogue's 77 courses (its only drag strip is elsewhere on the map)</td><td><span class="st-tag st-open">open</span>; needs the in-game name</td></tr>
+        <tr><td>F7</td><td>Sessions deleted for unknown reasons</td><td>Sessions 49 and 52: 125 s and 184 s, not gridded, lap clock dead</td><td>Unknown, because their packets were deleted. Possibly drift zones, which the recorder has never seen</td><td><span class="st-tag st-open">open</span>; "keep discarded" is on until one drift event is captured</td></tr>
+        <tr><td>F8</td><td>Event types are counted together</td><td>Race, Rivals and others share one best per route and class</td><td>The event-type guess rests on two signals and one capture: a position worse than 1st means a race; a lap-clock reset at the start line means Rivals; otherwise unknown</td><td><span class="st-tag st-open">open</span>; by decision, until more modes are captured</td></tr>
+        <tr><td>F9</td><td>"Valid" is narrower than the game's rule</td><td>No recorded case yet</td><td>Cutting a corner or leaving the track sets no flag. Only rewind and contact are detected</td><td><span class="st-tag st-open">open</span></td></tr>
+        <tr><td>F10</td><td>Shared replay links can break</td><td>Reprocessing session 41 changed its lap ids from 31–35 to 42–46</td><td>A reprocess deletes and recreates lap rows. Replay and compare links carry lap ids</td><td><span class="st-tag st-open">open</span></td></tr>
+        <tr><td>F11</td><td>Packets can be forged</td><td>None seen</td><td>UDP has no login. Whoever sends to a driver's port is that driver</td><td><span class="st-tag">accepted</span></td></tr>
+      </tbody></table></div>
+    <h3>How F3 and F4 produce a fake route</h3>
+    <figure class="st-flow">
+      <div class="st-box"><b>Driver starts Hokubu Ascent from the grid</b><span>odometer −70.8, race position 8</span></div>
+      <div class="st-arrow">drives part of the route, then stops or quits</div>
+      <div class="st-split">
+        <div><div class="st-box st-bad"><b>Stream stops while rolling</b><span>rung 5 fires: timed to the last packet, flag cutoff</span></div></div>
+        <div><div class="st-box st-bad"><b>Odometer resets mid-route</b><span>rung 2 fires: timed as a confirmed finish</span></div></div>
+      </div>
+      <div class="st-arrow">the run has a time, so it is fingerprinted</div>
+      <div class="st-box"><b>Length 2483 or 4080 against the real course's 5950</b><span>no route within 5%; no catalogue entry within 5%</span></div>
+      <div class="st-arrow">no match</div>
+      <div class="st-box st-bad"><b>New "Unnamed route" row</b><span>one per distinct abandoned length</span></div>
+    </figure>
+
+    <h2 id="fixes">13. What might be fixed</h2>
+    <ol>
+      <li><b>Require the distance before calling it a finish (F3, F4).</b> In rungs 2 and 5, accept a
+        sprint finish only when the odometer has reached the full-route reading (about 5950, with the
+        same 98.5% margin the best-lap rule uses). A short run would be stored as an incomplete
+        attempt with no time and no route. Risk: the 5950 figure is measured, not documented. It held
+        on every completed lap in this database (5934 to 5960) and across the upstream project's
+        captures, but multi-lap time attack runs read about 18000 at the reset and must keep working,
+        so the test has to be "at least one full route", not "exactly one".</li>
+      <li><b>Never create a route from an unfinished or last-packet run (F3, F4).</b> Independent of
+        fix 1: a cutoff run may join an existing route but should not mint a new one. That alone
+        would have prevented both fake routes.</li>
+      <li><b>Settle the clock origin (F5).</b> Compare one result-screen time with the recording. If the
+        game counts from the grid, time runs from the first packet where the race clock moves (or
+        speed leaves zero) and reprocess the sprints. The replay's alignment follows the same clock.</li>
+      <li><b>Name what the catalogue lacks (F6).</b> Rename the route on the Analysis page, and add the
+        entry to the catalogue so a fresh install recognises it.</li>
+      <li><b>Capture each event type once (F7, F8).</b> With "keep discarded" on, one drift event, one
+        Rivals run and one race on the same route give the data needed to tell them apart, or to show
+        that they cannot be told apart from telemetry.</li>
+      <li><b>Approximate off-track (F9).</b> The packet's driving-line field saturates at ±127 when the
+        car is far from the course. A sustained saturation could set an "off course" flag. It would
+        be a second approximation of the game's rule, not the rule.</li>
+      <li><b>Give laps a stable identity (F10).</b> Address a lap by session and time anchor, as manual
+        edits already are, so links survive a reprocess.</li>
+      <li><b>Statistics from packets.</b> Top speed, air time and time on throttle need a pass over the
+        stored packets, cached per lap.</li>
+    </ol>
+
+    <h2 id="numbers">14. Thresholds</h2>
+    <p>Every number above is a constant in the code, calibrated on real recordings.</p>
+    <div class="st-scroll"><table>
+      <thead><tr><th>Constant</th><th class="st-num">Value</th><th>Meaning</th></tr></thead>
+      <tbody>
+        <tr><td><code>RACE_OFF_GRACE</code></td><td class="st-num">15 s</td><td>Race-off or silence before a session ends</td></tr>
+        <tr><td><code>RACE_TIME_RESET_JUMP</code></td><td class="st-num">10 s</td><td>Backwards jump of the race clock that splits a session</td></tr>
+        <tr><td><code>RT_FREEZE_SECONDS</code></td><td class="st-num">1.5 s</td><td>Frozen race clock that marks a finish</td></tr>
+        <tr><td><code>FINISH_MIN_RT</code></td><td class="st-num">5 s</td><td>Freezes and resets before this are ignored</td></tr>
+        <tr><td><code>PTP_MIN_RUN_TIME</code></td><td class="st-num">10 s</td><td>Shortest run that is believed</td></tr>
+        <tr><td><code>WTA_MIN_LAP_DIST</code></td><td class="st-num">500</td><td>Odometer units a run or geometric lap must cover</td></tr>
+        <tr><td><code>WTA_DIST_COLLAPSE</code></td><td class="st-num">1000</td><td>Single-frame odometer drop that counts as a reset</td></tr>
+        <tr><td><code>POINT_FINISH_DIST</code></td><td class="st-num">200</td><td>How close to zero the reset must land</td></tr>
+        <tr><td><code>WTA_ARM_DIST</code> / <code>WTA_CROSS_DIST</code></td><td class="st-num">120 m / 60 m</td><td>Leave this far, then return this close, for a geometric lap</td></tr>
+        <tr><td><code>WTA_TELEPORT_JUMP</code></td><td class="st-num">250 m</td><td>Single-frame move that means fast travel</td></tr>
+        <tr><td><code>FINAL_LAP_DIST_FRACTION</code></td><td class="st-num">0.97</td><td>Share of a typical lap that makes a cut-off lap the final lap</td></tr>
+        <tr><td><code>REWIND_TIME_JUMP</code></td><td class="st-num">0.5 s</td><td>Lap clock running backwards</td></tr>
+        <tr><td><code>IMPACT_ACCEL</code> / <code>IMPACT_JERK</code> / <code>IMPACT_PEAK</code></td><td class="st-num">45 / 30 / 98 m/s²</td><td>Contact: threshold, one-frame rise, stand-alone peak</td></tr>
+        <tr><td><code>ROUTE_START_RADIUS_M</code></td><td class="st-num">120 m</td><td>Route match: start position</td></tr>
+        <tr><td><code>ROUTE_LENGTH_TOLERANCE</code></td><td class="st-num">5%</td><td>Route match: odometer length</td></tr>
+        <tr><td><code>ROUTE_SPAN_TOLERANCE</code></td><td class="st-num">15%</td><td>Route match: width and depth covered (50 m floor)</td></tr>
+        <tr><td><code>FULL_ROUTE_UNITS</code></td><td class="st-num">5950</td><td>Odometer reading at the end of any completed route; a cutoff time needs 98.5% of it</td></tr>
+        <tr><td><code>AUTO_GROUP_GAP_S</code></td><td class="st-num">2 h</td><td>Longest gap between attempts in one sitting</td></tr>
+      </tbody></table></div>
+    <p class="st-quiet">Lap and finish detection: <code>app/recorder/laps.py</code>. Storage, routes and sittings:
+      <code>app/recorder/store.py</code>. Best-lap rule: <code>app/rivalry.py</code>. Catalogue: <code>app/tracks.py</code>.
+      Event-type guess: <code>app/eventtype.py</code>.</p>
+  </main>
+</div></body>
+</html>
