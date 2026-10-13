@@ -1,0 +1,26 @@
+    #st-rivalry-workspace [hidden]{display:none!important}
+    #st-rivalry-workspace .rp-layout{display:grid;grid-template-columns:minmax(0,1fr) 270px;gap:16px;align-items:start}
+    #st-rivalry-workspace .rp-map{position:relative;background:var(--st-panel);border-radius:6px;min-width:0}
+    #st-rivalry-workspace #rp-canvas{display:block;width:100%;height:min(62vh,560px);touch-action:none;cursor:grab;border-radius:6px}
+    #st-rivalry-workspace .rp-views{position:absolute;top:8px;left:8px;display:flex;gap:6px;flex-wrap:wrap}
+    #st-rivalry-workspace .rp-views button,#st-rivalry-workspace .rp-controls button{border:1px solid var(--st-line);border-radius:5px;background:var(--st-bg);color:var(--st-fg);padding:6px 10px;font:inherit;font-size:12px}
+    #st-rivalry-workspace .rp-views button[aria-pressed=true]{border-color:var(--st-accent);color:var(--st-accent)}
+    #st-rivalry-workspace .rp-views select{font-size:12px;padding:5px}
+    #st-rivalry-workspace .rp-hint{position:absolute;bottom:6px;left:10px;margin:0;pointer-events:none}
+    #st-rivalry-workspace .rp-controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0}
+    #st-rivalry-workspace #rp-play{background:var(--st-accent);color:var(--st-bg);border-color:var(--st-accent);font-weight:600;min-width:70px}
+    #st-rivalry-workspace #rp-scrub{flex:1;min-width:140px;accent-color:var(--st-accent)}
+    #st-rivalry-workspace .rp-car{padding:8px 0;border-bottom:1px solid var(--st-line)}
+    #st-rivalry-workspace .rp-car:last-child{border-bottom:0}
+    #st-rivalry-workspace .rp-car-head{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+    #st-rivalry-workspace .rp-dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px}
+    #st-rivalry-workspace .rp-nums{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-top:6px;font-variant-numeric:tabular-nums}
+    #st-rivalry-workspace .rp-nums b{display:block;font-size:15px}
+    #st-rivalry-workspace .rp-bar{height:4px;background:var(--st-line);border-radius:2px;margin-top:5px;overflow:hidden}
+    #st-rivalry-workspace .rp-bar i{display:block;height:100%}
+    #st-rivalry-workspace #rp-picker{display:grid;gap:12px}
+    #st-rivalry-workspace #rp-picker input[type=checkbox]{accent-color:var(--st-accent);width:18px;height:18px}
+    #st-rivalry-workspace #rp-go:disabled{opacity:.5;cursor:default}
+    #st-rivalry-workspace #rp-go{border:0;width:100%;max-width:320px}
+    #st-rivalry-workspace #rp-share{border:1px solid var(--st-line);border-radius:5px;background:var(--st-panel);color:var(--st-fg);padding:8px 10px;font:inherit;white-space:nowrap}
+    @media(max-width:740px){#st-rivalry-workspace .rp-layout{grid-template-columns:1fr}#st-rivalry-workspace #rp-canvas{height:52vh}#st-rivalry-workspace .rp-side{display:block}}

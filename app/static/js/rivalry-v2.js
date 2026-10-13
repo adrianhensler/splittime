@@ -143,7 +143,8 @@
         `<p><span class="st-time">${side} ${M.time(lap?.time_s)}</span><br><span class="st-quiet">${lap ? `${esc(lap.driver_name)} · lap ${lap.lap_id}` : "Choose a completed lap"}</span></p>`).join("")}
       <p>${href ? delta === 0 ? "Equal recorded times" : `${delta > 0 ? "A" : "B"} faster by <span class="st-time">${Math.abs(delta).toFixed(3)} s</span>` : "Choose two completed laps."}</p>
       <p class="st-quiet">${href && (!M.clean(a) || !M.clean(b)) ? "Includes a lap that does not count as a best · " : ""}Recorded difference · exploratory</p>
-      ${href ? `<a class="st-compare" href="${href}">Compare traces &amp; corners</a>` : '<span class="st-no-compare">Needs two completed laps</span>'}</div>`;
+      ${href ? `<a class="st-compare" href="${href}">Compare traces &amp; corners</a>
+        <a class="st-replay" href="replay.html?laps=${a.lap_id},${b.lap_id}">Replay A against B</a>` : '<span class="st-no-compare">Needs two completed laps</span>'}</div>`;
     drawOutlines();
     save();
   }
