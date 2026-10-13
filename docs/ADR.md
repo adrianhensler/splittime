@@ -31,6 +31,8 @@ One entry per decision. Status is **Accepted** (the owner decided),
 | 22 | Optional two-driver Live view | Accepted |
 | 23 | Record public viewing separately from protected management | Proposed |
 | 24 | Collector and web may run as separate processes | Proposed |
+| 25 | Compact Rivalry v2 alongside the original | Proposed |
+| 26 | Rivalry v2 is Rivalry; the original is Rivalry_legacy | Accepted |
 
 Each entry lists what it **rests on**, so that reversing one decision shows
 which others to revisit.
