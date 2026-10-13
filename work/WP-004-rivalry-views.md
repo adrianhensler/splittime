@@ -220,13 +220,18 @@ equivalence or coaching accuracy; no management request was made.
 
 That end-to-end check reproduced a Back-navigation defect: native browser form
 restoration showed the prior filter while the JS model and lap choices reset.
-Repair branch `fix/rivalry-v2-return-state`, based on merged main, retains
+Repair [PR #24](https://github.com/adrianhensler/splittime/pull/24), branch
+`fix/rivalry-v2-return-state`, source head `da4f184`, based on merged main, retains
 route/search/history and full lap identities in per-tab session storage.
 It restores them only against fresh API data, resetting reused lap identities;
 pageshow synchronizes native controls and refreshes a cached page. Blocked
 storage falls back to functional defaults. No recording or scoring change.
-Worker Node suite: 62 passed; new regression simulates returning from the
-comparison and reprocessed/reused IDs. PR locator/final head, Astra review and
-deployed browser recheck will be recorded in the follow-up PR. Next: review,
+Worker Node suite: 62 passed and Ruff passed; new regression simulates returning
+from comparison and reprocessed/reused IDs. Actual local browser Compare/Back
+retained search “Porsche”, improvements filter, 4 of 6 attempts and selected
+pair 2/1. Re-run `node --test tests/ui/*.test.cjs`; browse the prefixed local
+web-only app, set search/filter/A-B, open Compare, press Back and verify the
+same filter, row count and pair. Astra review and the deployed browser recheck
+are pending in the PR; they are not asserted here. Next: review,
 merge green CI, update only the existing web service, and verify the actual
 Back flow. Full M3 competitive/real-two-driver acceptance remains partial.

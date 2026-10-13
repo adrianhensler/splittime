@@ -151,8 +151,6 @@ each session keeps its timed lap (150.808 with `contact`, 74.654, 68.712,
 1 to 11 are gone. 43,283 frames unchanged, integrity ok. Opus 5.5 self-checks;
 the pages were not opened in a real browser afterwards.
 
-## Remaining field checks
-
 ## Rivalry v2 web-only deployment, 2026-10-13
 
 After independent GPT-6 Astra review and green CI, SplitTime PR #23 merged at
@@ -179,6 +177,8 @@ and explicit A/B selection. Comparison 20/18 loaded recorded traces and corner
 rows at the prefixed URL, with the exploratory labels intact. The original
 Rivalry source remains unchanged. Back-navigation view-state repair is tracked
 separately in WP-004; real two-driver field checks remain open.
+
+## Remaining field checks
 
 The reachability/race-off probes were not game recordings. Each driver next sends
 one fresh real event, verifies attribution/game time, and later records on a
