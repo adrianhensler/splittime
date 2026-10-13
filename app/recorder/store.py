@@ -312,6 +312,7 @@ class Store:
         Path(db_path).parent.mkdir(parents=True, exist_ok=True)
         self._in_transaction = False
         # timeout: how long a write waits on another connection's lock
+        self.busy_timeout = timeout
         self.db = sqlite3.connect(db_path, timeout=timeout)
         self.db.execute("PRAGMA journal_mode=WAL")
         self.db.execute("PRAGMA foreign_keys=ON")
@@ -770,8 +771,10 @@ class Store:
     # -- reads / small writes (any thread; short-lived connection) -----------
 
     @contextmanager
-    def reader(self):
-        conn = sqlite3.connect(self.db_path)
+    def reader(self, timeout: float | None = None):
+        # timeout: only for a write that must not wait SQLite's default 5 s
+        conn = (sqlite3.connect(self.db_path) if timeout is None
+                else sqlite3.connect(self.db_path, timeout=timeout))
         conn.row_factory = sqlite3.Row
         try:
             yield conn
@@ -934,7 +937,11 @@ class Store:
             # second connection would only wait on that lock. The next close
             # or startup picks the sitting up.
             return 0
-        with self.reader() as conn:
+        # This runs on the collector's event loop when a session closes. The
+        # website can hold the write lock just then, so wait no longer than
+        # the recorder's own writes do (0.25 s on the collector) - the default
+        # 5 s would stall every driver's telemetry (PR #28 review).
+        with self.reader(timeout=self.busy_timeout) as conn:
             rows = conn.execute(
                 "SELECT s.id, s.driver_id, s.route_id, s.car_ordinal,"
                 " s.started_at, s.group_id FROM sessions s"

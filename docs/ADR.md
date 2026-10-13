@@ -31,6 +31,9 @@ One entry per decision. Status is **Accepted** (the owner decided),
 | 22 | Optional two-driver Live view | Accepted |
 | 23 | Record public viewing separately from protected management | Proposed |
 | 24 | Collector and web may run as separate processes | Proposed |
+| 25 | Compact Rivalry v2 alongside the original | Proposed |
+| 26 | Rivalry v2 is Rivalry; the original is Rivalry_legacy | Accepted |
+| 27 | Which laps count as a best; sittings are grouped automatically | Accepted |
 
 Each entry lists what it **rests on**, so that reversing one decision shows
 which others to revisit.
@@ -397,3 +400,50 @@ selection in `MERGE_RUNS_UX_REVIEW.md`; this slice changes no grouping semantics
 Deploy only the existing web process; the existing collector stays running.
 
 *Rests on:* 10, 23, 24. *Work:* WP-004.
+
+## 26. Rivalry v2 is Rivalry; the original is Rivalry_legacy
+
+**Accepted, 2026-10-13** (owner request after the first user feedback).
+
+The compact workspace of ADR 25 is the page people should land on, so it takes
+the name **Rivalry** and comes first in the navigation. The original page stays
+available as **Rivalry_legacy**. Only labels, titles and navigation order
+change: `rivalry-v2.html` and `rivalry.html` keep their file names and URLs so
+existing links keep working. "Rivalry v2" in earlier entries and work packets
+means the page now called Rivalry.
+
+*Supersedes the naming in:* 25. *Work:* WP-004.
+
+## 27. Which laps count as a best; sittings are grouped automatically
+
+**Accepted, 2026-10-13** (owner decisions after the first user feedback).
+
+The site exists to track each driver's best valid times, compared as the game
+compares them. The game never sends its own verdict, so the rule is SplitTime's
+reading of the telemetry, decided in one place (`app/rivalry.py`):
+
+- A rewind or a contact disqualifies a lap. The effective flags are used, so a
+  contact the driver dismissed no longer counts against it. An excluded lap
+  never counts. Leaving the course is not detected.
+- A run timed from the last packet (`cutoff`: the game stopped sending at the
+  line) counts only when its last frame shows the whole route covered
+  (`FULL_ROUTE_UNITS`; the odometer reads about 5950 at the end of every
+  completed lap or run). It is reported as `finish: "last_packet"` and marked
+  "est." wherever it is shown. This reverses the earlier rule that an estimated
+  time can never be a best; a cutoff time with no frames to prove its distance
+  still cannot.
+- The headline best is per route and car class. The same route's bests per car
+  and overall are shown beneath it.
+- Restarts of one event in one sitting (same driver, route and car, each within
+  two hours of the previous) are grouped by the recorder at session close and
+  at startup. A group is still only an index. A person's split is remembered
+  (`no_auto_group`), and a manual merge may take sessions out of an automatic
+  group. The merge prompt is gone; this supersedes the wording proposals in
+  `MERGE_RUNS_UX_REVIEW.md`.
+- Other laps stay one click away; the page opens on best times.
+- Event modes (race, rivals, drift) are still counted together with the guess
+  shown. Separating them, as the game does, waits on kept captures of each mode.
+- Differences between drivers remain exploratory (10): a shared route
+  fingerprint and class do not prove equal conditions.
+
+*Rests on:* 9, 10, 25. *Work:* WP-008.
