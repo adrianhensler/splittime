@@ -16,6 +16,7 @@ PACKETS = {
     "WP-005": "WP-005-corner-comparison.md",
     "WP-006": "WP-006-summary-page.md",
     "WP-007": "WP-007-collector-split.md",
+    "WP-008": "WP-008-best-laps-and-sittings.md",
 }
 # Shared files (main, generic API/UI/tests) require declared scope. Isolated
 # modules additionally require the packet below; declarations cannot omit it.
