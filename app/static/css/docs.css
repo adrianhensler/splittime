@@ -49,3 +49,15 @@
 }
 #st-rivalry-workspace .st-doc .st-wide{min-width:800px}
 #st-rivalry-workspace .st-doc .st-mid{min-width:600px}
+
+/* two cars on a small circuit; they swap the lead twice per cycle */
+#st-rivalry-workspace .st-race{width:260px;max-width:100%;height:auto;flex-shrink:0;overflow:visible}
+#st-rivalry-workspace .st-race-road{fill:none;stroke:var(--st-line);stroke-width:13;stroke-linejoin:round}
+#st-rivalry-workspace .st-race-line{fill:none;stroke:var(--st-bg);stroke-width:.8;stroke-dasharray:3 4}
+#st-rivalry-workspace .st-car{offset-path:path("M30 62 C12 62 8 30 28 20 C48 10 78 14 96 26 C108 34 116 34 128 26 C146 14 176 8 196 18 C220 30 218 62 196 66 C172 70 150 58 128 58 C100 58 62 62 30 62 Z");offset-rotate:auto;animation:20s linear infinite}
+#st-rivalry-workspace .st-car-glass{fill:var(--st-bg);opacity:.75}
+#st-rivalry-workspace .st-car-a{fill:var(--st-accent);offset-distance:3%;animation-name:st-lap-a}
+#st-rivalry-workspace .st-car-b{fill:var(--st-warn);offset-distance:97%;animation-name:st-lap-b}
+@keyframes st-lap-a{0%{offset-distance:3%}22%{offset-distance:68%}50%{offset-distance:147%}74%{offset-distance:224%}100%{offset-distance:303%}}
+@keyframes st-lap-b{0%{offset-distance:-3%}22%{offset-distance:62%}50%{offset-distance:153%}74%{offset-distance:230%}100%{offset-distance:297%}}
+@media(prefers-reduced-motion:reduce){#st-rivalry-workspace .st-car{animation:none}}
