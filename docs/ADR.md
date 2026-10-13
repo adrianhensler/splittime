@@ -36,6 +36,7 @@ One entry per decision. Status is **Accepted** (the owner decided),
 | 27 | Which laps count as a best; sittings are grouped automatically | Accepted |
 | 28 | Stats page: server-described sections over the recorded index | Accepted |
 | 29 | Race replay: recorded laps played together on the map | Accepted |
+| 30 | A gridded run is timed only if it covered the full route | Accepted |
 
 Each entry lists what it **rests on**, so that reversing one decision shows
 which others to revisit.
@@ -489,3 +490,27 @@ together, with a 3D option, a follow camera and live stats, shareable).
 - Top, tilted and follow cameras. Nothing assumes two cars.
 
 *Rests on:* 9, 23, 25. *Work:* WP-008.
+
+## 30. A gridded run is timed only if it covered the full route
+
+**Accepted, 2026-10-13** (owner: "go ahead with fix 1", after two abandoned
+runs showed up as unnamed routes).
+
+- FH6's odometer reads about 5950 at the end of every completed route. A
+  gridded point-to-point run is given a time only when it has covered 98.5% of
+  that (`FULL_ROUTE_MIN` in `laps.py`), in both places a run without a lap
+  boundary is finished: the odometer hard-reset and the last-packet recovery.
+- Evidence: two captures of one driver giving up a sprint, at 42% (odometer
+  reset after a 5.5 s gap, car stopped) and 69% (stream cut while rolling at
+  22 km/h). Both had been timed, and each made a route. Replaying every
+  session in the first two-driver database through the new rule changed those
+  two and no other.
+- Not applied to events with no lap clock (geometric laps): no capture shows
+  their odometer at the end of a single run.
+- A reprocess clears the session's route before replaying, so a run that no
+  longer counts does not keep the route the old rule made.
+- The simulator's sprints now normalise their odometer the way the game does.
+- The best-lap rule keeps its own full-route test (27) for recordings made
+  before this.
+
+*Rests on:* 9, 27. *Work:* WP-008.

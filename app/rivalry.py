@@ -24,14 +24,11 @@ from datetime import datetime, timezone
 from .cars import resolve_name
 
 from .eventtype import guess_event
+# The recorder applies the same full-route test before it times a gridded run
+# (laps.py). It is applied here too: recordings made before that still hold
+# last-packet times for runs that stopped short.
+from .recorder.laps import FULL_ROUTE_MIN, FULL_ROUTE_UNITS  # noqa: F401
 from .telemetry.packet import parse
-
-# DistanceTraveled is normalised per route in FH6: it reads ~5950 at the end
-# of every completed lap or run whatever the true length (store.py, route
-# fingerprint note). Over every lap in the first real two-driver database a
-# full lap covered 5934-5960 and the two abandoned runs 2483 and 4080.
-FULL_ROUTE_UNITS = 5950.0
-FULL_ROUTE_MIN = 0.985 * FULL_ROUTE_UNITS
 
 _covered_cache: dict[tuple, float | None] = {}
 

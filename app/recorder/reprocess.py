@@ -74,6 +74,9 @@ def reprocess_session(store, session_id: int) -> int:
     # can't recover the times either - they're simply gone (issue #60).
     with store.transaction():
         store.delete_session_laps(session_id)
+        # the replay assigns the route again from its first full lap; a
+        # session that no longer produces one must not keep the old route
+        store.set_session_route(session_id, None)
         tracker = SessionTracker(_ReplayStore(store, session_id))
         last_t = frames[0][0]
         for t, raw in frames:
