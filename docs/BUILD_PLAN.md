@@ -167,6 +167,16 @@ platform (both PC); server (this host, direct UDP, ADR 5); run mode
 
 ## Findings
 
+### Compact Rivalry workspace, 2026-10-12
+
+Rivalry v2 adds dense route/class rows, recorded gaps, searchable finish-dated
+history, real outlines and explicit A/B selection alongside the original.
+It retains exploratory timing/validity limits; competitive scoring and real
+two-driver equivalence remain open. WP-004 records verification and the
+deployment checkpoint. The [merge UX review](MERGE_RUNS_UX_REVIEW.md) identifies
+grouping terminology, implicit sitting selection and inconsistent best labels
+as the next bounded usability change, with no grouping changes in this slice.
+
 ### Shared deployment checkpoint, 2026-10-12
 
 The reviewed deployment now serves the imported owner's 2:30.808 Rivals attempt

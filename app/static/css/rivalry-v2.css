@@ -1,0 +1,68 @@
+
+    #st-rivalry-workspace{--st-bg:light-dark(#f5f7fa,#0a1420);--st-panel:light-dark(#ffffff,#132131);--st-fg:light-dark(#172536,#eaf2f7);--st-muted:light-dark(#506575,#a9bed0);--st-line:light-dark(#d4dee6,#344b60);--st-accent:light-dark(#096f61,#6ce0cb);--st-selected:light-dark(#e5f1ee,#193b3b);--st-warn:light-dark(#80500b,#eec081);color:var(--st-fg);font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;color-scheme:light dark}
+    #st-rivalry-workspace *{box-sizing:border-box}
+    #st-rivalry-workspace .st-window{background:var(--st-bg);padding:16px;min-width:0}
+    #st-rivalry-workspace header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-bottom:12px;border-bottom:1px solid var(--st-line);flex-wrap:wrap}
+    #st-rivalry-workspace .st-brand{font-weight:700;font-size:18px;letter-spacing:-.6px}
+    #st-rivalry-workspace .st-brand span{color:var(--st-accent)}
+    #st-rivalry-workspace nav{display:flex;gap:20px;color:var(--st-muted)}
+    #st-rivalry-workspace nav strong{font-weight:600;color:var(--st-fg)}
+    #st-rivalry-workspace h1{font-size:21px;margin:0;font-weight:600}
+    #st-rivalry-workspace h2{font-size:16px;margin:0;font-weight:600}
+    #st-rivalry-workspace .st-top{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin:16px 0 10px}
+    #st-rivalry-workspace .st-sub{color:var(--st-muted);font-size:12px}
+    #st-rivalry-workspace .st-search{display:flex;gap:8px;align-items:center;flex-wrap:wrap;width:min(100%,460px)}
+    #st-rivalry-workspace input[type=search]{background:var(--st-panel);color:var(--st-fg);border:1px solid var(--st-line);border-radius:5px;padding:8px 10px;font:inherit;width:100%;min-width:0}
+    #st-rivalry-workspace .st-scroll{overflow-x:auto;min-width:0}
+    #st-rivalry-workspace table{border-collapse:collapse;width:100%;font-size:13px;text-align:left}
+    #st-rivalry-workspace .st-standings{min-width:690px}
+    #st-rivalry-workspace th{color:var(--st-muted);font-size:12px;font-weight:500;padding:8px 8px;border-bottom:1px solid var(--st-line)}
+    #st-rivalry-workspace td{padding:9px 8px;border-bottom:1px solid var(--st-line);vertical-align:middle}
+    #st-rivalry-workspace .st-selected{background:var(--st-selected)}
+    #st-rivalry-workspace .st-route-button{display:flex;gap:10px;align-items:center;min-height:34px;border:0;background:transparent;color:var(--st-fg);padding:0;text-align:left;font:inherit}
+    #st-rivalry-workspace button:focus-visible,#st-rivalry-workspace a:focus-visible,#st-rivalry-workspace input:focus-visible,#st-rivalry-workspace select:focus-visible{outline:2px solid var(--st-accent);outline-offset:3px}
+    #st-rivalry-workspace .st-route-button svg{width:48px;height:30px;flex-shrink:0;color:var(--st-muted)}
+    #st-rivalry-workspace svg.st-route path{fill:none;stroke:currentColor;stroke-width:2;vector-effect:non-scaling-stroke}
+    #st-rivalry-workspace .st-route-name{display:block;font-weight:600}
+    #st-rivalry-workspace .st-time{font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap}
+    #st-rivalry-workspace .st-quiet{color:var(--st-muted);font-size:12px}
+    #st-rivalry-workspace .st-warn{color:var(--st-warn)}
+    #st-rivalry-workspace .st-context{margin-top:14px;padding-top:12px;border-top:1px solid var(--st-line)}
+    #st-rivalry-workspace .st-context-heading{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+    #st-rivalry-workspace .st-context-body{display:grid;grid-template-columns:minmax(0,1fr) 225px;gap:16px;align-items:start}
+    #st-rivalry-workspace .st-history{min-width:490px}
+    #st-rivalry-workspace .st-history td{padding-top:7px;padding-bottom:7px}
+    #st-rivalry-workspace .st-picks{display:flex;gap:12px}
+    #st-rivalry-workspace .st-picks label{display:flex;align-items:center;gap:4px;min-height:30px}
+    #st-rivalry-workspace input[type=radio]{accent-color:var(--st-accent);margin:0}
+    #st-rivalry-workspace .st-filter{display:flex;align-items:center;gap:8px;color:var(--st-muted);font-size:12px}
+    #st-rivalry-workspace select{background:var(--st-panel);color:var(--st-fg);border:1px solid var(--st-line);border-radius:5px;padding:6px;font:inherit;max-width:100%}
+    #st-rivalry-workspace .st-inspector{background:var(--st-panel);padding:12px;min-width:0;border-radius:6px}
+    #st-rivalry-workspace .st-inspector svg.st-route{width:100%;height:105px;margin:8px 0;color:var(--st-accent)}
+    #st-rivalry-workspace .st-inspector p{margin:5px 0}
+    #st-rivalry-workspace .st-inspector .st-pair{display:flex;justify-content:space-between;gap:10px;margin-top:9px}
+    #st-rivalry-workspace .st-compare{display:block;background:var(--st-accent);color:var(--st-bg);text-decoration:none;text-align:center;border:0;border-radius:5px;padding:9px;font:inherit;font-weight:600;margin-top:10px}
+    #st-rivalry-workspace .st-no-compare{display:block;border:1px solid var(--st-line);border-radius:5px;padding:8px;text-align:center;color:var(--st-muted);margin-top:9px;font-size:12px}
+    #st-rivalry-workspace details{font-size:12px;color:var(--st-muted);margin-top:10px}
+    #st-rivalry-workspace summary{min-height:28px;display:list-item}
+    #st-rivalry-workspace .st-empty{padding:18px 8px;color:var(--st-muted)}
+    @media(max-width:740px){#st-rivalry-workspace .st-context-body{grid-template-columns:1fr}#st-rivalry-workspace .st-inspector{display:grid;grid-template-columns:140px minmax(0,1fr);gap:12px}#st-rivalry-workspace .st-inspector svg.st-route{height:90px}#st-rivalry-workspace .st-window{padding:12px}}
+    @media(max-width:420px){#st-rivalry-workspace .st-inspector{grid-template-columns:1fr}#st-rivalry-workspace .st-inspector svg.st-route{height:80px}#st-rivalry-workspace nav{gap:12px}#st-rivalry-workspace input[type=search]{font-size:16px}}
+    @media(pointer:coarse){#st-rivalry-workspace button,#st-rivalry-workspace .st-picks label,#st-rivalry-workspace select,#st-rivalry-workspace .st-compare{min-height:44px}}
+    body#st-rivalry-workspace{margin:0;background:var(--st-bg);color-scheme:dark}
+    #st-rivalry-workspace .st-window{max-width:1280px;margin:auto}
+    #st-rivalry-workspace .st-overview{min-width:860px}
+    #st-rivalry-workspace a{color:var(--st-accent)}
+    #st-rivalry-workspace .st-brand,#st-rivalry-workspace nav a{text-decoration:none}
+    #st-rivalry-workspace nav{flex-wrap:wrap}
+    #st-rivalry-workspace nav a{color:var(--st-muted)}
+    #st-rivalry-workspace nav a[aria-current]{color:var(--st-fg);font-weight:600}
+    #st-rivalry-workspace .st-search{flex-wrap:nowrap}
+    #st-rivalry-workspace #st-refresh{border:1px solid var(--st-line);border-radius:5px;background:var(--st-panel);color:var(--st-fg);padding:8px 10px;font:inherit}
+    #st-rivalry-workspace button,#st-rivalry-workspace summary{cursor:pointer}
+    #st-rivalry-workspace .st-compare{color:var(--st-bg)}
+    #st-rivalry-workspace .st-route-host{display:block;min-width:48px;font-size:10px;color:var(--st-muted)}
+    #st-rivalry-workspace .st-route-button .st-route-host{width:48px;flex-shrink:0}
+    #st-rivalry-workspace .st-inspector .st-route-host{margin:8px 0}
+    #st-rivalry-workspace .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+  

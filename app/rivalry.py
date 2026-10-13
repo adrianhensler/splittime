@@ -41,6 +41,7 @@ def _lap_out(session: dict, lap: dict, names: dict, event: dict) -> dict:
         "driver_id": driver_id,
         "driver_name": names.get(driver_id, driver_id),
         "started_at_utc": _utc(lap.get("started_t")),
+        "finished_at_utc": _utc(lap.get("ended_t")),
         "car_ordinal": ordinal,
         "car_name": resolve_name(ordinal, session.get("car_name_override")),
         "car_pi": session.get("car_pi"),

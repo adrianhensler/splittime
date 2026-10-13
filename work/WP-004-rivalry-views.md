@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | partial; reviewed exploratory API/page merged in PR #10, ranked rivalry/history not implemented |
+| Status | partial; original exploratory API/page admitted; compact Rivalry v2 and local recorded history in review |
 | Parent | WP-000 |
 | Children | none |
 | Worker | Codex (checkpoint owner); original implementation by GPT-6 |
@@ -60,6 +60,7 @@ Final application snapshot at `f68d70a`; candidate bests are not ranked leaders.
 |---|---|---|
 | C1 | Provenance/name/order repairs pass; page stays exploratory | E1, E2 |
 | C2 | Ranked leaders/history and full quality/mode classification are absent | E3 |
+| C3 | Rivalry v2 adds compact recorded bests/gaps, finish-dated local history, search, actual outlines and A/B comparisons alongside the original; official ranking remains absent | E4 |
 
 ## Evidence
 
@@ -68,6 +69,7 @@ Final application snapshot at `f68d70a`; candidate bests are not ranked leaders.
 | E1 | API/UI regressions | `python -m pytest -q tests/test_rivalry.py tests/test_rivalry_review.py`; `node --test tests/ui/rivalry.test.cjs` |
 | E2 | Independent adverse/browser review | [Opus final review](https://github.com/adrianhensler/splittime/pull/10#pullrequestreview-5490170368) |
 | E3 | Quality/timing/mode unknown, winner null, no record history | `app/rivalry.py` at `f68d70a` |
+| E4 | Rivalry v2 self-checks; final reviewed/deployed head pending | Checkpoint below; `tests/ui/rivalry-v2.test.cjs`, `tests/test_rivalry.py` |
 
 ## Known, unknown, unproven
 
@@ -144,3 +146,44 @@ the same pull request is outside this packet's authority and is recorded in
 The review repair on top of `560aa52` changes no page or rivalry code;
 `node --test tests/ui/*.test.cjs` re-run there: 49 passed. Incomplete attempts
 the recorder now keeps are untimed, so they add no comparison link.
+
+## Rivalry v2 checkpoint, 2026-10-12
+
+Owner approved the compact preview, requested a main-page “Rivalry v2” link
+while retaining the original, and requested a merge/grouping UX review.
+Checkpoint owner: Codex. Branch `feat/rivalry-v2`, based on `5059dbb`.
+PR locator and final head will be recorded before ready.
+
+Implemented: dense route/class rows in configured driver order, candidate
+bests and recorded differences, real recorded outlines, search, finish-dated
+PB/lead-change history and explicit A/B selection into the existing comparison.
+API adds `finished_at_utc` from stored `ended_t`; no schema or recorder change.
+Original Rivalry HTML/JS are byte-identical. No illustrative opponent or fixture
+is shipped. Undated clean attempts suppress uncertain record chronology;
+simultaneous timestamps are batched; refresh resets reused lap identities.
+
+Self-checks: Python 3.13 isolated environment, full `python -m pytest -q`:
+300 passed; `ruff check .` (0.17) and packet round-trip passed. Node UI suite
+passed before the final refresh regression; final count is recorded at ready.
+Browser on synthetic data under `/splittime/`: rendered compact layout, history
+filter 6 to 4 attempts, selected B changed actual comparison URL from laps 2/5
+to 2/1. No live management API was called. Grouping properties were checked
+with existing synthetic API regressions; findings and proposal are in
+`docs/MERGE_RUNS_UX_REVIEW.md`, with no grouping behaviour changed.
+
+Re-run: `python -m pytest -q`; `ruff check .`;
+`python app/telemetry/packet.py`; `node --test tests/ui/*.test.cjs`.
+An older global Ruff reported an inherited E721 idiom; the repository's current
+requirements environment passes. The network-sandboxed full Python run stalled;
+the isolated suite completed outside that sandbox with synthetic loopback tests.
+
+Unknowns: official event equivalence/validity, complete capture quality,
+real two-driver field validation and global standings. This admits no ranked
+winner or accuracy claim. Finish dates are capture timestamps, not official
+achievement timestamps. Existing full acceptance criteria remain partial.
+
+Independent verification: fresh Codex reviewer pending final-head review/CI.
+Acceptance: pending reviewed merge. Deployment: not yet performed. Next action:
+open PR, address review, snapshot final evidence before ready; reviewer merges
+green CI, then update only the existing web service and static gallery link,
+preserving the running collector, original Rivalry and captured data.

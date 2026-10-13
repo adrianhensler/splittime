@@ -31,6 +31,17 @@ def lap(lid, sid, time, flags="", excluded=False):
             "flags": flags, "excluded": excluded}
 
 
+def test_finished_timestamp_is_capture_time_and_missing_stays_unknown():
+    attempt = lap(11, 1, 93.05)
+    attempt["ended_t"] = 1100.0
+    store = Stub([s(1, "a")], {1: [attempt, lap(12, 1, 92.44)]})
+    rows = rivalry_summary(store)["categories"][0]["attempts"]
+    by_id = {row["lap_id"]: row for row in rows}
+    assert by_id[11]["finished_at_utc"] == "1970-01-01T00:18:20Z"
+    assert by_id[12]["finished_at_utc"] is None
+    assert by_id[11]["started_at_utc"] != by_id[11]["finished_at_utc"]
+
+
 def test_two_drivers_one_route_class_yields_independent_candidate_bests():
     store = Stub([s(1, "a"), s(2, "b", pi=799)], {
         1: [lap(11, 1, 93.05), lap(12, 1, 92.44)],
