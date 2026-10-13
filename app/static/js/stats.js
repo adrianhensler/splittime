@@ -19,6 +19,7 @@
     const m = Math.round(seconds / 60);
     return m < 1 ? `${Math.round(seconds)} s` : m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${String(m % 60).padStart(2,"0")} min`;
   }
+  const EST = "The game stopped sending data at the finish line, so this time is SplitTime’s last clock reading. The run covered the whole route.";
   const numeric = new Set(["int","time","duration","pct","gap"]);
   function format(kind, value) {
     if (value === null || value === undefined || value === "") return "—";
@@ -34,7 +35,9 @@
     const cell = (value, column) => {
       const kind = value && typeof value === "object" ? value.kind : column.kind;
       const raw = value && typeof value === "object" ? value.value : value;
-      return `<td class="${numeric.has(kind) ? "st-num" : ""}">${esc(format(kind,raw))}</td>`;
+      const est = value && typeof value === "object" && value.est ?
+        ` <abbr class="st-est" title="${EST}">est.</abbr>` : "";
+      return `<td class="${numeric.has(kind) ? "st-num" : ""}">${esc(format(kind,raw))}${est}</td>`;
     };
     const right = column => numeric.has(column.kind) || t.per_driver && column !== t.columns[0];
     return `<div>${t.title === section.title ? "" : `<h3>${esc(t.title)}</h3>`}<div class="st-scroll"><table>
