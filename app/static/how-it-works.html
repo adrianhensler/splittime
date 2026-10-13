@@ -54,7 +54,7 @@
       <div class="st-box st-key"><b>Collector</b><span>parse packet → one <code>SessionTracker</code> per driver (<code>app/recorder/laps.py</code>) → buffered write every second</span></div>
       <div class="st-split">
         <div><div class="st-arrow">frames, laps, routes</div>
-          <div class="st-box"><b>SQLite file (WAL)</b><span>tables: sessions, frames, laps, routes, session_groups, edits, drivers</span></div>
+          <div class="st-box"><b>SQLite file (WAL)</b><span>tables: sessions, frames, laps, routes, session_groups, edits, attempts, drivers</span></div>
           <div class="st-arrow">read; small writes</div>
           <div class="st-box st-key"><b>Website</b><span>pages and <code>/api/*</code>. Asks the collector what is recording before any heavy write</span></div></div>
         <div><div class="st-arrow">every frame, plus live delta</div>
@@ -102,10 +102,17 @@
       <div class="st-arrow">at the end</div>
       <div class="st-split">
         <div><div class="st-box"><b>At least one timed lap or run</b><span>keep; tag wet/surface; group into a sitting</span></div></div>
-        <div><div class="st-box st-bad"><b>No timed lap</b><span>delete the session and its packets, log one diagnostic line. With "keep discarded" on, keep it instead</span></div></div>
+        <div><div class="st-box st-bad"><b>No timed lap</b><span>if it was a started event, note one attempt (no packets). Then delete the session and its packets and log one diagnostic line. With "keep discarded" on, keep it instead</span></div></div>
       </div>
       <figcaption>Session life cycle. Free-roam driving also has IsRaceOn = 1, so it opens sessions too. They end with no timed lap and are deleted.</figcaption>
     </figure>
+    <h3>Attempts</h3>
+    <p>Every started event is one attempt, however short. A session that ends with a timed lap or run
+      is a finished attempt. One that ends without is given up: its packets go, but one small row
+      stays with the driver, the car, where it started and how far it got. "Started" means a race
+      from a grid, or a lap-timed event, whose odometer left the line. The route of a given-up
+      attempt is worked out from its start position: the one recorded route that starts within
+      120 m, else the one catalogue course, else "Unknown route".</p>
 
     <h2 id="laps">4. Laps on a circuit</h2>
     <p>Where the game runs its lap fields, the recorder trusts them:</p>
@@ -204,7 +211,7 @@
         <tr><td>Live</td><td>The collector's socket</td><td>Every packet as it arrives, plus the live delta</td></tr>
         <tr><td>Analysis</td><td>Sessions, laps and stored packets</td><td>Lap tables, maps, traces; rename, flag, exclude, reprocess, delete</td></tr>
         <tr><td>Rivalry</td><td><code>/api/rivalry</code></td><td>Every lap with the verdict from section 10, which reads each lap's last packet once; the page only sorts and filters</td></tr>
-        <tr><td>Stats</td><td><code>/api/stats</code></td><td>Twelve sections computed from the session, lap and route tables. It reuses the Rivalry verdicts, so it reads the last packet of each lap once (then cached) for the full-route test. No statistic scans a whole trace yet</td></tr>
+        <tr><td>Stats</td><td><code>/api/stats</code></td><td>Thirteen sections computed from the session, lap, route and attempt tables. It reuses the Rivalry verdicts, so it reads the last packet of each lap once (then cached) for the full-route test. No statistic scans a whole trace yet</td></tr>
         <tr><td>Replay</td><td><code>/api/laps/{id}/data</code></td><td>Position and speed per packet for up to six laps, played against each lap's own clock</td></tr>
       </tbody></table></div>
 
@@ -225,6 +232,8 @@
         <tr><td>F8</td><td>Event types are counted together</td><td>Race, Rivals and others share one best per route and class</td><td>The event-type guess rests on two signals and one capture: a position worse than 1st means a race; a lap-clock reset at the start line means Rivals; otherwise unknown</td><td><span class="st-tag st-open">open</span> By decision, until more modes are captured</td></tr>
         <tr><td>F9</td><td>"Valid" is narrower than the game's rule</td><td>No recorded case yet</td><td>Cutting a corner or leaving the track sets no flag. Only rewind and contact are detected</td><td><span class="st-tag st-open">open</span></td></tr>
         <tr><td>F10</td><td>Shared replay links can break</td><td>After a reprocess, a session's five laps had new ids</td><td>A reprocess deletes and recreates lap rows. Replay and compare links carry lap ids</td><td><span class="st-tag st-open">open</span></td></tr>
+        <tr><td>F12</td><td>A very quick restart is not a separate attempt</td><td>No recorded case yet</td><td>A session is split when the race clock jumps back by more than 10 s. A restart sooner than that stays in the same session, so it counts once. A rewind near the start looks similar</td><td><span class="st-tag st-open">open</span> Needs a capture of one</td></tr>
+        <tr><td>F13</td><td>Given-up attempts at events with no lap clock are not counted</td><td>No recorded case yet</td><td>With no grid position and no lap fields, an abandoned run is indistinguishable from free roam</td><td><span class="st-tag st-open">open</span></td></tr>
         <tr><td>F11</td><td>Packets can be forged</td><td>None seen</td><td>UDP has no login. Whoever sends to a driver's port is that driver</td><td><span class="st-tag">accepted</span></td></tr>
       </tbody></table></div>
     <h3>How F3 and F4 produced a fake route</h3>

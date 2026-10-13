@@ -85,6 +85,23 @@ CREATE TABLE IF NOT EXISTS edits (
     created_at REAL NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_edits_session ON edits(session_id);
+-- SplitTime: one row per started event that ended without a timed lap or run
+-- (owner decision 2026-10-13: such sessions are still discarded, but drivers
+-- want their number of attempts). No packets; session_id is the discarded
+-- session's retired id. Where it started is kept so a route can be worked out
+-- later, including one nobody had finished yet (app/attempts.py).
+CREATE TABLE IF NOT EXISTS attempts (
+    session_id  INTEGER PRIMARY KEY,
+    driver_id   TEXT NOT NULL,
+    started_at  REAL NOT NULL,
+    ended_at    REAL,
+    car_ordinal INTEGER,
+    car_class   INTEGER,
+    car_pi      INTEGER,
+    start_x     REAL,
+    start_z     REAL,
+    covered     REAL
+);
 """
 
 # Manual session edits (analysis page), applied at read time - raw frames and
@@ -577,6 +594,43 @@ class Store:
              exclude_session_id if exclude_session_id is not None else -1),
         ).fetchone()
         return row[0] if row else None
+
+    def record_attempt(self, session_id: int, ended_at: float, start_x: float,
+                       start_z: float, covered: float) -> None:
+        """Note an event that was started and given up, before its session is
+        discarded. Driver and car are copied from the session row, so this
+        must run while that row still exists. Event-loop connection."""
+        self.db.execute(
+            "INSERT OR REPLACE INTO attempts (session_id, driver_id, started_at,"
+            " ended_at, car_ordinal, car_class, car_pi, start_x, start_z, covered)"
+            " SELECT id, driver_id, started_at, ?, car_ordinal, car_class, car_pi,"
+            " ?, ?, ? FROM sessions WHERE id = ?",
+            (ended_at, start_x, start_z, covered, session_id))
+        self._commit()
+
+    def delete_attempt(self, session_id: int) -> None:
+        self.db.execute("DELETE FROM attempts WHERE session_id = ?", (session_id,))
+        self._commit()
+
+    def list_attempts(self) -> list[dict]:
+        """Given-up attempts, each with the driver's name where one is known
+        (a driver since removed from the configuration keeps its row)."""
+        with self.reader() as conn:
+            return [dict(r) for r in conn.execute(
+                "SELECT a.*, d.name AS driver_name FROM attempts a"
+                " LEFT JOIN drivers d ON d.id = a.driver_id ORDER BY a.started_at")]
+
+    def timed_session_ids(self) -> set[int]:
+        """Sessions holding at least one timed lap or run, excluded or not:
+        excluding a lap takes it out of the rankings, not out of history."""
+        with self.reader() as conn:
+            return {r[0] for r in conn.execute(
+                "SELECT DISTINCT session_id FROM laps WHERE lap_time IS NOT NULL")}
+
+    def route_starts(self) -> list[dict]:
+        with self.reader() as conn:
+            return [dict(r) for r in conn.execute(
+                "SELECT id, name, start_x, start_z FROM routes")]
 
     def discard_session(self, session_id: int) -> None:
         """Delete a just-ended session that produced no completed laps."""

@@ -107,6 +107,8 @@ def stats_summary(store, configured_drivers=()) -> dict:
     for s in sessions:
         names.setdefault(s.get("driver_id") or "legacy",
                          s.get("driver_name") or s.get("driver_id") or "legacy")
+    for ident, name in rivalry["route_attempts"]["names"].items():
+        names.setdefault(ident, name)   # only ever gave up: no session survives
     drivers = [{"id": i, "name": n} for i, n in names.items()]
     ids = [d["id"] for d in drivers]
 
@@ -427,8 +429,36 @@ def stats_summary(store, configured_drivers=()) -> dict:
                + [_col(d["name"]) for d in drivers], earned_rows),
     ]
 
+    # -- attempts: every start, finished or given up ---------------------------
+    started = rivalry["route_attempts"]
+    def per(field):
+        return {i: c[field] for i, c in started["drivers"].items()}
+    rate = {i: c["finished"] / c["attempts"]
+            for i, c in started["drivers"].items() if c["attempts"]}
+    attempts = [
+        _per_driver("Events started", drivers, [
+            ("Attempts", "int", per("attempts")),
+            ("Finished", "int", per("finished")),
+            ("Given up", "int", per("abandoned")),
+            ("Finish rate", "pct", rate),
+        ], note="An attempt is one started event. Finished means it produced at"
+                " least one timed lap or run. Attempts given up are counted from"
+                " the day this was added; earlier ones were not recorded."),
+        _table("Attempts by route", [_col("Route")] + [
+            _col(f"{d['name']} · {label}", "int")
+            for d in drivers for label in ("attempts", "finished")],
+            [[r["route_name"]] + [
+                {"kind": "int", "value": r["drivers"].get(d["id"], {}).get(field)}
+                for d in drivers for field in ("attempts", "finished")]
+             for r in started["routes"]],
+            note="A given-up attempt is matched to a route by where it started."
+                 " Where two routes share a start line, or the place matches no"
+                 " known course, it is listed under Unknown route."),
+    ]
+
     sections = [
         ("overview", "Overview", [overview]),
+        ("attempts", "Attempts", attempts),
         ("leaderboard", "Leaderboard", [board, by_measure]),
         ("bests", "Best times", [all_bests]),
         ("head_to_head", "Head to head", h2h_tables),

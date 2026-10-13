@@ -37,6 +37,7 @@ One entry per decision. Status is **Accepted** (the owner decided),
 | 28 | Stats page: server-described sections over the recorded index | Accepted |
 | 29 | Race replay: recorded laps played together on the map | Accepted |
 | 30 | A gridded run is timed only if it covered the full route | Accepted |
+| 31 | Attempts are counted; given-up events stay discarded | Accepted |
 
 Each entry lists what it **rests on**, so that reversing one decision shows
 which others to revisit.
@@ -515,3 +516,29 @@ runs showed up as unnamed routes).
   before this.
 
 *Rests on:* 9, 27. *Work:* WP-008.
+
+## 31. Attempts are counted; given-up events stay discarded
+
+**Accepted, 2026-10-13** (owner: "leave it as discard for now, but players want
+a record of # of attempts"; "ten attempts means ten attempts").
+
+- An attempt is one started event. Finished: a kept session with at least one
+  timed lap or run. Given up: the session ended with none.
+- A given-up session is still deleted with its packets. As it goes, the
+  recorder writes one row to `attempts`: driver, car, times, where it started
+  and how far the odometer got. No minimum distance.
+- Started means a race (gridded) or a lap-timed event whose odometer left the
+  line. Events with no lap fields at all are not counted when given up: from
+  telemetry they look like free roam.
+- The route is worked out when read, from the start position: the one recorded
+  route starting within the fingerprint radius, else the one catalogue course,
+  else "Unknown route". So attempts at a course nobody has finished yet are
+  still named, and join the route once someone finishes it.
+- Shown in Stats ("Attempts") and as "Starts" per route on Rivalry. Kept
+  sessions with no route and no time no longer get a Rivalry row of their own.
+- Known gap: a restart within the first 10 s of the race clock does not split
+  the session (`RACE_TIME_RESET_JUMP`), so it is not a separate attempt.
+  Telling it from a rewind needs a real capture of one.
+- Supersedes the "incomplete-attempt summary" wording in DESIGN.md.
+
+*Rests on:* 7, 27, 30. *Work:* WP-008.

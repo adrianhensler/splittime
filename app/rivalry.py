@@ -21,6 +21,7 @@ from __future__ import annotations
 import math
 from datetime import datetime, timezone
 
+from .attempts import attempt_summary
 from .cars import resolve_name
 
 from .eventtype import guess_event
@@ -123,8 +124,15 @@ def rivalry_summary(store, configured_drivers=()) -> dict:
     names = {d.id: d.name for d in configured_drivers}
     groups: dict[tuple, dict] = {}
     unresolved = 0
-    for session in store.list_sessions():
+    sessions = store.list_sessions()
+    for session in sessions:
         route_id, car_class = session.get("route_id"), session.get("car_class")
+        session_laps = store.session_laps(session["id"])
+        if route_id is None and not any(lap.get("lap_time") for lap in session_laps):
+            # a kept session with no route and no time is an event that was
+            # given up (or free roam): it has no row here. Attempts are
+            # counted in `route_attempts`.
+            continue
         if route_id is None:
             unresolved += 1
         # Never group two unidentified physical routes solely by their NULL ID.
@@ -142,7 +150,7 @@ def rivalry_summary(store, configured_drivers=()) -> dict:
             "attempts": [],
         })
         event = guess_event(store, session)
-        for lap in store.session_laps(session["id"]):
+        for lap in session_laps:
             group["attempts"].append(
                 _lap_out(session, lap, names, event, lap_covered(store, lap)))
 
@@ -183,4 +191,6 @@ def rivalry_summary(store, configured_drivers=()) -> dict:
         "drivers": [{"id": d.id, "name": d.name} for d in configured_drivers],
         "unidentified_sessions": unresolved,
         "categories": categories,
+        # starts per route and driver, finished or given up (app/attempts.py)
+        "route_attempts": attempt_summary(store, sessions),
     }

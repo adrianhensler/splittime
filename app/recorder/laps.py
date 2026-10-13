@@ -349,6 +349,7 @@ class SessionTracker:
         self._trk_jumps = 0
         self._session_start_t = 0.0
         self._diag_first_dist: float | None = None
+        self._diag_max_dist = 0.0
         self._diag_max_ln = 0
         self._diag_max_cur = 0.0
 
@@ -612,6 +613,7 @@ class SessionTracker:
         self._trk_jumps = 0
         self._session_start_t = t
         self._diag_first_dist = frame["distance_traveled"]
+        self._diag_max_dist = frame["distance_traveled"]
         self._diag_max_ln = frame["lap_number"]
         self._diag_max_cur = 0.0
         log.info("Session %d started (car ordinal %d, PI %d)",
@@ -672,6 +674,11 @@ class SessionTracker:
                         (self._prev_dist - self._diag_first_dist)
                         if self._prev_dist is not None and self._diag_first_dist is not None
                         else 0.0))
+            if self._attempted():
+                # the session goes, the fact that it was tried stays
+                self.store.record_attempt(
+                    self.session_id, end_t, self._lap_start_pos[0],
+                    self._lap_start_pos[1], self._diag_max_dist)
             if KEEP_DISCARDED:
                 self.store.end_session(self.session_id, end_t, self._frame_count,
                                        conditions=None)
@@ -749,6 +756,16 @@ class SessionTracker:
         self._trk_rough_hi = 0
         self._trk_jumps = 0
         self._lap_flags = set()
+
+    def _attempted(self) -> bool:
+        """Was this an event the driver started, as opposed to free roam or a
+        wait on the grid? A race grids you (RacePosition > 0) and lap-timed
+        events run the lap fields; free roam does neither. Started means the
+        odometer left the line. Events that broadcast no lap fields at all
+        (World Time Attack) are not counted: from telemetry an abandoned one
+        looks like free roam."""
+        return ((self._gridded or not self._lap_fields_dead)
+                and self._launch_rt is not None)
 
     def _suggest_track(self) -> str | None:
         """Track type to auto-fill at session close: the route's existing tag
@@ -877,6 +894,7 @@ class SessionTracker:
         last = frame["last_lap"]
         self._diag_max_ln = max(self._diag_max_ln, ln)
         self._diag_max_cur = max(self._diag_max_cur, cur)
+        self._diag_max_dist = max(self._diag_max_dist, dist)
 
         # Rivals can count CurrentLap during the approach from negative route
         # position, then reset it at the first start line without incrementing
