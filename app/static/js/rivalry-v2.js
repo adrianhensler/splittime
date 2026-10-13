@@ -138,7 +138,11 @@
           <td>${esc(lap.driver_name)}</td><td>${cell(lap)}</td></tr>`).join("")}</tbody></table></div></div>` : "";
     const a = group.attempts.find(lap => lap.lap_id === state.a), b = group.attempts.find(lap => lap.lap_id === state.b);
     const href = M.compare(a,b), delta = href ? b.time_s-a.time_s : null;
-    $("st-inspector").innerHTML = `<div><span class="st-quiet">Recorded route</span>${route(group)}</div><div>
+    const started = (state.data.route_attempts?.routes || []).find(r => r.route_id === group.route_id);
+    const starts = started ? M.drivers(state.data).filter(d => started.drivers[d.id]).map(d =>
+      `${esc(d.name)} ${started.drivers[d.id].attempts} (${started.drivers[d.id].finished} finished)`).join(" · ") : "";
+    $("st-inspector").innerHTML = `<div><span class="st-quiet">Recorded route</span>${route(group)}${starts ?
+      `<p class="st-quiet" id="st-starts" title="Every time the event was started on this route, in any class. Given-up attempts are counted from the day this was added.">Starts: ${starts}</p>` : ""}</div><div>
       <strong>Selected comparison</strong>${[["A",a],["B",b]].map(([side,lap]) =>
         `<p><span class="st-time">${side} ${M.time(lap?.time_s)}</span><br><span class="st-quiet">${lap ? `${esc(lap.driver_name)} · lap ${lap.lap_id}` : "Choose a completed lap"}</span></p>`).join("")}
       <p>${href ? delta === 0 ? "Equal recorded times" : `${delta > 0 ? "A" : "B"} faster by <span class="st-time">${Math.abs(delta).toFixed(3)} s</span>` : "Choose two completed laps."}</p>

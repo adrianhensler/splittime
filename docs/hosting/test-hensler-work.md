@@ -211,3 +211,8 @@ held 17 sessions and 8 routes when it was written.
 Routes 5 and 6 both start 60 m from the catalogue's Hokubu Ascent start line
 (the grid is at odometer -70.8) and follow its shape. Nobody has completed that
 course here, so there is no Hokubu Ascent route to move them onto.
+
+Attempt counting (ADR 31) started on this installation on 2026-10-13. Sessions
+29 and 30 are counted as two given-up attempts at Hokubu Ascent. The discarded
+sessions before that (49, 50 and 52 among them) were not recorded and are not
+in the count.

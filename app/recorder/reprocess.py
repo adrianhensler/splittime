@@ -77,6 +77,9 @@ def reprocess_session(store, session_id: int) -> int:
         # the replay assigns the route again from its first full lap; a
         # session that no longer produces one must not keep the old route
         store.set_session_route(session_id, None)
+        # likewise the note that it was started and given up: the replay
+        # writes it again if that is still how the session ends
+        store.delete_attempt(session_id)
         tracker = SessionTracker(_ReplayStore(store, session_id))
         last_t = frames[0][0]
         for t, raw in frames:

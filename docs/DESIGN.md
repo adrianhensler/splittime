@@ -129,8 +129,8 @@ Detection rules are upstream's and are documented in its
 | Case | Record | Show / score |
 |---|---|---|
 | Race quit after 2 of 3 laps | Keep the 2 completed laps | Completed laps can rank; no race result |
-| Quit before any full lap of a recognized event | Keep minimal incomplete-attempt summary; raw frames may be discarded | Visible as incomplete, never ranked |
-| Gridded point-to-point run given up partway (odometer short of the full route) | No time and no route, whichever finish signal fired (ADR 30). With no timed lap the session is discarded | Not shown; the owner wants attempts counted, as a later change |
+| Quit before any full lap of a recognized event | Session and packets discarded; one row kept in `attempts` (driver, car, time, start position, distance reached) (ADR 31) | Counted as an attempt given up in Stats and per route in Rivalry; never ranked |
+| Gridded point-to-point run given up partway (odometer short of the full route) | No time and no route, whichever finish signal fired (ADR 30). With no timed lap the session is discarded | Counted as an attempt given up (ADR 31) |
 | Rivals session ends | Keep every completed lap | Not a DNF |
 | Stream cuts at the finish | Lap completed from clock and distance, flagged `cutoff` | Provisional; not ranked by default |
 | Network loss or crash | Keep what arrived; mark the lap gapped | Gapped laps not ranked by default |
