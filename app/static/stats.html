@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en"><head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SplitTime · Stats</title>
+  <link rel="stylesheet" href="css/rivalry-v2.css">
+  <link rel="stylesheet" href="css/stats.css">
+</head>
+<body id="st-rivalry-workspace"><div class="st-window">
+  <header><a class="st-brand" href="index.html">Split<span>//</span>Time</a>
+    <nav aria-label="Site"><a href="index.html">Live</a><a href="analysis.html">Analysis</a>
+      <a href="rivalry-v2.html">Rivalry</a><a href="stats.html" aria-current="page">Stats</a><a href="rivalry.html">Rivalry_legacy</a></nav>
+  </header>
+  <main>
+    <div class="st-top"><div><h1>Stats</h1><div class="st-sub" id="st-stats-label">Loading…</div></div>
+      <div class="st-search"><button id="st-open-all" type="button">Open all</button>
+        <button id="st-refresh" type="button">Refresh</button></div>
+    </div>
+    <p id="st-message" class="st-quiet" role="status" aria-live="polite">Loading statistics…</p>
+    <div id="st-sections"></div>
+    <details><summary>About these numbers</summary><p>Everything here comes from the recorded sessions and laps.
+      A lap is valid when it has no rewind and no contact and is not excluded; a time taken from the last packet
+      counts only when the run covered the whole route. The game does not send its own verdict, its game mode or
+      official times, so these are SplitTime’s readings of the telemetry. Top speed and other numbers that need
+      every frame are not here yet.</p></details>
+  </main>
+</div><script src="js/rivalry-v2-model.js"></script><script src="js/stats.js"></script></body>
+</html>
