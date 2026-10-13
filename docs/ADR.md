@@ -397,3 +397,16 @@ selection in `MERGE_RUNS_UX_REVIEW.md`; this slice changes no grouping semantics
 Deploy only the existing web process; the existing collector stays running.
 
 *Rests on:* 10, 23, 24. *Work:* WP-004.
+
+## 26. Rivalry v2 is Rivalry; the original is Rivalry_legacy
+
+**Accepted, 2026-10-13** (owner request after the first user feedback).
+
+The compact workspace of ADR 25 is the page people should land on, so it takes
+the name **Rivalry** and comes first in the navigation. The original page stays
+available as **Rivalry_legacy**. Only labels, titles and navigation order
+change: `rivalry-v2.html` and `rivalry.html` keep their file names and URLs so
+existing links keep working. "Rivalry v2" in earlier entries and work packets
+means the page now called Rivalry.
+
+*Supersedes the naming in:* 25. *Work:* WP-004.
