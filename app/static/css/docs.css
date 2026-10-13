@@ -60,7 +60,6 @@
 #st-rivalry-workspace .st-car-b{fill:var(--st-warn);offset-distance:97%;animation-name:st-lap-b}
 @keyframes st-lap-a{0%{offset-distance:3%}22%{offset-distance:68%}50%{offset-distance:147%}74%{offset-distance:224%}100%{offset-distance:303%}}
 @keyframes st-lap-b{0%{offset-distance:-3%}22%{offset-distance:62%}50%{offset-distance:153%}74%{offset-distance:230%}100%{offset-distance:297%}}
-@media(prefers-reduced-motion:reduce){#st-rivalry-workspace .st-car{animation:none}}
 
 /* the same two cars on a track round the edge of the window (js/docs.js) */
 #st-rivalry-workspace .st-edge{display:none;position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:5}
@@ -73,3 +72,5 @@
 #st-rivalry-workspace .st-edge .st-car-b{offset-distance:99.3%;animation-name:st-edge-b}
 @keyframes st-edge-a{0%{offset-distance:.7%}22%{offset-distance:66%}50%{offset-distance:149.2%}74%{offset-distance:221.2%}100%{offset-distance:300.7%}}
 @keyframes st-edge-b{0%{offset-distance:-.7%}22%{offset-distance:64.6%}50%{offset-distance:150.6%}74%{offset-distance:222.6%}100%{offset-distance:299.3%}}
+/* last and !important: the edge rules above name an animation and js/docs.js sets a duration inline */
+@media(prefers-reduced-motion:reduce){#st-rivalry-workspace .st-car{animation:none!important}}
