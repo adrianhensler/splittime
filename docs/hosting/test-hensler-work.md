@@ -201,8 +201,8 @@ held 17 sessions and 8 routes when it was written.
 |---|---|---|
 | F1 run deleted | Session 50, FishFighterNS, 2026-10-13 12:37 UTC, 155 s, odometer +5952 | Fixed in #26. The run is gone |
 | F2 circuit split in two | Sessions 38 and 40 on route 7 (Shimanoyama Circuit, length 5945); session 41 on route 8 (length 6275) | Fixed in #31. At the owner's request session 41 was reprocessed onto route 7 and the empty route 8 row deleted, 2026-10-13 |
-| F3 abandoned run timed at the cutoff | Session 30, "Unnamed route #6": 79.4 s, stopped at odometer 4080, flags contact, cutoff, rewind | Open |
-| F4 abandoned run timed as confirmed | Session 29, "Unnamed route #5": 59.2 s, odometer reset at 2483 after a 5.5 s gap, flag contact | Open |
+| F3 abandoned run timed at the cutoff | Session 30, "Unnamed route #6": 79.4 s, stopped at odometer 4080, flags contact, cutoff, rewind | Fixed in the code (ADR 30). The session still shows its old time until it is reprocessed |
+| F4 abandoned run timed as confirmed | Session 29, "Unnamed route #5": 59.2 s, odometer reset at 2483 after a 5.5 s gap, flag contact | Fixed in the code (ADR 30). The session still shows its old time until it is reprocessed |
 | F5 clock starts at the line | Session 43 (drag): 14.449 s recorded, `CurrentLap` 16.7 s in the last packet. Ito Sprint sessions 22 and 24: 2:52.7 and 2:59.4 recorded | Open; needs one result-screen time |
 | F6 course not in the catalogue | Sessions 43, 45 and 47, "Unnamed route #9": start (-1883.6, -186.5), span 5.5 by 1000.9 | Open; needs the in-game name |
 | F7 deleted for unknown reasons | Sessions 49 and 52: 125 s and 184 s, not gridded | Open. `LS_KEEP_DISCARDED=1` is set on the collector until one drift event is captured, then to be turned off |
