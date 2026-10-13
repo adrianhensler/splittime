@@ -49,18 +49,23 @@ def route_of_start(x: float | None, z: float | None, routes: list[dict]) -> tupl
 
 def attempt_summary(store, sessions: list[dict] | None = None) -> dict:
     """{"drivers": {driver: counts}, "routes": [{route_id, route_name,
-    drivers: {driver: counts}}]} where counts is finished/abandoned/attempts."""
+    drivers: {driver: counts}}], "names": {driver: name}} where counts is
+    finished/abandoned/attempts."""
     sessions = store.list_sessions() if sessions is None else sessions
     lister = getattr(store, "list_attempts", None)
     abandoned = lister() if lister else []
     routes = store.route_starts() if abandoned else []
 
     per_route: dict[tuple, dict] = defaultdict(lambda: defaultdict(lambda: [0, 0]))
-    finished_ids = set()
+    # best_lap leaves out laps a person excluded; an excluded lap was still
+    # driven, so ask for timed laps directly where the store can say
+    timed = getattr(store, "timed_session_ids", None)
+    finished_ids = (timed() & {s["id"] for s in sessions} if timed
+                    else {s["id"] for s in sessions if s.get("best_lap")})
+    names = {a["driver_id"]: a.get("driver_name") or a["driver_id"] for a in abandoned}
     for s in sessions:
-        if not s.get("best_lap"):
+        if s["id"] not in finished_ids:
             continue                    # no timed lap: not a finished attempt
-        finished_ids.add(s["id"])
         key = ((s["route_id"], s.get("route_name") or f"Unnamed route #{s['route_id']}")
                if s.get("route_id") is not None else (None, UNKNOWN))
         per_route[key][s.get("driver_id") or "legacy"][0] += 1
@@ -82,4 +87,6 @@ def attempt_summary(store, sessions: list[dict] | None = None) -> dict:
         out.append({"route_id": route_id, "route_name": name,
                     "drivers": {d: counts(p) for d, p in drivers.items()}})
     out.sort(key=lambda r: (r["route_id"] is None, r["route_name"].lower()))
-    return {"drivers": {d: counts(p) for d, p in totals.items()}, "routes": out}
+    return {"drivers": {d: counts(p) for d, p in totals.items()}, "routes": out,
+            # for a driver known only from given-up attempts
+            "names": names}

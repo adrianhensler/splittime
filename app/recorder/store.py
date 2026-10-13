@@ -613,9 +613,19 @@ class Store:
         self._commit()
 
     def list_attempts(self) -> list[dict]:
+        """Given-up attempts, each with the driver's name where one is known
+        (a driver since removed from the configuration keeps its row)."""
         with self.reader() as conn:
             return [dict(r) for r in conn.execute(
-                "SELECT * FROM attempts ORDER BY started_at")]
+                "SELECT a.*, d.name AS driver_name FROM attempts a"
+                " LEFT JOIN drivers d ON d.id = a.driver_id ORDER BY a.started_at")]
+
+    def timed_session_ids(self) -> set[int]:
+        """Sessions holding at least one timed lap or run, excluded or not:
+        excluding a lap takes it out of the rankings, not out of history."""
+        with self.reader() as conn:
+            return {r[0] for r in conn.execute(
+                "SELECT DISTINCT session_id FROM laps WHERE lap_time IS NOT NULL")}
 
     def route_starts(self) -> list[dict]:
         with self.reader() as conn:

@@ -107,6 +107,8 @@ def stats_summary(store, configured_drivers=()) -> dict:
     for s in sessions:
         names.setdefault(s.get("driver_id") or "legacy",
                          s.get("driver_name") or s.get("driver_id") or "legacy")
+    for ident, name in rivalry["route_attempts"]["names"].items():
+        names.setdefault(ident, name)   # only ever gave up: no session survives
     drivers = [{"id": i, "name": n} for i, n in names.items()]
     ids = [d["id"] for d in drivers]
 

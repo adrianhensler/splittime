@@ -109,3 +109,23 @@ def test_a_restart_inside_ten_seconds_is_not_yet_seen_as_a_new_start(tmp_path):
     store = reopen(run(scenario, tmp_path))
     assert attempt_summary(store)["drivers"]["legacy"]["attempts"] == 1
     store.close()
+
+
+def test_excluding_the_only_lap_does_not_erase_the_attempt(tmp_path):
+    store = reopen(run(lambda sim: sim.dirt_sprint(40), tmp_path))
+    session = store.list_sessions()[0]
+    lap = store.session_laps(session["id"])[0]
+    store.add_edit(session["id"], "exclude_lap", lap["started_t"] + 1.0, None)
+    assert store.list_sessions()[0]["best_lap"] is None      # out of the rankings
+    assert attempt_summary(store)["drivers"]["legacy"] == {
+        "finished": 1, "abandoned": 0, "attempts": 1}
+    store.close()
+
+
+def test_a_driver_who_only_ever_gave_up_still_shows_in_stats(tmp_path):
+    store = reopen(run(lambda sim: sim.dirt_sprint(60, cut=True, quit_after=20), tmp_path))
+    data = stats_summary(store, [])                # no longer a configured driver
+    assert [d["id"] for d in data["drivers"]] == ["legacy"]
+    section = next(s for s in data["sections"] if s["id"] == "attempts")
+    assert {row[0]: row[1]["value"] for row in section["tables"][0]["rows"]}["Given up"] == 1
+    store.close()
