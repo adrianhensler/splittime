@@ -179,6 +179,21 @@ def test_world_time_attack_three_geometric_laps(tmp_path):
     assert len(all_laps) == 3  # no phantom post-finish lap
 
 
+def test_wta_route_length_is_one_lap_not_lap_plus_overshoot(tmp_path):
+    """A geometric lap is finalized when the car leaves the crossing circle;
+    the route's length must still be the lap, measured to the crossing. Real
+    capture 2026-10-13: the overshoot made one circuit into two routes."""
+    def scenario(sim):
+        sim.wta(3)
+        sim.race_off()
+
+    store = run(scenario, tmp_path)
+    ss = sessions(store)
+    laps = store.session_laps(ss[0]["id"])
+    one_lap = laps[2]["start_distance"] - laps[1]["start_distance"]
+    assert abs(route_of(store, ss[0]["id"])["lap_length"] - one_lap) < 0.01 * one_lap
+
+
 def test_wta_cut_dead_at_line(tmp_path):
     """--wta 3 --cut: the stream dies right at the final geometric crossing
     (inside the crossing circle, never exited); the pending crossing is
