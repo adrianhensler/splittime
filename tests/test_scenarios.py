@@ -91,6 +91,23 @@ def test_sprint_single_run_with_route(tmp_path):
     assert flags_of(laps[0]) == ""  # confirmed finish, not an inferred cutoff
 
 
+def test_clock_freeze_on_the_grid_is_not_a_finish(tmp_path):
+    """Real capture 2026-10-13: the race clock sat still at 8.6 s on the grid,
+    then a full gridded run followed and the stream cut at the line. The
+    freeze must not count as the finish, or the run is discarded."""
+    def scenario(sim):
+        sim.dirt_sprint(60, cut=True, grid_freeze=3.0)  # stream just stops
+
+    store = run(scenario, tmp_path)
+    ss = sessions(store)
+
+    assert len(ss) == 1
+    laps = completed_laps(store, ss[0]["id"])
+    assert len(laps) == 1
+    assert 53.0 < laps[0]["lap_time"] < 67.0
+    assert "cutoff" in flags_of(laps[0])
+
+
 def test_dirt_sprint_distance_reset_finish(tmp_path):
     """--dirt 40: real dirt-sprint (CurrentLap counts) finished by the
     DistanceTraveled hard-reset handback; single ~40 s run, no phantom coast
