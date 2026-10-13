@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | partial; original exploratory API/page admitted; compact Rivalry v2 and local recorded history in review |
+| Status | partial; original and Rivalry v2 exploratory slices admitted; Back-navigation repair in review |
 | Parent | WP-000 |
 | Children | none |
 | Worker | Codex (checkpoint owner); original implementation by GPT-6 |
@@ -201,3 +201,37 @@ Acceptance: pending reviewed merge. Deployment: not yet performed. Next action:
 open PR, address review, snapshot final evidence before ready; reviewer merges
 green CI, then update only the existing web service and static gallery link,
 preserving the running collector, original Rivalry and captured data.
+
+## Deployment and Back-navigation follow-up, 2026-10-13
+
+GPT-6 Astra final-head reviewed `38849b6` and merged PR #23 after CI runs 77
+and 78 passed, admitting the exploratory v2 slice at `046185c`. Gallery PR #117
+merged at `45e478c`. Both versions and both gallery cards are live. Existing
+web container alone was rebuilt; collector identity/start time and 29 other
+containers were unchanged. Previously closed recordings' frame/row hashes
+match. Backup/receipt details are in the hosting record.
+
+Live browser self-checks: 11 attempts across four route/classes; actual route
+outlines; local-date search narrowed to Narai-Juku S2; improvement filter 6 to
+4; selected laps 20/18 showed 0.436 s and loaded speed/throttle/brake overlays
+and eight corner rows through the existing prefixed comparison page. Both
+gallery cards were visibly present. These checks do not validate competitive
+equivalence or coaching accuracy; no management request was made.
+
+That end-to-end check reproduced a Back-navigation defect: native browser form
+restoration showed the prior filter while the JS model and lap choices reset.
+Repair [PR #24](https://github.com/adrianhensler/splittime/pull/24), branch
+`fix/rivalry-v2-return-state`, source head `da4f184`, based on merged main, retains
+route/search/history and full lap identities in per-tab session storage.
+It restores them only against fresh API data, resetting reused lap identities;
+pageshow synchronizes native controls and refreshes a cached page. Blocked
+storage falls back to functional defaults. No recording or scoring change.
+Worker Node suite: 62 passed and Ruff passed; new regression simulates returning
+from comparison and reprocessed/reused IDs. Actual local browser Compare/Back
+retained search “Porsche”, improvements filter, 4 of 6 attempts and selected
+pair 2/1. Re-run `node --test tests/ui/*.test.cjs`; browse the prefixed local
+web-only app, set search/filter/A-B, open Compare, press Back and verify the
+same filter, row count and pair. Astra review and the deployed browser recheck
+are pending in the PR; they are not asserted here. Next: review,
+merge green CI, update only the existing web service, and verify the actual
+Back flow. Full M3 competitive/real-two-driver acceptance remains partial.

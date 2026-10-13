@@ -151,6 +151,33 @@ each session keeps its timed lap (150.808 with `contact`, 74.654, 68.712,
 1 to 11 are gone. 43,283 frames unchanged, integrity ok. Opus 5.5 self-checks;
 the pages were not opened in a real browser afterwards.
 
+## Rivalry v2 web-only deployment, 2026-10-13
+
+After independent GPT-6 Astra review and green CI, SplitTime PR #23 merged at
+`046185c87807916daa948f98692695847226bc28`; the projects-card PR #117 merged at
+`45e478c802cf4026df344797b03cb707fa8088c3`. Runtime checkouts now use those
+commits. Direct pinned SSH as `adrian` updated the existing web service with
+`docker compose build splittime` and `up -d --no-deps splittime`. No Hostinger
+provider write, new VPS, remote Claude invocation, gateway/firewall change,
+collector restart or unrelated service restart was involved.
+
+Collector container `ff4025d5b729` retained its start time
+`2026-10-12T19:57:53.327322348Z`; 29 other running containers retained their IDs.
+Ordered raw frames and session/lap/edit rows from the eight already-closed
+sessions hash identically before/after. An online SQLite backup and gallery
+copy were saved under
+`/home/adrian/splittime-deploy-backups/rivalry-v2-20261013T025931Z/`, alongside
+`receipt.json`. Existing web image retained as
+`splittime-web-rollback:20261013t025931z`. Recordings were not edited/reprocessed.
+The existing untracked `bees-session-transcript.md` was preserved.
+
+Live browser self-checks saw both projects cards, four route/class rows with
+11 real attempts, captured outlines, local-date search, improvements filter
+and explicit A/B selection. Comparison 20/18 loaded recorded traces and corner
+rows at the prefixed URL, with the exploratory labels intact. The original
+Rivalry source remains unchanged. Back-navigation view-state repair is tracked
+separately in WP-004; real two-driver field checks remain open.
+
 ## Remaining field checks
 
 The reachability/race-off probes were not game recordings. Each driver next sends
