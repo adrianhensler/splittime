@@ -304,6 +304,9 @@ class SessionTracker:
         self._first_rt: float | None = None
         self._event_finished = False
         self._finish_rt: float | None = None
+        # odometer when the frozen clock declared the finish; None when the
+        # finish came from any other signal (see _undo_false_finish)
+        self._freeze_finish_dist: float | None = None
         self._rt_freeze_since: float | None = None
         self._completed_laps = 0
         self._lap_fields_dead = True
@@ -371,10 +374,12 @@ class SessionTracker:
                   and t - self._rt_freeze_since >= RT_FREEZE_SECONDS):
                 self._event_finished = True
                 self._finish_rt = rt
+                self._freeze_finish_dist = frame["distance_traveled"]
                 log.info("Session %d: race timer frozen at %.1fs - event finished",
                          self.session_id, rt)
         else:
             self._rt_freeze_since = None
+            self._undo_false_finish(rt, frame["distance_traveled"])
         self._prev_race_time = rt
 
         if self.session_id is None:
@@ -457,6 +462,26 @@ class SessionTracker:
         return {"session_id": self.session_id, "delta": delta,
                 "session_best": self.best_lap_time, "lap_elapsed": lap_elapsed,
                 "race_mode": self.race_mode(frame)}
+
+    def _undo_false_finish(self, rt: float, dist: float) -> None:
+        """The frozen race clock is only a finish if the event really ended.
+        A real capture (2026-10-13) held the clock at 8.6 s before the run -
+        long enough to latch "finished" - then ran a full 155 s gridded route.
+        The latch made the run time 8.6 s minus launch (too short to count)
+        and ruled out the cutoff recovery, so the whole session was discarded.
+        After a real finish the clock stays frozen, the odometer resets or the
+        stream stops; a clock that counts on while the car covers real
+        distance means the event is still running."""
+        if (self._event_finished and self._freeze_finish_dist is not None
+                and self._completed_laps == 0 and self._finish_rt is not None
+                and rt > self._finish_rt
+                and dist - self._freeze_finish_dist > WTA_MIN_LAP_DIST):
+            log.info("Session %d: race clock resumed after the freeze at %.1fs"
+                     " and the car drove on - not a finish", self.session_id,
+                     self._finish_rt)
+            self._event_finished = False
+            self._finish_rt = None
+            self._freeze_finish_dist = None
 
     def race_mode(self, frame: dict) -> bool:
         """Is a timed event running right now, as opposed to free-roam
@@ -545,6 +570,7 @@ class SessionTracker:
         self._first_rt = frame["current_race_time"]
         self._event_finished = False
         self._finish_rt = None
+        self._freeze_finish_dist = None
         self._rt_freeze_since = None
         self._completed_laps = 0
         self._lap_fields_dead = True
@@ -685,6 +711,7 @@ class SessionTracker:
         self._first_rt = None
         self._event_finished = False
         self._finish_rt = None
+        self._freeze_finish_dist = None
         self._rt_freeze_since = None
         self._lap_fields_dead = True
         self._gridded = False
@@ -1098,6 +1125,14 @@ class SessionTracker:
                  self._completed_laps + 1, lap_time, d,
                  ", finalized at stream end" if frame is None else "")
         self._geometric_laps += 1  # loop closure to the anchor: reads as wtc
+        # The lap ended at the closest approach, but a crossing is only
+        # finalized once the car has left the crossing circle, so the trace
+        # has run on up to WTA_CROSS_DIST past the line. Left in, that tail
+        # became the route's length: on a real capture (2026-10-13) a 5954-
+        # unit circuit fingerprinted as 6275, past the length tolerance, and
+        # one course became two routes.
+        keep = bisect.bisect_right(self._cur_d, bdist - self._lap_start_dist)
+        del self._cur_d[keep:], self._cur_t[keep:]
         self._complete_current_lap(bt, lap_time, self._lap_number)
         if frame is None:
             self._lap_id = None  # session is ending: nothing to reopen
