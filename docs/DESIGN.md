@@ -168,6 +168,11 @@ conventional race; unknown event modes remain unknown until validated.
 
 The compact workspace built as "Rivalry v2" is the page named **Rivalry** (`rivalry-v2.html`);
 the original page is kept as **Rivalry_legacy** (`rivalry.html`) (ADR 26).
+
+A lap counts as a best with no rewind and no contact and when not excluded; a
+time taken from the last packet counts only if the run covered the whole route,
+and is marked "est." (ADR 27). Restarts of one event in one sitting are grouped
+automatically. Rivalry opens on best times with the other laps one click away.
 It presents compact route/class rows, both configured drivers' candidate bests,
 recorded time differences, searchable attempts and finish-dated improvement
 history. Actual recorded outlines lead to explicit A/B lap selection and the

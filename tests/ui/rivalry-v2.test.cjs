@@ -13,11 +13,28 @@ const group = attempts => ({route_id:3,route_name:"Test Circuit",car_class:3,car
 test("millisecond rounding carries across the minute", () => {
   assert.equal(M.time(59.9999),"1:00.000"); assert.equal(M.time(null),"—");
 });
-test("cutoff, excluded and contact cannot become a recorded best", () => {
-  const g = group([lap(1,"a",50,10),lap(2,"a",40,20,{flags_auto:["cutoff"]}),
-    lap(3,"a",30,30,{validity:"excluded"}),lap(4,"a",20,40,{flags:["contact"]})]);
+test("the server decides which laps count; the page never promotes one it ruled out", () => {
+  const no = {candidate_clean:false};
+  const g = group([lap(1,"a",50,10),lap(2,"a",40,20,{...no,flags_auto:["cutoff"],finish:"last_packet"}),
+    lap(3,"a",30,30,{...no,validity:"excluded"}),lap(4,"a",20,40,{...no,flags:["contact"]})]);
   assert.equal(M.bests(g).get("a").lap_id,1);
   assert.equal(M.timeline(g,drivers).filter(l=>l.pb).length,1);
+});
+test("a last-packet time that covered the route can be the best, and is marked", () => {
+  const run = lap(2,"a",40,20,{completion:"provisional",flags:["cutoff"],flags_auto:["cutoff"],finish:"last_packet"});
+  const g = group([lap(1,"a",50,10),run]);
+  assert.equal(M.bests(g).get("a").lap_id,2);
+  assert.equal(M.estimated(run),true); assert.equal(M.estimated(lap(1,"a",50,10)),false);
+});
+test("bests by car and overall cross classes on one route; standings work for three drivers", () => {
+  const cats = [{...group([lap(1,"a",60,10,{car_ordinal:1}),lap(2,"a",58,20,{car_ordinal:2}),lap(3,"b",59,30,{car_ordinal:1})])},
+    {...group([lap(4,"a",50,40,{car_ordinal:3}),lap(5,"b",40,50,{car_ordinal:3,candidate_clean:false})]),car_class:5,car_class_label:"S2"},
+    {...group([lap(6,"a",10,60,{car_ordinal:1})]),route_id:9}];
+  const more = M.routeBests(cats,3);
+  assert.equal(more.overall.get("a").lap_id,4); assert.equal(more.overall.get("b").lap_id,3);
+  assert.deepEqual(more.cars.map(l=>l.lap_id),[4,2,3,1]);
+  const three = group([lap(1,"a",60,10),lap(2,"b",59,20),lap(3,"c",58,30)]);
+  assert.deepEqual(M.standings(three).map(l=>l.driver_id),["c","b","a"]);
 });
 test("history shows own improvements and a genuine recorded lead change", () => {
   const g = group([lap(1,"a",60,10),lap(2,"b",59,20),lap(3,"a",58,30),lap(4,"a",58,40)]);
@@ -43,7 +60,7 @@ test("A and B use configured driver order; solo comparisons use own history", ()
   assert.deepEqual(M.defaults(group([lap(1,"a",60,10),lap(2,"b",59,20)]),drivers),[2,1]);
   assert.deepEqual(M.defaults(group([lap(1,"a",60,10),lap(2,"a",59,20)]),drivers),[2,1]);
   assert.equal(M.compare(lap(2,"a",60,10),lap(2,"a",60,10)),null);
-  assert.equal(M.compare(lap(2,"a",60,10),lap(3,"a",60,10,{completion:"provisional"})),null);
+  assert.equal(M.compare(lap(2,"a",60,10),lap(3,"a",60,10,{completion:"incomplete"})),null);
   assert.equal(M.compare(lap(2,"a",60,10),lap(3,"a",60,10)),"compare.html?lap_a=2&lap_b=3");
 });
 test("search covers route, driver, car, flags and both dates; reused ID changes identity", () => {
@@ -92,7 +109,7 @@ test("empty results and missing chronology stay explicit, no sample opponent", a
   assert.match(p.elt("st-events").innerHTML,/No recordings yet/);
   const solo = page({drivers,categories:[group([lap(1,"a",60,null)])]});await solo.settle();
   assert.match(solo.elt("st-events").innerHTML,/Record chronology unknown/);
-  assert.match(solo.elt("st-events").innerHTML,/No unflagged best/);
+  assert.match(solo.elt("st-events").innerHTML,/No valid time yet/);
   assert.doesNotMatch(solo.elt("st-inspector").innerHTML,/href="compare/);
 });
 test("refresh preserves a deliberate pair but resets reused lap IDs", async () => {

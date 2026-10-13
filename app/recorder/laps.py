@@ -681,6 +681,13 @@ class SessionTracker:
                      self._frame_count, self._completed_laps,
                      ", wet" if wet else "",
                      f", track={track} (auto)" if track else "")
+            try:
+                # restarts of one event read as one sitting (store.py)
+                self.store.auto_group()
+            except Exception as exc:  # the website may hold the write lock
+                log.warning("Session %d: sitting not grouped yet (%s); the next"
+                            " session close or restart will retry",
+                            self.session_id, exc)
         self.session_id = None
         self._race_off_since = None
         self._lap_number = None

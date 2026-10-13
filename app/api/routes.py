@@ -544,7 +544,11 @@ def _check_members(store, session_ids: list[int], group: dict | None = None):
             raise HTTPException(404, f"session {sid} not found")
         if s["group_id"] is not None and (group is None
                                           or s["group_id"] != group["id"]):
-            raise HTTPException(409, f"session {sid} is already in a group")
+            # a sitting the recorder grouped by itself may be regrouped by
+            # hand; a group a person made is theirs to undo first
+            current = store.get_group(s["group_id"])
+            if current is None or not current.get("auto"):
+                raise HTTPException(409, f"session {sid} is already in a group")
         rows.append(s)
     members = rows + (store.group_sessions(group["id"]) if group else [])
     if len({s.get("driver_id") or "legacy" for s in members}) > 1:
@@ -584,6 +588,7 @@ def create_group(body: GroupCreate, request: Request):
     route_id, car_ordinal = _check_members(store, body.session_ids)
     name = (body.name or "").strip()[:80] or None
     gid = store.create_group(name, route_id, car_ordinal, body.session_ids)
+    store.prune_empty_groups()  # an automatic group these sessions left behind
     return {"ok": True, "group": _group_out(store.get_group(gid),
                                             store.group_sessions(gid))}
 
@@ -637,6 +642,7 @@ def add_group_session(group_id: int, body: GroupMember, request: Request):
         raise HTTPException(404, "group not found")
     _check_members(store, [body.session_id], group)
     store.set_session_group(body.session_id, group_id)
+    store.prune_empty_groups()  # an automatic group it may have emptied
     return {"ok": True}
 
 
