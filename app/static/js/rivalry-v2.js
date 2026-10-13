@@ -4,8 +4,23 @@
   const esc = value => String(value ?? "").replace(/[&<>"']/g, char =>
     ({"&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"}[char]));
   const state = {data:{categories:[],drivers:[]}, group:null, a:null, b:null, query:"", history:"all"};
+  const storageKey = `splittime-rivalry-v2:${globalThis.location?.pathname || ""}`;
+  let saved = null;
+  try {saved = JSON.parse(globalThis.sessionStorage?.getItem(storageKey) || "null");} catch { /* storage may be blocked */ }
+  if (saved && typeof saved === "object") {
+    state.group = typeof saved.group === "string" ? saved.group : null;
+    state.query = typeof saved.query === "string" ? saved.query : "";
+    state.history = ["all","improvements","flagged"].includes(saved.history) ? saved.history : "all";
+  }
   const outlines = new Map();
   const selected = () => state.data.categories.find(group => M.key(group) === state.group);
+  function save() {
+    const group = selected();
+    saved = {group:state.group, query:state.query, history:state.history,
+      a:M.identity(group?.attempts.find(lap => lap.lap_id === state.a)),
+      b:M.identity(group?.attempts.find(lap => lap.lap_id === state.b))};
+    try {globalThis.sessionStorage?.setItem(storageKey,JSON.stringify(saved));} catch { /* browsing still works */ }
+  }
   const car = lap => `${esc(lap.car_name || "Unknown car")} · PI ${esc(lap.car_pi ?? "?")}`;
   const when = lap => lap.finished_at_utc && M.stamp(lap) !== null ? M.date(lap.finished_at_utc) :
     lap.started_at_utc ? `Started ${M.date(lap.started_at_utc)}` : "Time unknown";
@@ -44,6 +59,9 @@
     [state.a,state.b] = M.defaults(group,M.drivers(state.data));
   }
   function render() {
+    // Keep native restored form controls and the model in agreement on Back.
+    $("st-find").value = state.query;
+    $("st-history-filter").value = state.history;
     const drivers = M.drivers(state.data), categories = state.data.categories;
     const shown = categories.filter(group => M.visible(group,state.query));
     if (shown.length && !shown.some(group => M.key(group) === state.group)) choose(shown[0]);
@@ -72,7 +90,7 @@
         <td class="st-quiet">${gap}</td><td class="st-quiet">${progress}</td></tr>`;
     }).join("") || `<tr><td colspan="${drivers.length+3}" class="st-empty">${categories.length ? "No recordings match your search." : "No recordings yet. Captured events will appear here."}</td></tr>`;
     $("st-context").hidden = !shown.length;
-    if (!shown.length) return;
+    if (!shown.length) {save(); return;}
     const group = selected(), history = M.timeline(group,drivers);
     const displayed = history.filter(lap => M.matches(group,lap,state.query) &&
       (state.history === "all" || state.history === "improvements" && lap.pb ||
@@ -98,12 +116,13 @@
       <p class="st-quiet">${href && (!M.clean(a) || !M.clean(b)) ? "Flagged lap included · " : ""}Recorded difference · exploratory</p>
       ${href ? `<a class="st-compare" href="${href}">Compare traces &amp; corners</a>` : '<span class="st-no-compare">Needs two completed laps</span>'}</div>`;
     drawOutlines();
+    save();
   }
   async function load() {
     $("st-refresh").disabled = true;
     $("st-message").textContent = "Loading recordings…";
-    const old = selected(), oldA = M.identity(old?.attempts.find(lap => lap.lap_id === state.a));
-    const oldB = M.identity(old?.attempts.find(lap => lap.lap_id === state.b));
+    const old = selected(), oldA = M.identity(old?.attempts.find(lap => lap.lap_id === state.a)) || saved?.a;
+    const oldB = M.identity(old?.attempts.find(lap => lap.lap_id === state.b)) || saved?.b;
     try {
       const response = await fetch("api/rivalry", {cache:"no-store"});
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -154,6 +173,11 @@
     if (!M.usable(record || {}) || state[side === "a" ? "b" : "a"] === id) return;
     state[side] = id; render();
     $("st-history").querySelector(`[data-side="${side}"][data-lap="${id}"]`)?.focus();
+  });
+  globalThis.addEventListener?.("pageshow", event => {
+    $("st-find").value = state.query;
+    $("st-history-filter").value = state.history;
+    if (event.persisted && !$("st-refresh").disabled) load();
   });
   load();
 })();
