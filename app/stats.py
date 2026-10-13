@@ -12,7 +12,14 @@ change to this file only. Every table is keyed by driver id - any number of
 drivers, never a pair.
 
 Cell kinds: text, int, time (a lap time, seconds), duration (a long span,
-seconds), pct (0..1), date (ISO UTC), gap (seconds, signed).
+seconds), pct (0..1), date (ISO UTC), gap (seconds, signed). A cell may also
+be {"kind", "value", "est"}: `est` marks a time taken from the last packet, so
+an estimated finish is never shown as if the game had confirmed it.
+
+Comparisons between drivers are exploratory, exactly as on Rivalry: a shared
+route fingerprint and car class do not prove the same direction, checkpoints
+or timing rules. The response says so (`scoring`) and so does every table
+that ranks one driver against another.
 """
 from __future__ import annotations
 
@@ -24,6 +31,16 @@ from .rivalry import rivalry_summary
 
 WEEKS_SHOWN = 12
 CONSISTENCY_MIN_LAPS = 3
+EXPLORATORY = ("Recorded times, exploratory: sharing a route and car class does not"
+               " prove equal conditions, and the game's own verdict is not available.")
+
+
+def _time(lap: dict | None) -> dict | None:
+    """A lap time cell that keeps its provenance."""
+    if lap is None:
+        return None
+    return {"kind": "time", "value": lap["time_s"],
+            "est": lap.get("finish") == "last_packet"}
 
 
 def _col(label: str, kind: str = "text") -> dict:
@@ -118,9 +135,12 @@ def stats_summary(store, configured_drivers=()) -> dict:
     recorded = {i: sum(max(0.0, (s["ended_at"] or s["started_at"]) - s["started_at"])
                        for s in rows) for i, rows in sess_by.items()}
     lap_seconds = by_driver(timed, lambda rows: sum(r["time_s"] for r in rows))
-    routes_valid = by_driver(valid, lambda rows: len({r["route_id"] for r in rows}))
-    cars = by_driver(valid, lambda rows: len({r["car_ordinal"] for r in rows}))
-    classes = by_driver(valid, lambda rows: len({r["class_label"] for r in rows}))
+    # imported sessions have no route, car or class: unknown is not "one more"
+    def known(field, unknown=None):
+        return lambda rows: len({r[field] for r in rows if r[field] != unknown})
+    routes_valid = by_driver(valid, known("route_id"))
+    cars = by_driver(valid, known("car_ordinal"))
+    classes = by_driver(valid, known("class_label", "?"))
     stamps = [w for w in (_when(lap["finished_at_utc"] or lap["started_at_utc"])
                           for lap in laps) if w]
 
@@ -144,17 +164,24 @@ def stats_summary(store, configured_drivers=()) -> dict:
     held, contested_held, uncontested = Counter(), Counter(), Counter()
     wins = defaultdict(Counter)   # wins[a][b]: categories where a is ahead of b
     gaps = []                     # (gap, leader lap, second lap, category)
+    tied = set()                  # categories whose fastest time is shared
     for cat, best in cat_best.items():
         order = sorted(best.values(), key=lambda lap: lap["time_s"])
-        held[order[0]["driver_id"]] += 1
-        if len(order) > 1:
-            contested_held[order[0]["driver_id"]] += 1
-            gaps.append((order[1]["time_s"] - order[0]["time_s"], order[0], order[1], cat))
-            for i, ahead in enumerate(order):
-                for behind in order[i + 1:]:
-                    wins[ahead["driver_id"]][behind["driver_id"]] += 1
-        else:
+        if len(order) == 1:
+            held[order[0]["driver_id"]] += 1
             uncontested[order[0]["driver_id"]] += 1
+            continue
+        gaps.append((order[1]["time_s"] - order[0]["time_s"], order[0], order[1], cat))
+        # an identical time is a tie: nobody holds the best or wins the pair
+        if order[0]["time_s"] == order[1]["time_s"]:
+            tied.add(cat)
+        else:
+            held[order[0]["driver_id"]] += 1
+            contested_held[order[0]["driver_id"]] += 1
+        for i, ahead in enumerate(order):
+            for behind in order[i + 1:]:
+                if ahead["time_s"] < behind["time_s"]:
+                    wins[ahead["driver_id"]][behind["driver_id"]] += 1
     contested = sum(1 for best in cat_best.values() if len(best) > 1)
 
     board = _table("Leaderboard", [
@@ -165,8 +192,10 @@ def stats_summary(store, configured_drivers=()) -> dict:
                  by_driver(valid).get(i, 0), routes_valid.get(i, 0)] for i in ids),
                key=lambda row: (-row[2], -row[1], -row[4])),
         note="A best is the fastest valid time on one route in one car class."
-             " Contested means another driver also has a valid time there."
-             f" {contested} of {len(cat_best)} route and class pairs are contested.")
+             " Contested means another driver also has a valid time there; an"
+             " identical time is a tie and counts for nobody."
+             f" {contested} of {len(cat_best)} route and class pairs are contested. "
+             + EXPLORATORY)
     by_measure = _per_driver("Other ways to rank", drivers, [
         ("Bests held", "int", dict(held)),
         ("Contested bests held", "int", dict(contested_held)),
@@ -178,14 +207,16 @@ def stats_summary(store, configured_drivers=()) -> dict:
     ])
     all_bests = _table("Every best: route and class", [
         _col("Route"), _col("Class")] + [_col(d["name"], "time") for d in drivers]
-        + [_col("Leader"), _col("Gap", "gap")],
+        + [_col("Fastest recorded"), _col("Gap", "gap")],
         [[cat[2], next(iter(best.values()))["class_label"]]
-         + [best[i]["time_s"] if i in best else None for i in ids]
-         + (lambda order: [order[0]["driver_name"],
+         + [_time(best.get(i)) for i in ids]
+         + (lambda order: ["Tie" if cat in tied else order[0]["driver_name"],
                            order[1]["time_s"] - order[0]["time_s"]
                            if len(order) > 1 else None])(
              sorted(best.values(), key=lambda lap: lap["time_s"]))
-         for cat, best in sorted(cat_best.items(), key=lambda kv: kv[0][2].lower())])
+         for cat, best in sorted(cat_best.items(), key=lambda kv: kv[0][2].lower())],
+        note="“est.” marks a time taken from the last packet because the game stopped"
+             " sending at the finish line. " + EXPLORATORY)
 
     # -- head to head --------------------------------------------------------
     pairs = [[names[a], names[b], wins[a][b], wins[b][a]]
@@ -193,14 +224,16 @@ def stats_summary(store, configured_drivers=()) -> dict:
              if wins[a][b] or wins[b][a]]
     h2h_tables = [_table("Record between drivers", [
         _col("Driver"), _col("Driver"), _col("Ahead", "int"), _col("Behind", "int")],
-        pairs, note="Counted over route and class pairs where both have a valid time.")]
+        pairs, note="Counted over route and class pairs where both have a valid time;"
+                    " identical times count for neither. " + EXPLORATORY)]
     if gaps:
         gaps.sort(key=lambda row: row[0])
         def gap_row(row):
             return [row[3][2], row[1]["class_label"], row[1]["driver_name"],
                     row[2]["driver_name"], row[0]]
         h2h_tables.append(_table("Closest and widest", [
-            _col("Route"), _col("Class"), _col("Leader"), _col("Next"), _col("Gap", "gap")],
+            _col("Route"), _col("Class"), _col("Fastest recorded"), _col("Next"),
+            _col("Gap", "gap")],
             [gap_row(gaps[0])] + ([gap_row(gaps[-1])] if len(gaps) > 1 else [])))
 
     # -- clean driving -------------------------------------------------------
@@ -235,7 +268,8 @@ def stats_summary(store, configured_drivers=()) -> dict:
             continue
         times = sorted(r["time_s"] for r in rows)
         spread_rows.append([cat[2], rows[0]["class_label"], names[driver], len(times),
-                            times[0], statistics.median(times),
+                            _time(min(rows, key=lambda r: r["time_s"])),
+                            statistics.median(times),
                             statistics.median(times) - times[0],
                             statistics.pstdev(times)])
     spread_rows.sort(key=lambda row: row[7])
@@ -255,13 +289,14 @@ def stats_summary(store, configured_drivers=()) -> dict:
         best = first = None
         for lap in rows:
             if best is None:
-                best = first = lap["time_s"]
-            elif lap["time_s"] < best:
-                best = lap["time_s"]
+                best = first = lap
+            elif lap["time_s"] < best["time_s"]:
+                best = lap
                 improvements[driver] += 1
-        if first is not None and best < first:
+        if first is not None and best["time_s"] < first["time_s"]:
             biggest.append([cat[2], rows[0]["class_label"], names[driver],
-                            first, best, first - best])
+                            _time(first), _time(best),
+                            first["time_s"] - best["time_s"]])
     biggest.sort(key=lambda row: -row[5])
     improvement = [
         _per_driver("Beating your own best", drivers, [
@@ -278,7 +313,7 @@ def stats_summary(store, configured_drivers=()) -> dict:
         ok = [r for r in rows if r["candidate_clean"]]
         route_rows.append([route[1], (kinds.get(route[0]) or "?"), len(rows), len(ok)]
                           + [per.get(i, 0) for i in ids]
-                          + [min((r["time_s"] for r in ok), default=None)])
+                          + [_time(min(ok, key=lambda r: r["time_s"], default=None))])
     route_rows.sort(key=lambda row: -row[2])
     routes = [_table("Most driven routes", [
         _col("Route"), _col("Kind"), _col("Laps", "int"), _col("Valid", "int")]
@@ -348,12 +383,17 @@ def stats_summary(store, configured_drivers=()) -> dict:
                 for mode, rows in sorted(modes.items())],
                note="The game does not say which mode an event is. This is a guess"
                     " from the telemetry and is not yet used to separate bests."),
-        _table("Surface and weather", [_col("Tag")] + [_col(d["name"], "int") for d in drivers],
+        _table("Surface", [_col("Tag")] + [_col(d["name"], "int") for d in drivers],
                [[tag] + [sum(1 for s in rows if (s.get("driver_id") or "legacy") == i)
-                         for i in ids] for tag, rows in sorted(surfaces.items())]
-               + [["wet"] + [sum(1 for s in sess_by[i] if s.get("conditions") == "wet")
-                             for i in ids]],
-               note="Sessions, by the surface tag and by wet conditions."),
+                         for i in ids] for tag, rows in sorted(surfaces.items())],
+               note="Sessions by surface tag."),
+        _table("Weather", [_col("Conditions")] + [_col(d["name"], "int") for d in drivers],
+               [[tag] + [sum(1 for s in rows if (s.get("driver_id") or "legacy") == i)
+                         for i in ids]
+                for tag, rows in sorted(_group(
+                    sessions, lambda s: s.get("conditions") or "not tagged").items())],
+               note="Sessions by conditions tag (dry, wet, snow), set by hand or"
+                    " detected for wet."),
     ]
 
     # -- goals and achievements ---------------------------------------------
@@ -403,6 +443,8 @@ def stats_summary(store, configured_drivers=()) -> dict:
     ]
     return {
         "version": 1,
+        # same standing as Rivalry: nothing here is an official result
+        "scoring": rivalry["scoring"],
         "drivers": drivers,
         "span": {"first_utc": min(stamps).isoformat().replace("+00:00", "Z") if stamps else None,
                  "last_utc": max(stamps).isoformat().replace("+00:00", "Z") if stamps else None},
