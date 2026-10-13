@@ -189,3 +189,25 @@ Source-address evidence may show Docker's bridge rather than the game sender;
 identity remains by port. Direction, official validity and cross-car equivalence
 are unproven. Scheduled backups/retention monitoring are not installed by this
 slice. Do not edit or replay recordings in the live data directory.
+
+## Fault register, 2026-10-13
+
+The recordings on this installation behind the faults listed on the site's
+"How it works" page (`app/static/how-it-works.html`, section 12). That page is
+shipped with the software and names no session; this table does. The database
+held 17 sessions and 8 routes when it was written.
+
+| Fault | Recording here | State here |
+|---|---|---|
+| F1 run deleted | Session 50, FishFighterNS, 2026-10-13 12:37 UTC, 155 s, odometer +5952 | Fixed in #26. The run is gone |
+| F2 circuit split in two | Sessions 38 and 40 on route 7 (Shimanoyama Circuit, length 5945); session 41 on route 8 (length 6275) | Fixed in #31. At the owner's request session 41 was reprocessed onto route 7 and the empty route 8 row deleted, 2026-10-13 |
+| F3 abandoned run timed at the cutoff | Session 30, "Unnamed route #6": 79.4 s, stopped at odometer 4080, flags contact, cutoff, rewind | Open |
+| F4 abandoned run timed as confirmed | Session 29, "Unnamed route #5": 59.2 s, odometer reset at 2483 after a 5.5 s gap, flag contact | Open |
+| F5 clock starts at the line | Session 43 (drag): 14.449 s recorded, `CurrentLap` 16.7 s in the last packet. Ito Sprint sessions 22 and 24: 2:52.7 and 2:59.4 recorded | Open; needs one result-screen time |
+| F6 course not in the catalogue | Sessions 43, 45 and 47, "Unnamed route #9": start (-1883.6, -186.5), span 5.5 by 1000.9 | Open; needs the in-game name |
+| F7 deleted for unknown reasons | Sessions 49 and 52: 125 s and 184 s, not gridded | Open. `LS_KEEP_DISCARDED=1` is set on the collector until one drift event is captured, then to be turned off |
+| F10 lap ids change on reprocess | Session 41: lap ids 31 to 35 became 42 to 46 | Open |
+
+Routes 5 and 6 both start 60 m from the catalogue's Hokubu Ascent start line
+(the grid is at odometer -70.8) and follow its shape. Nobody has completed that
+course here, so there is no Hokubu Ascent route to move them onto.
