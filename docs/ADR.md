@@ -498,8 +498,9 @@ runs showed up as unnamed routes).
 
 - FH6's odometer reads about 5950 at the end of every completed route. A
   gridded point-to-point run is given a time only when it has covered 98.5% of
-  that (`FULL_ROUTE_MIN` in `laps.py`), in both places a run without a lap
-  boundary is finished: the odometer hard-reset and the last-packet recovery.
+  that (`FULL_ROUTE_MIN` in `laps.py`), wherever a run without a lap
+  boundary is finished: the odometer hard-reset, the frozen race clock and
+  the last-packet recovery.
 - Evidence: two captures of one driver giving up a sprint, at 42% (odometer
   reset after a 5.5 s gap, car stopped) and 69% (stream cut while rolling at
   22 km/h). Both had been timed, and each made a route. Replaying every

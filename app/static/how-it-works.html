@@ -127,7 +127,7 @@
     <figure class="st-ladder">
       <div class="st-rung"><div class="st-if"><b>LastLap changed, LapNumber did not</b><span>the game posted a time at the line</span></div><div class="st-yes"></div><div class="st-box"><b>Lap closed with the game's time</b><span>finish: confirmed</span></div></div>
       <div class="st-rung"><div class="st-if"><b>Odometer hard-reset to near zero</b><span>was above 500, now under 200, fell by more than 1000 in one frame, car did not teleport, LapNumber never rose, and the car was gridded or launched. A gridded run must also have covered the full route (5861 units)</span></div><div class="st-yes"></div><div class="st-box"><b>Run closed at the previous packet</b><span>time = that packet's race clock − clock at launch. finish: confirmed</span></div></div>
-      <div class="st-rung"><div class="st-if"><b>Race clock frozen for 1.5 s</b><span>after it has passed 5 s, while IsRaceOn is still 1</span></div><div class="st-yes"></div><div class="st-box"><b>Marked finished</b><span>the run is timed frozen clock − launch when the session ends. Undone if the clock resumes and the car drives 500 units further</span></div></div>
+      <div class="st-rung"><div class="st-if"><b>Race clock frozen for 1.5 s</b><span>after it has passed 5 s, while IsRaceOn is still 1</span></div><div class="st-yes"></div><div class="st-box"><b>Marked finished</b><span>the run is timed frozen clock − launch when the session ends. Undone if the clock resumes and the car drives 500 units further. A gridded run must have covered the full route when the clock froze</span></div></div>
       <div class="st-rung"><div class="st-if"><b>Stream ended inside a geometric crossing</b><span>see section 6</span></div><div class="st-yes"></div><div class="st-box"><b>Lap closed at the closest approach</b><span>flag: cutoff</span></div></div>
       <div class="st-rung"><div class="st-if"><b>Stream ended on a gridded run</b><span>launched, LapNumber never rose, the full route covered (5861 units), last speed above 5 m/s, run longer than 10 s</span></div><div class="st-yes"></div><div class="st-box"><b>Run timed to the last packet</b><span>last race clock − clock at launch. flag: cutoff</span></div></div>
       <div class="st-rung"><div class="st-if"><b>Stream ended on a circuit's open lap</b><span>the lap covered at least 97% of this session's typical lap</span></div><div class="st-yes"></div><div class="st-box"><b>Final lap recovered</b><span>lap clock + remaining distance ÷ last speed (2 s at most)</span></div></div>
@@ -244,8 +244,8 @@
     <h2 id="fixes">13. What might be fixed</h2>
     <ol>
       <li><b>Done: require the distance before calling it a finish (F3, F4).</b> A gridded run is
-        timed only when the odometer has reached the full-route reading (98.5% of 5950), in rungs 2
-        and 5. A run that stops short keeps its packets but gets no time and no route, and a
+        timed only when the odometer has reached the full-route reading (98.5% of 5950), in rungs 2,
+        3 and 5. A run that stops short keeps its packets but gets no time and no route, and a
         session with no timed run is discarded like any abandoned event. Old recordings change only
         when they are reprocessed. Still open: the 5950 figure is measured, not documented, and the
         test is not applied to events with no lap clock, whose odometer at a finish has not been

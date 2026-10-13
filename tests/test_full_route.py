@@ -92,6 +92,30 @@ def test_odometer_reset_at_the_far_end_is_a_finish(tmp_path):
     assert "cutoff" not in (timed[0]["flags"] or "")
 
 
+def frozen_clock(d: Driver, seconds: float = 3.0) -> None:
+    clock = d.f["current_race_time"]
+    for _ in range(int(seconds * 60)):
+        d.send(current_race_time=clock, current_lap=clock, speed=0)
+
+
+def test_clock_freezing_partway_round_is_not_a_finish(tmp_path):
+    d = Driver(tmp_path)
+    gridded_run(d, covered=2483.0)
+    frozen_clock(d)
+    assert d.tracker._event_finished   # the freeze still ends race mode
+    assert d.finish() == []
+
+
+def test_clock_freezing_at_the_far_end_is_a_finish(tmp_path):
+    d = Driver(tmp_path)
+    gridded_run(d, covered=5951.0)
+    frozen_clock(d)
+    d.send(distance_traveled=0)        # the handback resets the odometer afterwards
+    timed = [lap for lap in d.finish() if lap["lap_time"]]
+    assert len(timed) == 1
+    assert timed[0]["lap_time"] == pytest.approx(60.0, abs=0.1)
+
+
 def test_reprocess_drops_the_route_of_a_run_that_no_longer_counts(tmp_path, monkeypatch):
     """A recording made before this rule keeps its packets; replaying it must
     leave the session on no route, not on the one the old rule invented."""

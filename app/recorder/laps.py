@@ -37,6 +37,7 @@ otherwise be lost. Five finish signals fix that:
 - CurrentRaceTime freezing for a while during IsRaceOn == 1 = an alternative
   finish-cinematic signal (kept as a fallback): the session is marked
   finished and a never-counted-a-lap run is completed with the frozen clock.
+  The same full-route test applies to a gridded race.
 - Telemetry stopping dead at the line: circuit races cut Data Out the
   instant the race ends (verified on real captures - the last frame lands
   within meters of the finish), so no signal above ever arrives. At session
@@ -772,7 +773,13 @@ class SessionTracker:
         events don't qualify - no finish was seen."""
         if (self._completed_laps == 0 and self._event_finished
                 and self._first_rt is not None and self._first_rt < 5.0
-                and self._finish_rt is not None):
+                and self._finish_rt is not None
+                # a gridded race whose clock froze partway round was given up
+                # too (see _went_the_distance). Measured where the clock froze:
+                # the handback may have reset the odometer since.
+                and not (self._gridded and self._freeze_finish_dist is not None
+                         and self._freeze_finish_dist - self._lap_start_dist
+                         < FULL_ROUTE_MIN)):
             run = self._finish_rt - (self._launch_rt if self._launch_rt is not None
                                      else (self._lap_open_rt or 0.0))
             if run > PTP_MIN_RUN_TIME:
