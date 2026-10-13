@@ -166,7 +166,8 @@ Internet packet arrival timestamps must not be treated as official lap times.
 Circuit/sprint classification does not by itself identify Rivals versus a
 conventional race; unknown event modes remain unknown until validated.
 
-Rivalry v2 is an additional read-only workspace, retaining the original page.
+The compact workspace built as "Rivalry v2" is the page named **Rivalry** (`rivalry-v2.html`);
+the original page is kept as **Rivalry_legacy** (`rivalry.html`) (ADR 26).
 It presents compact route/class rows, both configured drivers' candidate bests,
 recorded time differences, searchable attempts and finish-dated improvement
 history. Actual recorded outlines lead to explicit A/B lap selection and the
