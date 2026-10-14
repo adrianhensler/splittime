@@ -1,5 +1,17 @@
 # Build plan
 
+## Session debrief checkpoint, 2026-10-13
+
+Authorized scope: expandable A-session measured summary in Rivalry, B reference,
+optional OpenRouter/Gemini 3.8 Flash priorities with $1/UTC-month inference cap.
+Implementation/review record: WP-004. No recorder/schema/collector changes.
+Independent reviewer is GPT-6 Astra (implementer GPT-6.1 Sol).
+Worker checks: 340 Python tests, 78 Node tests and Ruff pass. Actual synthetic
+Gemini smoke returned the exact requested model and a validated report for
+$0.000414; a repeat cache claim made no new call. Initial timeout kept its
+$0.01 reservation. Browser preview also generated/cached a synthetic debrief.
+Independent final-head review, merge and web-only deployment remain pending.
+
 Each milestone is a Workpacket in [`../work/`](../work/). The packet holds the
 authority, acceptance criteria, evidence and checkpoint; this file holds the
 overview, risks, deferred items and open questions. See

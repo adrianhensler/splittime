@@ -72,3 +72,14 @@
     #st-rivalry-workspace h3{font-size:14px;margin:0 0 8px;font-weight:600}
     #st-rivalry-workspace .st-more-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:16px;align-items:start}
     #st-rivalry-workspace .st-replay{display:block;border:1px solid var(--st-accent);border-radius:5px;padding:8px;text-align:center;text-decoration:none;font-weight:600;margin-top:8px}
+    #st-rivalry-workspace .st-debrief{border:1px solid var(--st-line);border-radius:6px;padding:10px 12px;color:var(--st-fg);margin-top:12px}
+    #st-rivalry-workspace .st-debrief summary{font-weight:600;line-height:1.6}
+    #st-rivalry-workspace .st-debrief-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-top:10px}
+    #st-rivalry-workspace .st-debrief-stats div{background:var(--st-panel);padding:10px;border-radius:4px}
+    #st-rivalry-workspace .st-debrief-stats strong{display:block;font-size:18px;font-variant-numeric:tabular-nums}
+    #st-rivalry-workspace .st-debrief-stats span{color:var(--st-muted);font-size:11px}
+    #st-rivalry-workspace .st-debrief-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:20px;margin-top:14px}
+    #st-rivalry-workspace .st-debrief li{margin:5px 0}
+    #st-rivalry-workspace .st-debrief-actions{display:flex;flex-wrap:wrap;gap:8px}
+    #st-rivalry-workspace .st-debrief button{font:inherit;padding:8px;border:1px solid var(--st-line);border-radius:4px;background:var(--st-panel);color:var(--st-fg)}
+    #st-rivalry-workspace .st-debrief button:disabled{opacity:.55;cursor:default}

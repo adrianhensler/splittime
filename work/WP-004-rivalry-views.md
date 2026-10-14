@@ -1,8 +1,53 @@
 # WP-004: Rivalry views (M3)
 
+## Session debrief checkpoint, 2026-10-13
+
+Checkpoint owner: Codex. Branch `feat/session-debrief`, based on main `d6de7a6`.
+PR locator pending opening; this bounded slice does not complete the original
+ranked-rivalry or real two-driver acceptance criteria below.
+
+Claims: closed A-session statistics and B-reference differences are computed
+locally; eligible full-route estimates retain best eligibility but not confirmed
+consistency/corner evidence. Own progress requires known matching driver, route,
+car and PI before this session. Gemini chooses allowlisted facts and one practice
+hypothesis; the app writes all numeric explanations from validated measurements.
+Anonymous numeric facts only leave the server. Public GETs never invoke AI.
+Persistent separate cache/ledger protects $1/UTC month with atomic $0.01
+reservations, deduplication, explicit retry and retained ambiguous charges.
+No telemetry schema, recorder, collector or gateway change.
+
+Worker evidence: full `python -m pytest -q` 340 passed; final affected
+`python -m pytest -q tests/test_debrief.py` 14 passed; `node --test
+tests/ui/*.test.cjs` 78 passed; `ruff check .`, packet round-trip and diff checks
+passed. Fresh temporary test directory is required on Windows. Tests cover
+manual edits, full-route/short cutoff, B-only estimate labels, unknown car/PI,
+source changes during inference, strict privacy/contract, duplicate concurrent
+claims, restart/UTC month, ambiguous charges, cap breach and cached no-call reads.
+Node checks cover collapsed/no-call behaviour, late responses, escaped strings,
+auth error preserving measurements and explicit retry. Existing prefix tests pass.
+
+Actual synthetic OpenRouter call returned `google/gemini-3.8-flash`, valid strict
+JSON, known $0.000414 charge; repeat claim produced no new call. Initial 45 s
+timeout kept its $0.01 reservation; standard Vertex route then succeeded.
+Actual loopback `/splittime/` browser preview expanded measurements and generated
+cached Gemini priorities for $0.00038. Simulator clocks/capture quality correctly
+withheld corner priorities; no simulated evidence is called field accuracy.
+
+Independent draft reviewer: GPT-6 Astra (implementer GPT-6.1 Sol). Its two P2
+findings, B estimate provenance and unknown car/PI matching, are fixed with
+regressions. Independent final-head review/CI merge remains pending.
+Acceptance: pending reviewer merge. Deployment: not yet done. Remaining unknowns:
+actual authorized/unauthorized gateway flow, live provider latency/availability,
+coaching usefulness and racing causality. Gateway auth is external; the app must
+remain internal. Weekly telemetry backup does not yet include `debrief.db`.
+Preserve/back up that ledger; never restore an older one within the same month
+with AI enabled. Next: open PR, pin final-head review, merge green CI, update only
+the existing website container and verify live reads/auth/cache; preserve collector
+identity, closed recording hashes and capture backups.
+
 | | |
 |---|---|
-| Status | partial; original and Rivalry v2 exploratory slices admitted; Back-navigation repair in review |
+| Status | partial; session debrief slice complete in worker checks, independent final review pending |
 | Parent | WP-000 |
 | Children | none |
 | Worker | Codex (checkpoint owner); original implementation by GPT-6 |
@@ -26,6 +71,10 @@ exploratory.
   session list and analysis page.
 - May not: change how laps are detected; change ranking rules without a new
   ADR entry.
+- Owner, 2026-10-13: add the expandable session debrief with optional OpenRouter
+  Gemini 3.8 Flash priorities and the described $1/UTC-month cap. Anonymous
+  derived statistics only; existing web service/gateway; no collector restart,
+  new VPS, raw-packet cloud transfer or automatic generation.
 
 ## Acceptance criteria
 

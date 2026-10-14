@@ -249,7 +249,32 @@ Pitfalls:
 Send each driver [GAME_SETUP.md](GAME_SETUP.md), the server IP address and
 their port.
 
-## F. Housekeeping
+## F. Optional session debrief
+
+Rivalry's expandable debrief works without a model key. For the AI button, set
+`OPENROUTER_API_KEY` only in the web process/container's private environment.
+Compose passes an optional host key; keep `.env` out of Git. All non-GET/HEAD
+endpoints, including `/api/debrief/generate`, must be behind the authenticated,
+same-origin management gate used for edits. The app has no separate login.
+Never expose the web API directly.
+
+Explicit generation sends anonymous derived statistics through OpenRouter to
+`google/gemini-3.8-flash` on standard Vertex with strict ZDR, no data collection,
+tools, fallback or automatic retry. No raw packets, driver names, IP addresses
+or route labels leave the server. Output is a validated choice of measured
+facts and one supported practice hypothesis, not free-form coaching.
+
+`DATA_DIR/debrief.db` is a separate web-owned cache/spending ledger. It reserves
+$0.01/call before sending and enforces $1 per UTC calendar month for this
+project's inference (not whole-account spending or credit purchase fees).
+Unknown charges retain reservations; retries are explicit. Keep this database
+across deployments/rollbacks, back it up using SQLite's online backup API, and
+do not delete it to clear cache. If restoring an older/missing ledger, disable
+the key until the next UTC month to avoid forgetting charges. Edits,
+reprocessing and changed references invalidate priorities without another
+report being generated automatically.
+
+## G. Housekeeping
 
 - Keep the clock synchronised (`timedatectl` shows `System clock synchronized:
   yes`).

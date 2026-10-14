@@ -17,6 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from . import cars, roles, tracks
 from .api.routes import router, status
 from .corners.api import router as corners_router
+from .debrief.api import router as debrief_router
 from .recorder.laps import SessionTracker
 from .recorder.store import Store
 from .telemetry.hub import Hub
@@ -253,6 +254,7 @@ def create_app(role: str = roles.ALL) -> FastAPI:
     else:
         app.include_router(router, prefix="/api")
         app.include_router(corners_router, prefix="/api")
+        app.include_router(debrief_router, prefix="/api")
     app.middleware("http")(revalidate_static)
     # registered last, so it wraps everything above: a request for a host this
     # server has no business answering is refused before any handler sees it
