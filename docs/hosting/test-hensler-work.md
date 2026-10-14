@@ -1,5 +1,33 @@
 # Reference deployment: test.hensler.work
 
+## Session debrief web update, 2026-10-13
+
+Independent reviewer GPT-6 Astra merged SplitTime PR #37 at `2e325f5` (green
+CI) and site PR #120 at `9fda383` (Compose validated; no site CI). Deployed
+2026-10-14T02:55Z as adrian via pinned SSH; rebuilt/recreated only `splittime`
+with `--no-deps`. No provider provisioning, gateway/collector restart or raw
+recording modification. Existing private key is valid and present in web only.
+
+Online SQLite integrity-checked backup, old Compose and deployment receipt:
+`/home/adrian/splittime-deploy-backups/session-debrief-20261014T025513Z/`.
+Rollback image: `splittime-web-rollback:20261014t025513z`. Collector retained
+ID `0dd85fa2e483...` and start `2026-10-13T21:10:42.085846346Z`; all 29 other
+containers unchanged. Hash of the 17 closed sessions/laps/edits/raw frames:
+`3a8c10e965dc3bc96aed1e33eff9025c7eec78f98f904d95dc5c4c8cd00ddad0`, unchanged.
+
+Live browser shows actual debrief measurements under Rivalry. Public GET 200;
+missing/cross-origin POST 403, valid-origin anonymous POST 302 to login. Browser
+generation error preserves measurements and offers reload. Server key-validity
+read succeeds; separate `debrief.db` integrity ok and zero live calls. Actual
+signed-in live inference remains untested. Extra internal operator smoke call
+was rejected by automatic approval review because it bypassed the external
+login; it was not executed. Real synthetic provider/browser checks passed.
+
+Keep `debrief.db` across deployment/rollback and back it up online separately;
+weekly telemetry backup does not yet include it. Do not restore an older ledger
+with AI enabled in the same UTC month. Inference is explicit, anonymous and
+bounded to $1/UTC month, with $0.01/call reserved before sending.
+
 This is the owner's personal hosting. The generic guide is
 [../SETUP.md](../SETUP.md). This record describes the deployment checked on
 2026-10-12; it replaces the earlier unexecuted gateway plan.
