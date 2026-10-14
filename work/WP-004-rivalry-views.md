@@ -2,6 +2,28 @@
 
 ## Session debrief checkpoint, 2026-10-13
 
+**Admission/deployment update:** GPT-6 Astra independently reviewed final
+`07b2626`, ran 14 targeted Python and 4 debrief UI tests, validated hosting
+Compose/gate and merged PR #37 after CI test/UI/records passed. Merge `2e325f5`;
+companion site PR #120 merge `9fda383`. Both deployed at 2026-10-14T02:55Z.
+This supersedes pending merge/deployment statements below and admits only the
+bounded debrief, not official ranking or coaching accuracy.
+
+Live public browser shows actual session 19 / laps 20 vs18, raw recorded
+difference 0.437 s, C3 gain 0.319 s and C7 loss 0.264 s. Anonymous AI generation
+preserves measurements and asks for management login. Gateway probes: missing/
+cross-origin POST 403, valid-origin anonymous POST 302, public measured GET 200.
+Server key accepted by OpenRouter's read-only key endpoint; ledger integrity ok,
+zero live calls. Actual signed-in live inference remains untested. Optional
+internal operator smoke call was rejected by automatic approval review because
+it would bypass external login, and was not executed. Real synthetic provider/
+browser checks below passed. Next field checkpoint: ordinary signed-in AI
+generation, then assess usefulness after a drive.
+
+Collector identity/start, all 29 other containers and hashes of all 17 closed
+sessions/laps/edits/frames match predeployment. Hosting record holds backup and
+rollback receipt. No collector restart or additional infrastructure.
+
 Checkpoint owner: Codex. Branch `feat/session-debrief`, based on main `d6de7a6`.
 PR locator: [PR #37](https://github.com/adrianhensler/splittime/pull/37),
 implementation head `7fb4580`. This bounded slice does not complete the original
@@ -48,7 +70,7 @@ identity, closed recording hashes and capture backups.
 
 | | |
 |---|---|
-| Status | partial; session debrief slice complete in worker checks, independent final review pending |
+| Status | partial original scope; session debrief slice reviewed, merged and deployed |
 | Parent | WP-000 |
 | Children | none |
 | Worker | Codex (checkpoint owner); original implementation by GPT-6 |

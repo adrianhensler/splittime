@@ -10,7 +10,14 @@ Worker checks: 340 Python tests, 78 Node tests and Ruff pass. Actual synthetic
 Gemini smoke returned the exact requested model and a validated report for
 $0.000414; a repeat cache claim made no new call. Initial timeout kept its
 $0.01 reservation. Browser preview also generated/cached a synthetic debrief.
-Independent final-head review, merge and web-only deployment remain pending.
+GPT-6 Astra reviewed final head `07b2626`; PR #37 merged at `2e325f5` on green
+CI, and site configuration PR #120 merged at `9fda383`. Both are deployed.
+Live browser shows session/corner measurements; anonymous generation requires
+login. Missing/cross-origin POSTs return 403, valid-origin anonymous POST
+redirects to login, public measured GET returns 200. Server key validity read
+passed. Collector/29 other containers and 17 closed recordings unchanged.
+Actual signed-in live inference remains untested; an extra internal operator
+smoke call was rejected by automatic approval review and was not executed.
 
 Each milestone is a Workpacket in [`../work/`](../work/). The packet holds the
 authority, acceptance criteria, evidence and checkpoint; this file holds the

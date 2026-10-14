@@ -2,6 +2,15 @@
 
 ## Debrief deployment checkpoint, 2026-10-13
 
+**Deployment update:** PR #37 and site PR #120 were independently reviewed and
+merged by GPT-6 Astra, then deployed at 2026-10-14T02:55Z. Existing website only;
+collector identity/start, 29 other containers and 17 closed recording hashes
+unchanged. Online integrity-checked backup and rollback image retained. Public
+measured GET/browser, anonymous login gate and exact Origin checks pass. Server
+OpenRouter key validity read passed; no live inference executed. Actual signed-in
+generation/coaching usefulness remain field checks. Details in hosting record
+and WP-004. This supersedes pending merge/deployment statements below.
+
 Owner authorized the session debrief in the existing web service. PR #37 adds
 an optional server-side key to the portable compose example; the hosting site's
 PR #120 wires its existing private key into web only. Gateway/collector unchanged.
