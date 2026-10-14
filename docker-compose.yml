@@ -17,6 +17,8 @@ services:
       - LS_KEEP_DISCARDED=${LS_KEEP_DISCARDED:-0}
       # Set JSON in .env, e.g. SPLITTIME_DRIVERS=[{"id":"alpha",...}]
       - SPLITTIME_DRIVERS=${SPLITTIME_DRIVERS:-}
+      # Optional server-side key; costly generation must be protected by your gateway.
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
     restart: unless-stopped
     logging:
       # Docker's default json-file driver never rotates. A recorder that

@@ -1,5 +1,19 @@
 # WP-003: Deploy and real captures (M2)
 
+## Debrief deployment checkpoint, 2026-10-13
+
+Owner authorized the session debrief in the existing web service. PR #37 adds
+an optional server-side key to the portable compose example; the hosting site's
+PR #120 wires its existing private key into web only. Gateway/collector unchanged.
+Worker evidence: prefixed synthetic browser measured/cached AI flow, 340 Python
+and 78 Node tests; current Starlette transport requires `httpx2` in dev/CI.
+Independent Astra review has no remaining source blockers; updated CI and
+reviewer merge pending. Before live update, back up telemetry online, preserve
+the collector identity/start time and closed recording hashes, save rollback
+image/config, then rebuild/recreate only `splittime` with `--no-deps`. Verify
+public reads, protected POSTs and cache receipt. No real recording is a fixture.
+`debrief.db` must persist; weekly telemetry backup does not yet cover it.
+
 | | |
 |---|---|
 | Status | partial; shared deployment checked, one imported real capture visible; fresh two-driver captures and field matrix remain |

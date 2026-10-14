@@ -2,3 +2,5 @@
 # requirements.txt; the test harness needs neither fastapi nor a container.
 pytest>=8
 ruff>=0.6
+# FastAPI/Starlette API integration tests use the current test-client transport.
+httpx2>=2.13

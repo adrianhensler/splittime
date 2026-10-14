@@ -27,13 +27,15 @@ requires the gateway's login and service grant (ADR 23).
 - Per-driver bests, cross-driver records per route and class, rivalry history.
 - Overlay of any two (or more) laps aligned by track position.
 - Corner-by-corner comparison of two laps on the same route.
+- Expandable measured session debrief with optional cached Gemini priorities
+  and one practice hypothesis, under a $1/UTC-month inference cap (ADR 32).
 - Manual correction of lap flags by either driver.
 
 **Out (v1)** — tracked in [BUILD_PLAN.md](BUILD_PLAN.md#deferred)
 
 - Free-roam recording or storage.
 - CSV import.
-- Tuning advice, AI coaching, MCP server, desktop/exe builds.
+- Tuning advice, unconstrained AI coaching, MCP server, desktop/exe builds.
 - Anything live beyond watching. Upstream's Live page is kept as an optional
   view of both drivers (ADR 22); it is not part of v1's acceptance, and live
   standings or a live comparison are not planned.

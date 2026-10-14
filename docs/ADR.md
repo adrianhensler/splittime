@@ -542,3 +542,31 @@ a record of # of attempts"; "ten attempts means ten attempts").
 - Supersedes the "incomplete-attempt summary" wording in DESIGN.md.
 
 *Rests on:* 7, 27, 30. *Work:* WP-008.
+
+## 32. Measured session debrief with optional bounded AI priorities
+
+**Accepted scope, 2026-10-13** (owner: "add the session debrief as described",
+OpenRouter with Gemini 3.8 Flash). Implementation defaults below are **Proposed**.
+
+- Expand under the selected event in Rivalry: A's closed session, B as reference.
+  Local code computes eligible session best, earlier same-driver/car/PI best,
+  confirmed-time consistency and measured corner differences. A lap/run is not
+  an event start. Full-route cutoff estimates retain ADR 27 best eligibility,
+  but are not confirmed consistency samples or corner coaching evidence.
+- Gemini selects supported facts and one allowed practice hypothesis; templates
+  supply every numerical claim. No causal diagnosis, official winner or tuning
+  advice. Unknown car/PI, clocks, capture gaps and edits remain explicit.
+- Explicit management POST uses `google/gemini-3.8-flash` through OpenRouter,
+  standard `google-vertex/global`, ZDR/no data collection, no fallback, tools
+  or automatic retries. Only anonymous derived numeric facts leave the server;
+  keys stay in environment. Viewing never triggers inference.
+- Web-owned `debrief.db` caches by source/pair/detector/prompt/model versions
+  and atomically reserves $0.01/call against $1 per UTC month. Unknown charges
+  stay reserved; explicit retries reserve again. Known per-call overcharges
+  stop generation for that month. Preserve the ledger on restart/rollback;
+  restoring an older ledger loses budget history and requires disabling AI
+  until the next month.
+- Collector and telemetry schema are unchanged. The existing gateway protects
+  generation with its management POST policy; no new hosting service.
+
+*Rests on:* 23, 24, 27, 31. *Work:* WP-004.
