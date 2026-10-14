@@ -3,7 +3,8 @@
 ## Session debrief checkpoint, 2026-10-13
 
 Checkpoint owner: Codex. Branch `feat/session-debrief`, based on main `d6de7a6`.
-PR locator pending opening; this bounded slice does not complete the original
+PR locator: [PR #37](https://github.com/adrianhensler/splittime/pull/37),
+implementation head `7fb4580`. This bounded slice does not complete the original
 ranked-rivalry or real two-driver acceptance criteria below.
 
 Claims: closed A-session statistics and B-reference differences are computed
