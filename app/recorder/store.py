@@ -259,7 +259,10 @@ _SESSION_SELECT = """
 SELECT s.*, r.name AS route_name, cn.name AS car_name_override,
        COALESCE(r.kind_user, r.kind) AS route_kind, r.kind AS route_kind_auto,
        g.name AS group_name, d.name AS driver_name,
-       COUNT(l.lap_time) AS lap_count, MIN(l.lap_time) AS best_lap
+       COUNT(l.lap_time) AS lap_count, MIN(l.lap_time) AS best_lap,
+       -- every timed lap the recorder wrote, exclusions included: a session
+       -- whose laps were all excluded by hand is still a race, not discarded
+       (SELECT COUNT(lap_time) FROM laps WHERE session_id = s.id) AS recorded_laps
 FROM sessions s
 LEFT JOIN routes r ON r.id = s.route_id
 LEFT JOIN car_names cn ON cn.ordinal = s.car_ordinal

@@ -24,6 +24,9 @@ test('a finished session with no timed lap is discarded; a live one is not',()=>
  assert.equal(isDiscarded(empty),true);
  assert.equal(isDiscarded(timed),false);
  assert.equal(isDiscarded(live),false);
+ // every lap excluded by hand: lap_count is 0 but the race was recorded
+ assert.equal(isDiscarded({...empty,recorded_laps:2}),false);
+ assert.equal(isDiscarded({...empty,recorded_laps:0}),true);
  // a row without a lap count (older payloads) is never hidden
  assert.equal(isDiscarded({id:4,ended_at:2}),false);
 });

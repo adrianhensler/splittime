@@ -117,6 +117,9 @@ def test_excluding_the_only_lap_does_not_erase_the_attempt(tmp_path):
     lap = store.session_laps(session["id"])[0]
     store.add_edit(session["id"], "exclude_lap", lap["started_t"] + 1.0, None)
     assert store.list_sessions()[0]["best_lap"] is None      # out of the rankings
+    # still a recorded race for the Analysis "Hide discarded" filter
+    assert store.list_sessions()[0]["lap_count"] == 0
+    assert store.list_sessions()[0]["recorded_laps"] == 1
     assert attempt_summary(store)["drivers"]["legacy"] == {
         "finished": 1, "abandoned": 0, "attempts": 1}
     store.close()

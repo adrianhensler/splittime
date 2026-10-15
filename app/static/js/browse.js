@@ -83,10 +83,11 @@ const MORE_FACETS = FACETS.filter((f) => !f.bar);
 /* "Discarded" = a finished session with no timed lap: menus, result screens
    and given-up runs that the recorder only keeps for diagnosis
    (LS_KEEP_DISCARDED). A session still recording has no ended_at yet and
-   always shows. */
+   always shows. recorded_laps counts laps excluded by hand too, so a race
+   whose every lap was excluded is not mistaken for one. */
 // on: an hour of racing leaves more menu screens than races in the list
 const HIDE_DISCARDED_DEFAULT = true;
-const isDiscarded = (s) => s.lap_count === 0 && s.ended_at != null;
+const isDiscarded = (s) => (s.recorded_laps ?? s.lap_count) === 0 && s.ended_at != null;
 
 const browse = (() => {
   const b = { q: "", since: "", sort: "new", hideDiscarded: HIDE_DISCARDED_DEFAULT };
