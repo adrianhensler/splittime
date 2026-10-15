@@ -988,6 +988,12 @@ dialog.modal::backdrop {
   white-space: nowrap;
 }
 .browse-status.warn { color: var(--warn); cursor: help; }
+.browse-hide { flex: none; padding: 2px 10px; font-size: 0.8rem; }
+.browse-hide.on {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--panel-lo));
+}
 .browse-clear { padding: 2px 10px; font-size: 0.8rem; }
 
 /* facet menus: one floating list per button, above the sticky header */
