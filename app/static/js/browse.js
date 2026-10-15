@@ -80,8 +80,15 @@ const facetByKey = Object.fromEntries(FACETS.map((f) => [f.key, f]));
 /* everything not given its own button lives behind "More" */
 const MORE_FACETS = FACETS.filter((f) => !f.bar);
 
+/* "Discarded" = a finished session with no timed lap: menus, result screens
+   and given-up runs that the recorder only keeps for diagnosis
+   (LS_KEEP_DISCARDED). A session still recording has no ended_at yet and
+   always shows. */
+const HIDE_DISCARDED_DEFAULT = false;
+const isDiscarded = (s) => s.lap_count === 0 && s.ended_at != null;
+
 const browse = (() => {
-  const b = { q: "", since: "", sort: "new" };
+  const b = { q: "", since: "", sort: "new", hideDiscarded: HIDE_DISCARDED_DEFAULT };
   for (const f of FACETS) b[f.key] = new Set();
   try {
     const saved = JSON.parse(localStorage.getItem(BROWSE_KEY) || "{}");
@@ -89,12 +96,14 @@ const browse = (() => {
       if (Array.isArray(saved[f.key])) b[f.key] = new Set(saved[f.key].map(String));
     if (DATE_RANGES.some(([v]) => v === saved.since)) b.since = saved.since;
     if (BROWSE_SORTS.some(([v]) => v === saved.sort)) b.sort = saved.sort;
+    if (typeof saved.hideDiscarded === "boolean") b.hideDiscarded = saved.hideDiscarded;
   } catch { /* corrupt entry: start clean rather than break the page */ }
   return b;
 })();
 
 function saveBrowse() {
-  const out = { since: browse.since, sort: browse.sort };  // q is not persisted
+  // q is not persisted
+  const out = { since: browse.since, sort: browse.sort, hideDiscarded: browse.hideDiscarded };
   for (const f of FACETS) out[f.key] = [...browse[f.key]];
   try { localStorage.setItem(BROWSE_KEY, JSON.stringify(out)); } catch { /* private mode */ }
 }
@@ -111,6 +120,7 @@ function browseMatchesText(s, q) {
 /* `skip` leaves one facet out so its own menu can show how many sessions each
    of its values *would* add - the usual faceted-search count. */
 function browsePasses(s, skip) {
+  if (browse.hideDiscarded && isDiscarded(s)) return false;
   if (browse.q && !browseMatchesText(s, browse.q)) return false;
   if (browse.since
       && s.started_at < Date.now() / 1000 - Number(browse.since) * 86400) return false;
@@ -459,6 +469,26 @@ function bindBrowse() {
     btn.onclick = () => facetPop(btn, f.key, (pop) => fillFacetPop(pop, f));
     bar.appendChild(btn);
   }
+  /* a switch of its own rather than a "More" entry: it changes what the
+     list means, so it has to be visible. Not a filter chip and not reset by
+     "Clear all" - the status count already says when rows are hidden. */
+  const hide = document.querySelector("#browse-hide");
+  if (hide) {
+    const paint = () => {
+      hide.classList.toggle("on", browse.hideDiscarded);
+      hide.setAttribute("aria-pressed", browse.hideDiscarded ? "true" : "false");
+    };
+    paint();
+    hide.onclick = () => {
+      browse.hideDiscarded = !browse.hideDiscarded;
+      saveBrowse();
+      paint();
+      closeFacetPop();
+      renderBrowseBar();
+      renderSessionList();
+    };
+  }
+
   const more = document.createElement("button");
   more.type = "button";
   more.dataset.facet = "more";
