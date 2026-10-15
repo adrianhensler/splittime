@@ -84,7 +84,8 @@ const MORE_FACETS = FACETS.filter((f) => !f.bar);
    and given-up runs that the recorder only keeps for diagnosis
    (LS_KEEP_DISCARDED). A session still recording has no ended_at yet and
    always shows. */
-const HIDE_DISCARDED_DEFAULT = false;
+// on: an hour of racing leaves more menu screens than races in the list
+const HIDE_DISCARDED_DEFAULT = true;
 const isDiscarded = (s) => s.lap_count === 0 && s.ended_at != null;
 
 const browse = (() => {

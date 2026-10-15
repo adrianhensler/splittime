@@ -51,3 +51,12 @@ test('the choice is remembered across reloads',()=>{
 test('the toggle is a visible button in the bar, not hidden in More',()=>{
  assert.match(html,/<button id="browse-hide"[^>]*>Hide discarded<\/button>/);
 });
+
+test('hidden by default on a first visit',()=>{
+ const {browse,browsePasses,HIDE_DISCARDED_DEFAULT}=load();
+ assert.equal(HIDE_DISCARDED_DEFAULT,true);
+ assert.equal(browse.hideDiscarded,true);
+ assert.equal(browsePasses(empty),false);
+ // a visitor who switched it off keeps it off
+ assert.equal(load({hideDiscarded:false}).browse.hideDiscarded,false);
+});
