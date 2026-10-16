@@ -367,6 +367,7 @@ function openSettings() {
       status.textContent = "refreshing…";
       try {
         const r = await fetch(`api/${path}/refresh`, { method: "POST" });
+        if (refusedByLoginGate(r)) throw new Error(SIGNED_OUT_DETAIL);
         const out = await r.json();
         if (!r.ok) throw new Error(out.detail || "refresh failed");
         const { text, changed } = summarize(out);
@@ -447,6 +448,7 @@ function openSettings() {
       status.textContent = "compacting…";
       try {
         const r = await fetch("api/storage/compact", { method: "POST" });
+        if (refusedByLoginGate(r)) throw new Error(SIGNED_OUT_DETAIL);
         const out = await r.json();
         if (!r.ok) throw new Error(out.detail || "compact failed");
         status.textContent = out.reclaimed_bytes > 0
