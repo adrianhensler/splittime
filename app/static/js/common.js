@@ -638,6 +638,18 @@ function reportApiError(err, quiet) {
   return err;
 }
 
+/* Behind a login gate (the hosted site puts every change behind one), a
+   refused write comes back as a redirect to the sign-in page. fetch follows
+   it and lands on a 200 HTML page, so `res.ok` alone would read a refusal as
+   saved: the rename or delete looked done until the next reload. Reads are
+   never gated, so a redirect only ever means "not allowed to change this". */
+const SIGNED_OUT_DETAIL =
+  "Only signed-in users with SplitTime access can make changes. Nothing was changed.";
+
+function refusedByLoginGate(res) {
+  return res.redirected;
+}
+
 /* `what` completes "Couldn't …" in the failure dialog. Resolves to the parsed
    JSON body, or null for an empty one. */
 async function apiFetch(url, { what = "do that", quiet = false, ...init } = {}) {
@@ -652,6 +664,9 @@ async function apiFetch(url, { what = "do that", quiet = false, ...init } = {}) 
       true), quiet);
   }
   noteReachable(true);
+  if (refusedByLoginGate(res)) {
+    throw reportApiError(new ApiError(`Couldn't ${what}`, SIGNED_OUT_DETAIL, false), quiet);
+  }
   if (!res.ok) {
     let detail = `HTTP ${res.status}`;
     try { detail = (await res.json()).detail || detail; } catch { /* not JSON */ }
