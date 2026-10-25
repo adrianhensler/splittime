@@ -72,15 +72,46 @@ def test_full_route_cutoff_is_best_but_not_confirmed_consistency(source, monkeyp
     assert summary.build_report(source, 3)["stats"]["best_s"] == 60
 
 
+def _measured_corner(monkeypatch, source):
+    def trace(store, lap, digests):
+        digests.append([lap["id"], "digest"])
+        return SimpleNamespace(capture_quality="continuous", lap_id=lap["id"])
+    monkeypatch.setattr(summary, "_trace", trace)
+    monkeypatch.setattr(summary, "_reference", lambda *args: (source.laps[0], []))
+    monkeypatch.setattr(summary, "detect_corners", lambda trace: object())
+    monkeypatch.setattr(summary, "compare_laps", lambda *args: {"comparable": True, "segments": [
+        {"kind": "corner", "n": 2, "dt": .25,
+         "a": {"brake_onset_s": 1, "throttle_on_s": 2},
+         "b": {"brake_onset_s": 1, "throttle_on_s": 2}}]})
+
+
 def test_only_reference_cutoff_preserves_pair_provenance(source, monkeypatch):
     source.laps[0]["flags_auto"] = "cutoff"
     monkeypatch.setattr(summary, "lap_covered", lambda *args: 10000)
+    _measured_corner(monkeypatch, source)
     report = summary.build_report(source, 3, 1)
     assert report["stats"]["estimated"] == 0
     assert report["pair"]["a_finish"] == "confirmed"
     assert report["pair"]["b_finish"] == "last_packet"
     assert report["pair"]["b_eligible"] is True
+    assert report["pair"]["coaching_available"]
+    assert any("last packet" in w for w in report["warnings"])
+
+
+def test_full_route_sprints_get_corner_priorities(source, monkeypatch):
+    for item in source.laps:
+        item["flags_auto"] = "cutoff"
+    monkeypatch.setattr(summary, "lap_covered", lambda *args: 10000)
+    _measured_corner(monkeypatch, source)
+    report = summary.build_report(source, 3, 1)
+    assert report["pair"]["a_finish"] == report["pair"]["b_finish"] == "last_packet"
+    assert report["pair"]["coaching_available"]
+    assert any(f["id"] == "corner_2" for f in report["facts"])
+    # a last-packet run that stopped short is still not evidence
+    monkeypatch.setattr(summary, "lap_covered", lambda *args: 4000)
+    report = summary.build_report(source, 3, 1)
     assert not report["pair"]["coaching_available"]
+    assert not any(f["id"].startswith("corner_") for f in report["facts"])
 
 
 def test_unknown_metadata_does_not_claim_same_car_pi_progress(source):

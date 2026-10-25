@@ -552,7 +552,10 @@ OpenRouter with Gemini 3.8 Flash). Implementation defaults below are **Proposed*
   Local code computes eligible session best, earlier same-driver/car/PI best,
   confirmed-time consistency and measured corner differences. A lap/run is not
   an event start. Full-route cutoff estimates retain ADR 27 best eligibility,
-  but are not confirmed consistency samples or corner coaching evidence.
+  but are not confirmed consistency samples. They are corner coaching evidence
+  (owner, 2026-10-25): every sprint ends on the last packet, corner times come
+  from the game clock sample by sample, and only the finish is inferred, so the
+  report says so in a warning.
 - Gemini selects supported facts and one allowed practice hypothesis; templates
   supply every numerical claim. No causal diagnosis, official winner or tuning
   advice. Unknown car/PI, clocks, capture gaps and edits remain explicit.

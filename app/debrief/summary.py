@@ -107,8 +107,11 @@ def build_report(store, focus_id: int, reference_id: int | None = None) -> dict:
         quality = [_eligible(store, session, focus), _eligible(store, other, reference)]
         pair["a_finish"], pair["b_finish"] = (p["finish"] for p in quality)
         pair["a_eligible"], pair["b_eligible"] = (p["candidate_clean"] for p in quality)
-        if any(not p["candidate_clean"] or p["finish"] != "confirmed" for p in quality):
-            warnings.append("Corner priorities withheld: selected laps must be eligible, confirmed finishes.")
+        # An eligible last-packet run has already proved the full route, and its corner
+        # times come from the game clock sample by sample; only the finish is inferred.
+        # Sprints always end that way, so they need corner priorities too.
+        if any(not p["candidate_clean"] for p in quality):
+            warnings.append("Corner priorities withheld: selected laps must be eligible bests.")
         elif other.get("ended_at") is None:
             warnings.append("Corner priorities withheld: the reference session is still recording.")
         elif any(session.get(k) is None or session.get(k) != other.get(k)
@@ -129,6 +132,9 @@ def build_report(store, focus_id: int, reference_id: int | None = None) -> dict:
                 warnings.append("Corner priorities withheld: incomplete coverage, capture gaps or uncertain clocks.")
             else:
                 pair["coaching_available"] = True
+                if any(p["finish"] == "last_packet" for p in quality):
+                    warnings.append("Finish times estimated from the last packet; "
+                                    "corner times use the game clock.")
                 ranked = sorted((s for s in measured["segments"] if s["kind"] == "corner"
                                  and not s.get("partial")), key=lambda s: abs(s["dt"]), reverse=True)
                 gains = [s for s in ranked if s["dt"] >= 0][:3]
