@@ -80,6 +80,7 @@
       extended: `${who} extended the lead on ${label(group)} to ${by}`,
       closing: `${who} closed to ${by} of ${esc(rival?.driver_name)} on ${label(group)}`,
       first: `${who} set the first time on ${label(group)}${est(lap)}${others(people,lap) ? ` · waiting on ${others(people,lap)}` : ""}`,
+      tied: `${who} equalled ${esc(rival?.driver_name)}'s time on ${label(group)}${est(lap)}${rival && M.estimated(rival) ? ` <abbr class="st-est" title="${EST}">est.</abbr>` : ""}`,
       unanswered: `${who} improved on ${label(group)}${est(lap)}${others(people,lap) ? ` · still no time from ${others(people,lap)}` : ""}`,
     }[kind];
   }
@@ -112,7 +113,8 @@
       <p class="st-scoreboard">${board.drivers.map(d => `<strong>${esc(d.name)}</strong> leads ${d.leads}`).join(" · ")}
         <span class="st-quiet">of ${board.contested} contested · unanswered: ${board.drivers.map(d =>
           `${esc(d.name)} ${d.unanswered}`).join(", ")}${closest ? ` · closest: ${label(closest[0])},
-          <span class="st-time">${(closest[1][1].time_s-closest[1][0].time_s).toFixed(3)} s</span>` : ""}</span></p>
+          <span class="st-time">${(closest[1][1].time_s-closest[1][0].time_s).toFixed(3)} s</span>${
+            closest[1].slice(0,2).some(M.estimated) ? ` <abbr class="st-est" title="${EST}">est.</abbr>` : ""}` : ""}</span></p>
       <ul class="st-recent">${recent.map((event, i) => `<li><span class="st-quiet">${esc(M.ago(event.at))}</span>
         <span>${story(event, people)}</span><span class="st-row-actions">${open(i + (takeover ? 1 : 0), event.lap, event.rival)}</span></li>`).join("")}</ul>`;
   }

@@ -176,6 +176,10 @@ test("activity reads each improvement against the rival's best at that moment", 
   const board = M.scoreboard(cats,drivers);
   assert.equal(board.contested,1);
   assert.deepEqual(board.drivers.map(d=>[d.id,d.leads,d.unanswered]),[["b",0,1],["a",1,0]]);
+  // an equalled time is a tie, never a lead change, whichever sorts first
+  const tie = M.activity([group([lap(31,"a",60,10),lap(32,"b",59,20),lap(33,"a",59,30)])],drivers);
+  assert.equal(tie.find(e=>e.lap.lap_id===33).kind,"tied");
+  assert.deepEqual(tie.filter(e=>e.kind==="takeover").map(e=>e.lap.lap_id),[32]);
   // both improve at once while the holder stays fastest: the other only closed in
   const both = M.activity([group([lap(21,"a",60,10),lap(22,"a",58,20),lap(23,"b",59,20)])],drivers);
   assert.equal(both.some(e=>e.kind==="takeover"),false);
@@ -220,6 +224,7 @@ test("the banner leads with the latest takeover, escapes names and opens that pa
   // estimated finishes stay marked in the stories
   const sprint = page({drivers,categories:[group([lap(1,"a",60,10,{finish:"last_packet"}),lap(2,"b",59,20)])]});await sprint.settle();
   assert.match(sprint.elt("st-latest").innerHTML,/1\.000 s<\/span> <abbr class="st-est"/);
+  assert.match(sprint.elt("st-latest").innerHTML,/closest: Test Circuit · A,\s*<span class="st-time">1\.000 s<\/span> <abbr class="st-est"/);
   // a record set after the headline takeover still shows
   const later = page({drivers,categories:[group([lap(1,"a",60,10),lap(2,"b",59,20),lap(3,"a",58,30),lap(4,"a",57,40)])]});
   await later.settle();

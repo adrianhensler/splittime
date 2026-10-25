@@ -147,12 +147,14 @@
         for (const lap of laps.slice(i,j)) after.set(lap.driver_id, lap);
         // only the holder after the whole batch can have taken or extended the record
         const standing = fastest(after), holder = standing[0];
+        // a time equal to the next driver's is a tie: nobody took or extended anything
+        const outright = !standing[1] || holder.time_s < standing[1].time_s;
         for (const lap of laps.slice(i,j)) {
           const other = list => list.find(old => old.driver_id !== lap.driver_id) || null;
           let rival = other(before), kind;
           if (!rival) kind = lap.delta === null ? "first" : "unanswered";
-          else if (lap === holder) kind = record.driver_id !== lap.driver_id ? "takeover" : "extended";
-          else {kind = "closing"; rival = other(standing);}
+          else if (lap === holder && outright) kind = record.driver_id !== lap.driver_id ? "takeover" : "extended";
+          else {rival = other(standing); kind = lap.time_s === rival.time_s ? "tied" : "closing";}
           events.push({kind, group, lap, rival, at:stamp(lap),
             margin:rival ? Math.abs(rival.time_s-lap.time_s) : null});
         }
