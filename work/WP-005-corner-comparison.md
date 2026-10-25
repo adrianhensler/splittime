@@ -159,6 +159,18 @@ and alignment, and persist a deliberate route reference before calling corner
 numbering stable. Re-run `python -m pytest -q tests/corners`. No detector
 threshold or live-recording changes follow from this checkpoint.
 
+## Sprint reference and Compare wording, 2026-10-25
+
+Owner read Compare's "Exploratory comparison · route or timing evidence is
+incomplete" as an error. Branch `fix/compare-sprint-reference`: the reference
+picker accepts a last-packet (`cutoff`) lap that covered the whole route, the
+Rivalry rule (ADR 27/30), since every sprint ends that way; and Compare says
+"Telemetry aligned · same recorded route; official route equivalence is not
+verified" when that is the only reason. On a copy of the live database no
+route's reference lap changes (numbering stable); routes 4, 9, 13, 14, 15 and
+17 lose the false "no clean lap" warning, six keep it. 341 pytest, 88 UI.
+Not independently verified.
+
 ## Verification
 
 GPT-6/Codex source reviews found arrival-time, equivalence and clock issues;
