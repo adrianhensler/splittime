@@ -12,6 +12,13 @@ the request is 7,972 bytes, within the $0.01 reservation. Not tested: a real
 provider call. Whether Gemini's prose passes the number check often enough is
 unknown until a signed-in generation. Not independently verified.
 
+Owner then asked for gamertags instead of anonymous drivers ("I want to know
+who I am racing"). The writer now receives the configured gamertags and the
+server stores them as {A}/{B} before the number check (a digit in a gamertag
+is never read as a measurement); one driver's two runs are "name (A)/(B)".
+349 pytest, 91 UI, ruff clean; 98 vs 174 request is 8,078 bytes (worst case
+$0.0098).
+
 ## Replay and compare from the Rivalry table, 2026-10-25
 
 Owner asked for one click from a rivalry row to the A/B replay. PR #42 (branch

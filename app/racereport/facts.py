@@ -114,7 +114,7 @@ def _sections(segments, lo, hi):
     return out
 
 
-def build(store, lap_a: int, lap_b: int) -> dict:
+def build(store, lap_a: int, lap_b: int, names: dict | None = None) -> dict:
     if lap_a == lap_b:
         raise HTTPException(409, "Choose two different laps.")
     laps, sessions, quality = [], [], []
@@ -221,9 +221,14 @@ def build(store, lap_a: int, lap_b: int) -> dict:
     if not facts["same_car"]:
         warnings.append("Different cars or PI: differences include the car, not only the driving.")
     warnings.append("Exploratory telemetry: route equivalence and official game validity are unverified.")
+    # Gamertags go to the writer (ADR 33); a rename is a new report.
+    ids = [s.get("driver_id") or "legacy" for s in sessions]
+    tags = [str((names or {}).get(i, i))[:40] for i in ids]
+    if tags[0].casefold() == tags[1].casefold():  # one driver's two runs
+        tags = [f"{tags[0]} (A)", f"{tags[1]} (B)"]
     report = {"version": REPORT_VERSION, "lap_a": lap_a, "lap_b": lap_b,
               "route_id": sessions[0]["route_id"], "reference_lap_id": detector_lap["id"],
-              "facts": facts, "warnings": warnings}
+              "drivers": {"a": tags[0], "b": tags[1]}, "facts": facts, "warnings": warnings}
     # Edits, reprocessing, frame content and detector version all invalidate a cached narrative.
     source = {"report": report, "laps": laps, "frames": digest_rows, "detector": DETECTOR_VERSION}
     report["fingerprint"] = hashlib.sha256(json.dumps(source, sort_keys=True,

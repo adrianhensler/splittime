@@ -596,8 +596,12 @@ implementer's; the owner has not confirmed them.
   whole numbers up to 10 (counts, ordinals) pass unchecked. A narrative that
   fails is not shown, and its charge is kept. This proves every number was
   measured, not that it is attached to the right claim.
-- Drivers are {A} and {B} on the wire; the page substitutes the names after
-  escaping. No names, car names, route names, timestamps or raw packets are sent.
+- The configured gamertags are sent so the review names the drivers (owner,
+  2026-10-25: "I want to know who I am racing"). The output stores them as {A}
+  and {B}, so a digit in a gamertag is never checked as a number and the page
+  substitutes the names after escaping. Two runs by one driver are sent as
+  "name (A)" and "name (B)". No car names, route names, timestamps or raw
+  packets are sent; a rename is a new report.
 - Same provider policy, model, management POST, ledger file and $1 UTC-month
   budget as ADR 32, under a separate cache key. Requests are sized to fit the
   $0.01 worst-case reservation. Viewing never triggers inference.

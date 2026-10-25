@@ -2,8 +2,10 @@
 
 Unlike the debrief (ADR 32) the model writes its own sentences, so the output is
 checked instead: every number it states must be one of the measured facts, every
-corner it names must exist, and drivers appear only as {A} and {B}, which the
-page replaces with names. A narrative that fails any check is not shown.
+corner it names must exist. The model writes the drivers' gamertags; they are
+stored as {A} and {B}, which the page turns back into names after escaping, so
+a digit in a gamertag is never read as a number. A narrative that fails any
+check is not shown.
 """
 from __future__ import annotations
 
@@ -14,16 +16,17 @@ from ..debrief import openrouter
 from ..debrief.contracts import MODEL
 from ..debrief.ledger import CALL_LIMIT
 
-PROMPT_VERSION = 1
+PROMPT_VERSION = 2
 MAX_TOKENS = 1000
 LIMITS = {"headline": 140, "story": 1100, "item": 220, "practice": 260}
 
 SYSTEM = (
     "You are a race engineer writing a short, direct post-race review of two drivers' runs "
-    "on the same route, from measured telemetry facts. Refer to the drivers only as {A} and {B}. "
-    "Sign conventions: a_gain_s > 0 means {A} was quicker over that stretch; a_ahead_after_s is "
-    "{A}'s cumulative lead after a section (negative = behind); d_* fields are {A} minus {B}; "
-    "a_brakes_later_m > 0 means {A} braked later; a_throttle_earlier_m > 0 means {A} got back "
+    "on the same route, from measured telemetry facts. Driver A and driver B are named in "
+    "drivers; refer to them by those gamertags, exactly as written. "
+    "Sign conventions: a_gain_s > 0 means A was quicker over that stretch; a_ahead_after_s is "
+    "A's cumulative lead after a section (negative = behind); d_* fields are A minus B; "
+    "a_brakes_later_m > 0 means A braked later; a_throttle_earlier_m > 0 means A got back "
     "on the throttle sooner. flat_pct is the share of the stretch at full throttle; pedals or "
     "steering 'on_off' means a digital device such as a keyboard. Sections are numbered and "
     "corners are C<number>. Explain where the race was won and lost and what each driver did "
@@ -52,7 +55,8 @@ def payload(report):
             "provider": openrouter.PROVIDER,
             "messages": [{"role": "system", "content": SYSTEM},
                          {"role": "user", "content": json.dumps(
-                             report["facts"], separators=(",", ":"), allow_nan=False)}],
+                             {"drivers": {"A": report["drivers"]["a"], "B": report["drivers"]["b"]},
+                              **report["facts"]}, separators=(",", ":"), allow_nan=False)}],
             "response_format": {"type": "json_schema", "json_schema": {
                 "name": "race_report", "strict": True, "schema": SCHEMA}}}
 
@@ -110,9 +114,21 @@ _CORNER = re.compile(r"\bC(\d+)\b")
 _LAP_TIME = re.compile(r"\b\d+:(\d\d(?:\.\d+)?)\b")
 
 
-def _check_text(text, limit, allowed, corners):
+def _placeholders(text, drivers):
+    """Gamertags back to {A}/{B}, longest first so one name inside another is safe."""
+    tags = sorted(((name, f"{{{side.upper()}}}") for side, name in drivers.items() if name),
+                  key=lambda tag: len(tag[0]), reverse=True)
+    if not tags:
+        return text
+    lookup = {name.casefold(): mark for name, mark in tags}
+    pattern = re.compile("|".join(re.escape(name) for name, _ in tags), re.IGNORECASE)
+    return pattern.sub(lambda m: lookup[m.group(0).casefold()], text)
+
+
+def _check_text(text, limit, allowed, corners, drivers):
     if not isinstance(text, str) or not text.strip() or len(text) > limit:
         raise ValueError("Race report text is missing or too long")
+    text = _placeholders(text, drivers)
     if re.sub(r"\{[AB]\}", "", text).count("{") or "}" in re.sub(r"\{[AB]\}", "", text):
         raise ValueError("Race report uses an unknown placeholder")
     for n in _CORNER.findall(text):
@@ -128,16 +144,19 @@ def _check_text(text, limit, allowed, corners):
         if not any(abs(round(v, places) - value) < 1e-9 for v in allowed.get(unit, ())):
             raise ValueError(f"Race report states {token}{' ' + unit if unit else ''}, "
                              "which is not a measured fact")
+    return text
 
 
 def validate(result, report):
     facts = report["facts"]
-    allowed, corners = {}, _corners(facts)
+    allowed, corners, drivers = {}, _corners(facts), report.get("drivers", {})
     _numbers(facts, allowed)
     if not isinstance(result, dict) or set(result) != {"headline", "story", "a", "b"}:
         raise ValueError("Invalid race report structure")
-    _check_text(result["headline"], LIMITS["headline"], allowed, corners)
-    _check_text(result["story"], LIMITS["story"], allowed, corners)
+
+    def check(text, limit):
+        return _check_text(text, LIMITS[limit], allowed, corners, drivers)
+    out = {"headline": check(result["headline"], "headline"), "story": check(result["story"], "story")}
     for side in ("a", "b"):
         notes = result[side]
         if not isinstance(notes, dict) or set(notes) != {"strengths", "costs", "practice"}:
@@ -145,10 +164,9 @@ def validate(result, report):
         for key in ("strengths", "costs"):
             if not isinstance(notes[key], list) or len(notes[key]) > 3:
                 raise ValueError("Invalid race report structure")
-            for item in notes[key]:
-                _check_text(item, LIMITS["item"], allowed, corners)
-        _check_text(notes["practice"], LIMITS["practice"], allowed, corners)
-    return result
+        out[side] = {key: [check(item, "item") for item in notes[key]] for key in ("strengths", "costs")}
+        out[side]["practice"] = check(notes["practice"], "practice")
+    return out
 
 
 def decode(response, report):

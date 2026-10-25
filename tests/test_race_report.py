@@ -108,15 +108,35 @@ def test_narrative_numbers_must_be_measured_facts_in_the_right_unit():
             writer.validate(narrative(**bad), REPORT)
 
 
-def test_request_is_anonymous_bounded_and_strict(circuit):
+def test_gamertags_are_stored_as_placeholders_and_never_read_as_numbers():
+    named = {**REPORT, "drivers": {"a": "FishFighterNS", "b": "Captn Compass 77"}}
+    out = writer.validate(narrative(headline="Captn Compass 77 wins by 4.75 s",
+                                    story="fishfighterns ran 48% full throttle; Captn Compass 77 83%."), named)
+    assert out["headline"] == "{B} wins by 4.75 s"
+    assert out["story"] == "{A} ran 48% full throttle; {B} 83%."
+    assert writer.validate(out, named) == out  # cached results re-check unchanged
+    with pytest.raises(ValueError):
+        writer.validate(narrative(story="Captn Compass 78 won"), named)
+
+
+def test_one_drivers_two_runs_are_told_apart(circuit):
+    store, a, b = circuit  # both laps come from one session
+    driver = store.get_session(store.get_lap(a)["session_id"]).get("driver_id") or "legacy"
+    assert facts.build(store, a, b, {driver: "Sam"})["drivers"] == {"a": "Sam (A)", "b": "Sam (B)"}
+    assert facts.build(store, a, b, {driver: "Sam"})["fingerprint"] != facts.build(store, a, b)["fingerprint"]
+
+
+def test_request_names_drivers_and_is_bounded_and_strict(circuit):
     store, a, b = circuit
     report = facts.build(store, a, b)
     wire = json.loads(writer.encode_request(report))
     assert wire["model"] == MODEL and wire["max_tokens"] == writer.MAX_TOKENS
     assert wire["provider"] == openrouter.PROVIDER
     assert wire["response_format"]["json_schema"]["strict"] is True
-    sent = wire["messages"][1]["content"]
-    assert "driver" not in sent and "session" not in sent and "car_name" not in sent
+    sent = json.loads(wire["messages"][1]["content"])
+    assert sent["drivers"] == {"A": report["drivers"]["a"], "B": report["drivers"]["b"]}
+    assert set(sent) == {"drivers", *report["facts"]}
+    assert "session" not in json.dumps(sent) and "car_name" not in json.dumps(sent)
     huge = copy.deepcopy(report)
     huge["facts"]["corners"] *= 40
     with pytest.raises(ValueError):

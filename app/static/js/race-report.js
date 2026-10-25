@@ -25,7 +25,7 @@
       this.content.textContent = next ? "Expand to see where the time went." : "Choose an A and a B lap.";
       if (this.host.open) this.load();
     }
-    // The model writes {A} and {B}; names are filled in here, after escaping.
+    // The server stores gamertags as {A} and {B}; names are filled in here, after escaping.
     named(text) {
       return esc(text).replaceAll("{A}", `<strong>${esc(this.context.a)}</strong>`)
         .replaceAll("{B}", `<strong>${esc(this.context.b)}</strong>`);
@@ -74,7 +74,7 @@
         ai.state === "ready" ? `Written by Gemini 3.8 Flash from these measurements · $${ai.cost_or_reserved_usd.toFixed(5)}` :
         ai.state === "pending" ? "Being written. Reload to check; no second call will be made." :
         this.retry ? "The last attempt did not pass the fact check. Unknown charges stay reserved; retry is a new call." :
-        "Optional: an AI race engineer writes the review from these measurements. Every number it uses must be one of them. Driver names are not sent.";
+        "Optional: an AI race engineer writes the review from these measurements. Every number it uses must be one of them. Gamertags are sent so it can name you.";
       const disabled = !ai.enabled || ["ready","pending"].includes(ai.state) || ai.budget.remaining_usd < 0.01;
       this.content.innerHTML = `
         <p class="st-race-headline"><strong>${esc(leader)}</strong> faster by <span class="st-time">${secs(f.a_gain_s)}</span>

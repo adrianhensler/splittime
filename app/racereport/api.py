@@ -27,6 +27,11 @@ class Generate(BaseModel):
     retry: bool = False
 
 
+def report_for(request, lap_a, lap_b):
+    names = {d.id: d.name for d in getattr(request.app.state, "drivers", ())}
+    return build(request.app.state.store, lap_a, lap_b, names)
+
+
 def cache_key(report):
     return hashlib.sha256(
         f"race:{report['fingerprint']}:{MODEL}:{writer.PROMPT_VERSION}".encode()).hexdigest()
@@ -45,7 +50,7 @@ def view(report, db):
 def race_report(request: Request, response: Response, lap_a: int = Query(gt=0),
                 lap_b: int = Query(gt=0)):
     response.headers["Cache-Control"] = "no-store"
-    return view(build(request.app.state.store, lap_a, lap_b), ledger(request))
+    return view(report_for(request, lap_a, lap_b), ledger(request))
 
 
 @router.post("/race-report/generate")
@@ -55,8 +60,8 @@ def generate(body: Generate, request: Request, response: Response):
     if not key:
         raise HTTPException(503, "AI race reports are not configured; measurements remain available.")
     response.headers["Cache-Control"] = "no-store"
-    store, db = request.app.state.store, ledger(request)
-    report = build(store, body.lap_a, body.lap_b)
+    db = ledger(request)
+    report = report_for(request, body.lap_a, body.lap_b)
     try:
         encoded = writer.encode_request(report)  # prove the cap before reserving or sending
     except ValueError as exc:
@@ -76,7 +81,7 @@ def generate(body: Generate, request: Request, response: Response):
         if cost > CALL_LIMIT:
             raise ValueError("Provider exceeded the reserved cost")
         result = writer.decode(provider, report)
-        if cache_key(build(store, body.lap_a, body.lap_b)) != fingerprint:
+        if cache_key(report_for(request, body.lap_a, body.lap_b)) != fingerprint:
             result = None  # recordings changed while the provider was working
     except Exception:
         # Never expose provider error bodies/keys, retry automatically or refund an uncertain charge.
@@ -84,4 +89,4 @@ def generate(body: Generate, request: Request, response: Response):
     finally:
         db.finish(fingerprint, call_id, result=result, cost=cost,
                   receipt_id=receipt_id, model=model)
-    return view(build(store, body.lap_a, body.lap_b), db)
+    return view(report_for(request, body.lap_a, body.lap_b), db)
