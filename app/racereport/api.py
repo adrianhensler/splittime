@@ -5,6 +5,7 @@ Shares the debrief's provider, ledger file and $1 UTC-month budget.
 from __future__ import annotations
 
 import hashlib
+import logging
 import os
 
 from fastapi import APIRouter, HTTPException, Query, Request, Response
@@ -18,6 +19,7 @@ from . import writer
 from .facts import build
 
 router = APIRouter()
+log = logging.getLogger(__name__)
 
 
 class Generate(BaseModel):
@@ -64,18 +66,24 @@ def write(store, db, names, lap_a, lap_b, key, retry=False):
     call_id = db.claim(fingerprint, retry)
     if call_id is None:
         return False
-    cost, receipt_id, model, result = None, None, None, None
+    cost, receipt_id, model, result, stage = None, None, None, None, "provider"
     try:
         provider = openrouter.request(encoded, key)
         cost = openrouter.receipt(provider)
         receipt_id, model = provider.get("id"), provider.get("model")
         if cost > CALL_LIMIT:
             raise ValueError("Provider exceeded the reserved cost")
+        stage = "check"
         result = writer.decode(provider, report)
         if cache_key(build(store, lap_a, lap_b, names)) != fingerprint:
             result = None  # recordings changed while the provider was working
-    except Exception:
+            log.info("Race report %d vs %d not shown: recordings changed during the call", lap_a, lap_b)
+    except Exception as exc:
         # Never expose provider error bodies/keys, retry automatically or refund an uncertain charge.
+        # The fact check's own messages ("states 3.9 s, ...") are safe to log and show what
+        # to tune; anything from the provider or network is logged by type only.
+        reason = str(exc) if stage == "check" and isinstance(exc, ValueError) else type(exc).__name__
+        log.info("Race report %d vs %d not shown (%s): %s", lap_a, lap_b, stage, reason)
         result = None
     finally:
         db.finish(fingerprint, call_id, result=result, cost=cost,

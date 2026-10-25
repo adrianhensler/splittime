@@ -197,7 +197,7 @@ def provider(content):
             "choices": [{"finish_reason": "stop", "message": {"content": json.dumps(content)}}]}
 
 
-def test_generate_caches_a_checked_narrative_and_never_shows_a_failed_one(circuit, monkeypatch):
+def test_generate_caches_a_checked_narrative_and_never_shows_a_failed_one(circuit, monkeypatch, caplog):
     store, a, b = circuit
     monkeypatch.setenv("OPENROUTER_API_KEY", "private-test-key")
     app = create_app("web")
@@ -220,9 +220,12 @@ def test_generate_caches_a_checked_narrative_and_never_shows_a_failed_one(circui
     client.post("/api/race-report/generate", json={"lap_a": a, "lap_b": b})
     assert len(calls) == 1
 
-    # the reverse pair is a different report; an invented number fails the check
+    # the reverse pair is a different report; an invented number fails the check,
+    # and the check's reason is logged so the validator can be tuned
     monkeypatch.setattr(openrouter, "request", lambda body, key: provider(narrative(headline="Won by 99.9 s")))
-    body = client.post("/api/race-report/generate", json={"lap_a": b, "lap_b": a}).json()
+    with caplog.at_level("INFO", logger="app.racereport.api"):
+        body = client.post("/api/race-report/generate", json={"lap_a": b, "lap_b": a}).json()
+    assert "(check): Race report states 99.9 s, which is not a measured fact" in caplog.text
     assert body["ai"]["state"] == "failed" and "narrative" not in body["ai"]
     assert body["ai"]["cost_or_reserved_usd"] == pytest.approx(.0011)
 
