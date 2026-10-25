@@ -588,6 +588,10 @@ implementer's; the owner has not confirmed them.
   input style (on/off devices send only end values). Differences are computed
   here, so a writer never does arithmetic. Pairs must be eligible bests on the
   same known route with continuous captures; different cars are allowed and say so.
+- Distances are metres: the game's `distance_traveled` is a route parameter
+  (about 5,950 units on every lap, whatever its length), so every position and
+  distance is converted with the reference lap's `metres_per_unit`, and the
+  page says the result is approximate.
 - Unlike ADR 32, the model writes its own sentences: a headline, a story, and per
   driver up to three strengths and costs and one practice focus. The output is
   checked instead of templated. Each number must match a measured fact of the

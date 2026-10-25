@@ -60,6 +60,27 @@ def test_sections_add_up_and_every_fact_is_plain_json(circuit):
     assert writer.encode_request(report)  # fits the $0.01 worst-case reservation
 
 
+def test_distances_are_metres_not_route_units(circuit, monkeypatch):
+    """distance_traveled is a route parameter: every distance goes through the
+    reference lap's metres_per_unit, and so does the window for 'first 250 m'."""
+    store, a, b = circuit
+    base = facts.build(store, a, b)["facts"]
+    real = facts.detect_corners
+
+    def doubled(trace):
+        route = real(trace)
+        route.metres_per_unit *= 2
+        return route
+    monkeypatch.setattr(facts, "detect_corners", doubled)
+    twice = facts.build(store, a, b)["facts"]
+    assert twice["route_m"] == pytest.approx(2 * base["route_m"], abs=2)
+    assert twice["corners"][0]["at_m"] == pytest.approx(2 * base["corners"][0]["at_m"], abs=2)
+    assert all(s["to_m"] == pytest.approx(2 * t["to_m"], abs=2)
+               for s, t in zip(twice["sections"], base["sections"])) or \
+        len(twice["sections"]) != len(base["sections"])
+    assert twice["lap"]["a"]["first_250m_s"] < base["lap"]["a"]["first_250m_s"]
+
+
 def test_only_comparable_eligible_pairs_are_measured(circuit, monkeypatch):
     store, a, b = circuit
     for args, code in (((a, a), 409), ((a, 999999), 404)):

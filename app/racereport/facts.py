@@ -87,11 +87,12 @@ def _between(frames, keys, lo, hi):
     return frames[bisect.bisect_left(keys, lo):bisect.bisect_left(keys, hi)]
 
 
-def _line_gap(a, a_keys, b, b_keys, lo, hi):
-    """Largest distance from A's path to B's nearest point over [lo, hi), metres."""
+def _line_gap(a, a_keys, b, b_keys, lo, hi, window):
+    """Largest distance from A's path to B's nearest point over [lo, hi), metres
+    (from positions); `window` is LINE_WINDOW_M in route units."""
     worst = None
     for s, f in _between(a, a_keys, lo, hi)[::LINE_STEP]:
-        near = _between(b, b_keys, s - LINE_WINDOW_M, s + LINE_WINDOW_M)[::2]
+        near = _between(b, b_keys, s - window, s + window)[::2]
         if near:
             d = min(math.hypot(f["pos_x"] - g["pos_x"], f["pos_z"] - g["pos_z"]) for _, g in near)
             worst = d if worst is None else max(worst, d)
@@ -105,8 +106,8 @@ def _gear_at(frames, keys, s):
     return frames[i][1]["gear"] or None
 
 
-def _sections(segments, lo, hi):
-    count = max(4, min(7, round((hi - lo) / SECTION_M)))
+def _sections(segments, lo, hi, metres_per_unit):
+    count = max(4, min(7, round((hi - lo) * metres_per_unit / SECTION_M)))
     out, current = [], []
     for seg in segments:
         current.append(seg)
@@ -154,7 +155,18 @@ def build(store, lap_a: int, lap_b: int, names: dict | None = None) -> dict:
                 build_trace(samples_from_rows(store.lap_frames(detector_lap)),
                             start_distance=detector_lap.get("start_distance") or 0,
                             lap_id=detector_lap["id"], lap_time=detector_lap["lap_time"]))
-    measured = compare_laps(a_trace, b_trace, detect_corners(detector))
+    route = detect_corners(detector)
+    measured = compare_laps(a_trace, b_trace, route)
+    # distance_traveled is the game's route parameter, not metres (CORNER_CONTRACT):
+    # every lap reads about 5,950 units whatever its length. The reference lap's
+    # driven path converts it; the average is approximate where spacing varies.
+    mpu = route.metres_per_unit
+    if not mpu or not math.isfinite(mpu) or mpu <= 0:
+        raise HTTPException(409, "These runs cannot be compared section by section: the route "
+                                 "length could not be measured.")
+
+    def metres(units):
+        return None if units is None else round(units * mpu)
     if not measured["comparable"] or any(t.capture_quality != "continuous"
                                          for t in (a_trace, b_trace, detector)):
         raise HTTPException(409, "These runs cannot be compared section by section: incomplete "
@@ -165,16 +177,16 @@ def build(store, lap_a: int, lap_b: int, names: dict | None = None) -> dict:
     segments = measured["segments"]
     lo, hi = segments[0]["s_from"], segments[-1]["s_to"]
     sections, ahead = [], 0.0
-    for n, group in enumerate(_sections(segments, lo, hi), start=1):
+    for n, group in enumerate(_sections(segments, lo, hi, mpu), start=1):
         s0, s1 = group[0]["s_from"], group[-1]["s_to"]
         gain = sum(seg["dt"] for seg in group)
         ahead += gain
         ia, ib = _inputs(_between(a, a_keys, s0, s1)), _inputs(_between(b, b_keys, s0, s1))
         sections.append({
-            "n": n, "from_m": round(s0), "to_m": round(s1),
+            "n": n, "from_m": metres(s0), "to_m": metres(s1),
             "corners": [seg["n"] for seg in group if seg["kind"] == "corner"],
             "a_gain_s": round(gain, 3), "a_ahead_after_s": round(ahead, 3),
-            "line_gap_m": _line_gap(a, a_keys, b, b_keys, s0, s1),
+            "line_gap_m": _line_gap(a, a_keys, b, b_keys, s0, s1, LINE_WINDOW_M / mpu),
             "a": ia, "b": ib,
             **_diff(ia, ib, ("flat_pct", "min_kmh", "max_kmh", "coast_pct", "max_g")),
         })
@@ -188,14 +200,14 @@ def build(store, lap_a: int, lap_b: int, names: dict | None = None) -> dict:
             m = seg[name]
             side[name] = {"entry_kmh": _round(m["entry_kmh"]), "min_kmh": _round(m["min_kmh"]),
                           "exit_kmh": _round(m["exit_kmh"]), "gear": _gear_at(fr, keys, m["s_min"]),
-                          "brake_at_m": _round(m["brake_onset_s"]), "throttle_at_m": _round(m["throttle_on_s"])}
+                          "brake_at_m": metres(m["brake_onset_s"]), "throttle_at_m": metres(m["throttle_on_s"])}
         pa, pb = side["a"], side["b"]
         extra = _diff(pa, pb, ("entry_kmh", "min_kmh", "exit_kmh"))
         if pa["brake_at_m"] is not None and pb["brake_at_m"] is not None:
             extra["a_brakes_later_m"] = pa["brake_at_m"] - pb["brake_at_m"]
         if pa["throttle_at_m"] is not None and pb["throttle_at_m"] is not None:
             extra["a_throttle_earlier_m"] = pb["throttle_at_m"] - pa["throttle_at_m"]
-        corners.append({"c": seg["n"], "at_m": round(seg["s_from"]), "a_gain_s": seg["dt"],
+        corners.append({"c": seg["n"], "at_m": metres(seg["s_from"]), "a_gain_s": seg["dt"],
                         **side, **extra})
 
     lap_facts = {}
@@ -204,13 +216,13 @@ def build(store, lap_a: int, lap_b: int, names: dict | None = None) -> dict:
         whole = _inputs(fr, whole=True)
         lap_facts[name] = {"time_s": round(lap["lap_time"], 3),
                            "finish": "estimated" if q["finish"] == "last_packet" else "game_timed",
-                           "first_250m_s": round(trace.clock_at(min(lo + 250, hi)) - trace.clock_at(lo), 3),
+                           "first_250m_s": round(trace.clock_at(min(lo + 250 / mpu, hi)) - trace.clock_at(lo), 3),
                            **{k: whole[k] for k in ("flat_pct", "coast_pct", "max_kmh", "max_g",
                                                     "spin_pct", "kerb_pct")},
                            **_style(fr)}
     facts = {
         "a_gain_s": round(laps[1]["lap_time"] - laps[0]["lap_time"], 3),
-        "route_m": round(hi - lo),
+        "route_m": metres(hi - lo),
         "same_car": all(sessions[0].get(k) is not None and sessions[0].get(k) == sessions[1].get(k)
                         for k in ("car_ordinal", "car_pi")),
         "lap": lap_facts,
@@ -222,6 +234,8 @@ def build(store, lap_a: int, lap_b: int, names: dict | None = None) -> dict:
         warnings.append("Finish times estimated from the last packet; section times use the game clock.")
     if not facts["same_car"]:
         warnings.append("Different cars or PI: differences include the car, not only the driving.")
+    warnings.append("Distances are approximate: the game's route position is converted to metres "
+                    "with the reference lap's average.")
     warnings.append("Exploratory telemetry: route equivalence and official game validity are unverified.")
     # Gamertags go to the writer (ADR 33); a rename is a new report.
     ids = [s.get("driver_id") or "legacy" for s in sessions]
