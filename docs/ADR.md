@@ -573,3 +573,43 @@ OpenRouter with Gemini 3.8 Flash). Implementation defaults below are **Proposed*
   generation with its management POST policy; no new hosting service.
 
 *Rests on:* 23, 24, 27, 31. *Work:* WP-004.
+
+## 33. Race report: section facts and a fact-checked AI narrative
+
+**Proposed, 2026-10-25** (owner asked for a race review "like a real racer would
+review", after a hand-written one for laps 98 vs 174). Defaults below are the
+implementer's; the owner has not confirmed them.
+
+- Under the selected A/B pair in Rivalry. Local code measures both runs over 4–7
+  route sections built from the corner segments: time gained, running lead,
+  full-throttle/brake/coast shares, speeds, peak lateral g, rear wheelspin and
+  largest line gap, plus the four corners with the largest time difference
+  (speeds, gear at the slowest point, brake and throttle points) and whole-run
+  input style (on/off devices send only end values). Differences are computed
+  here, so a writer never does arithmetic. Pairs must be eligible bests on the
+  same known route with continuous captures; different cars are allowed and say so.
+- Distances are metres: the game's `distance_traveled` is a route parameter
+  (about 5,950 units on every lap, whatever its length), so every position and
+  distance is converted with the reference lap's `metres_per_unit`, and the
+  page says the result is approximate.
+- Unlike ADR 32, the model writes its own sentences: a headline, a story, and per
+  driver up to three strengths and costs and one practice focus. The output is
+  checked instead of templated. Each number must match a measured fact of the
+  same unit (s, km/h, %, g, m or km; lap times as m:ss) after the writer's own
+  rounding, and each corner it names must have been measured. Only unitless
+  whole numbers up to 10 (counts, ordinals) pass unchecked. A narrative that
+  fails is not shown, and its charge is kept. This proves every number was
+  measured, not that it is attached to the right claim.
+- The configured gamertags are sent so the review names the drivers (owner,
+  2026-10-25: "I want to know who I am racing"). The output stores them as {A}
+  and {B}, so a digit in a gamertag is never checked as a number and the page
+  substitutes the names after escaping. Two runs by one driver are sent as
+  "name (A)" and "name (B)". No car names, route names, timestamps or raw
+  packets are sent; a rename is a new report.
+- Same provider policy, model, management POST, ledger file and $1 UTC-month
+  budget as ADR 32, under a separate cache key. Requests are sized to fit the
+  $0.01 worst-case reservation. Viewing never triggers inference.
+- Generation is manual for now. Writing one automatically when a recorded lead
+  changes is the next slice.
+
+*Rests on:* 27, 30, 32. *Work:* WP-004.

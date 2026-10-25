@@ -29,6 +29,10 @@ requires the gateway's login and service grant (ADR 23).
 - Corner-by-corner comparison of two laps on the same route.
 - Expandable measured session debrief with optional cached Gemini priorities
   and one practice hypothesis, under a $1/UTC-month inference cap (ADR 32).
+- Section-by-section race report for any two eligible bests on one route,
+  with an optional Gemini review written on request by management. Every
+  number and corner in it must match a measured fact. Only derived facts and
+  the two configured gamertags go to the provider, under the same cap (ADR 33).
 - Manual correction of lap flags by either driver.
 
 **Out (v1)** — tracked in [BUILD_PLAN.md](BUILD_PLAN.md#deferred)

@@ -1,5 +1,24 @@
 # WP-004: Rivalry views (M3)
 
+## Race report checkpoint, 2026-10-25
+
+Owner asked for a racer-style review of an A/B pair. Branch `feat/race-report`
+adds `app/racereport/` (section facts, fact-checked narrative, API) and a Rivalry
+panel; ADR 33 (Proposed). Self-checks: 347 pytest (6 new, on simulator
+recordings), 91 UI tests (4 new), ruff clean. On a copy of the live database,
+laps 98 vs 174 give 7 sections with section 6 (4.3–5.1 km) costing A 2.252 s,
+C19 in 3rd against 5th, and on/off inputs for B, matching a manual analysis;
+the request is 7,972 bytes, within the $0.01 reservation. Not tested: a real
+provider call. Whether Gemini's prose passes the number check often enough is
+unknown until a signed-in generation. Not independently verified.
+
+Owner then asked for gamertags instead of anonymous drivers ("I want to know
+who I am racing"). The writer now receives the configured gamertags and the
+server stores them as {A}/{B} before the number check (a digit in a gamertag
+is never read as a measurement); one driver's two runs are "name (A)/(B)".
+349 pytest, 91 UI, ruff clean; 98 vs 174 request is 8,078 bytes (worst case
+$0.0098).
+
 ## Replay and compare from the Rivalry table, 2026-10-25
 
 Owner asked for one click from a rivalry row to the A/B replay. PR #42 (branch

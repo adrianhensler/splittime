@@ -1,0 +1,92 @@
+"""Public measured race report; the paid narrative is a management POST (ADR 33).
+
+Shares the debrief's provider, ledger file and $1 UTC-month budget.
+"""
+from __future__ import annotations
+
+import hashlib
+import os
+
+from fastapi import APIRouter, HTTPException, Query, Request, Response
+from pydantic import BaseModel, ConfigDict, Field
+
+from ..debrief import openrouter
+from ..debrief.api import ledger
+from ..debrief.contracts import MODEL
+from ..debrief.ledger import CALL_LIMIT, BudgetError
+from . import writer
+from .facts import build
+
+router = APIRouter()
+
+
+class Generate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    lap_a: int = Field(gt=0)
+    lap_b: int = Field(gt=0)
+    retry: bool = False
+
+
+def report_for(request, lap_a, lap_b):
+    names = {d.id: d.name for d in getattr(request.app.state, "drivers", ())}
+    return build(request.app.state.store, lap_a, lap_b, names)
+
+
+def cache_key(report):
+    return hashlib.sha256(
+        f"race:{report['fingerprint']}:{MODEL}:{writer.PROMPT_VERSION}".encode()).hexdigest()
+
+
+def view(report, db):
+    cached = db.get(cache_key(report))
+    result = cached.pop("result", None)
+    if cached["state"] == "ready":
+        cached["narrative"] = writer.validate(result, report)
+    return {**report, "ai": {**cached, "enabled": bool(os.environ.get("OPENROUTER_API_KEY")),
+                             "model": MODEL, "budget": db.budget()}}
+
+
+@router.get("/race-report")
+def race_report(request: Request, response: Response, lap_a: int = Query(gt=0),
+                lap_b: int = Query(gt=0)):
+    response.headers["Cache-Control"] = "no-store"
+    return view(report_for(request, lap_a, lap_b), ledger(request))
+
+
+@router.post("/race-report/generate")
+def generate(body: Generate, request: Request, response: Response):
+    # The deployment gateway authenticates all management POSTs, as for the debrief.
+    key = os.environ.get("OPENROUTER_API_KEY", "")
+    if not key:
+        raise HTTPException(503, "AI race reports are not configured; measurements remain available.")
+    response.headers["Cache-Control"] = "no-store"
+    db = ledger(request)
+    report = report_for(request, body.lap_a, body.lap_b)
+    try:
+        encoded = writer.encode_request(report)  # prove the cap before reserving or sending
+    except ValueError as exc:
+        raise HTTPException(409, str(exc)) from exc
+    fingerprint = cache_key(report)
+    try:
+        call_id = db.claim(fingerprint, body.retry)
+    except BudgetError as exc:
+        raise HTTPException(429, str(exc)) from exc
+    if call_id is None:
+        return view(report, db)
+    cost, receipt_id, model, result = None, None, None, None
+    try:
+        provider = openrouter.request(encoded, key)
+        cost = openrouter.receipt(provider)
+        receipt_id, model = provider.get("id"), provider.get("model")
+        if cost > CALL_LIMIT:
+            raise ValueError("Provider exceeded the reserved cost")
+        result = writer.decode(provider, report)
+        if cache_key(report_for(request, body.lap_a, body.lap_b)) != fingerprint:
+            result = None  # recordings changed while the provider was working
+    except Exception:
+        # Never expose provider error bodies/keys, retry automatically or refund an uncertain charge.
+        result = None
+    finally:
+        db.finish(fingerprint, call_id, result=result, cost=cost,
+                  receipt_id=receipt_id, model=model)
+    return view(report_for(request, body.lap_a, body.lap_b), db)
