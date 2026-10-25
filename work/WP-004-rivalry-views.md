@@ -1,5 +1,17 @@
 # WP-004: Rivalry views (M3)
 
+## Automatic race report on a change of record holder, 2026-10-25
+
+Branch `feat/auto-race-report`: `app/racereport/auto.py` runs in the web role
+every 5 minutes and writes the race report for each takeover of the last 14
+days (new record as A, the record it beat as B) through `api.write`, the path
+the button now shares; ADR 34 (Proposed). At most 20 automatic calls per UTC
+month, recorded in `auto_reports` in the ledger file; no automatic retries;
+open sessions wait. On a copy of the live database it finds the same 5
+takeovers as the banner, all eligible. Self-checks: 2 new pytest (detection;
+a pass with cap, skips, waits and budget stop), race report tests unchanged.
+Not tested: a real provider call from the loop. Not independently verified.
+
 ## Takeovers banner and scoreboard, 2026-10-25
 
 Owner asked to surface recent wins and takeovers. Branch `feat/takeovers-banner`

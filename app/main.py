@@ -105,6 +105,10 @@ async def lifespan(app: FastAPI):
                 log.error(message)
         watchdogs = [asyncio.create_task(_watchdog(t, protocols.get(ident)))
                      for ident, t in trackers.items()]
+        if role == roles.WEB:
+            # race reports written when a record changes hands (ADR 34); a no-op without a key
+            from .racereport.auto import loop as auto_race_reports
+            watchdogs.append(asyncio.create_task(auto_race_reports(app)))
         yield
     finally:
         for watchdog in watchdogs:
