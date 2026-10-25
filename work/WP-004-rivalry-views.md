@@ -1,5 +1,13 @@
 # WP-004: Rivalry views (M3)
 
+## Replay and compare from the Rivalry table, 2026-10-25
+
+Owner asked for one click from a rivalry row to the A/B replay. PR #42 (branch
+`feat/rivalry-row-replay`) adds Replay and Compare links to the gap cell of every
+row where two drivers have a best, leader as A; solo rows and the inspector are
+unchanged. Self-checks: 87 UI tests (one new), 60 API tests. Codex review: no
+findings. Not independently verified.
+
 ## Debrief for full-route sprints, 2026-10-25
 
 Owner asked for corner priorities on sprints, which always end on the last
