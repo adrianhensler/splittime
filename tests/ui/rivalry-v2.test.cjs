@@ -145,3 +145,23 @@ test("returning from comparison restores filter, search and verified lap pair", 
   const rebuilt = page(changed,storage);await rebuilt.settle();
   assert.match(rebuilt.elt("st-inspector").innerHTML,/lap_a=2&lap_b=1/);
 });
+test("Analyse opens the race report for the pair, from the inspector or straight from a table row", async () => {
+  const p = page({drivers,categories:[group([lap(1,"a",60,10),lap(2,"b",59,20)]),
+    {...group([lap(3,"a",50,30),lap(4,"b",51,40)]),route_id:4,route_name:"Second Route"}]});
+  await p.settle();
+  assert.match(p.elt("st-inspector").innerHTML,/data-analyse>Analyse A vs B</);
+  assert.match(p.elt("st-analysis-pair").textContent,/\(A, .*\) vs .*\(B, /);
+  p.elt("st-inspector").listeners.click({target:{closest:sel => sel === "[data-analyse]" ? {} : null}});
+  assert.equal(p.elt("st-race-report").open,true);
+  // a row's Analyse selects that row's two bests, leader as A, and opens the analysis
+  const rows = p.elt("st-events").innerHTML, index = rows.match(/data-analyse="(\d+)"[^]*?data-analyse="(\d+)"/);
+  assert.ok(index);
+  p.elt("st-race-report").open = false;
+  let prevented = false;
+  p.elt("st-events").listeners.click({preventDefault(){prevented = true;},
+    target:{closest:sel => sel === "[data-analyse]" ? {dataset:{analyse:index[2]}} : null}});
+  assert.equal(prevented,true);
+  assert.equal(p.elt("st-race-report").open,true);
+  assert.match(p.elt("st-inspector").innerHTML,/lap 3</);
+  assert.match(p.elt("st-inspector").innerHTML,/compare\.html\?lap_a=3&amp;lap_b=4|compare\.html\?lap_a=3&lap_b=4/);
+});

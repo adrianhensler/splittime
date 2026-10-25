@@ -1,5 +1,19 @@
 # WP-004: Rivalry views (M3)
 
+## A vs B analysis section, 2026-10-25
+
+Owner could not find the debrief: it was a collapsed one-line `<details>` in
+12px grey text below the history table. Branch `feat/analysis-section` puts
+the race report and session debrief under one "A vs B analysis" heading that
+names both laps, at body text size; "Analyse A vs B" is now the inspector's
+primary button and each contested table row has an Analyse link (its two
+bests, leader as A). Both open the race report and scroll to it. The
+write-access message now says an account with SplitTime access is needed (the
+owner was signed in but not allowlisted, and was told to sign in). 93 UI tests
+(1 new). Correction to the race report checkpoint below: "4.3–5.1 km" was the
+game's route units; in metres that section runs 6.6–7.9 km (Ito Sprint is
+9.2 km). Not checked in a real browser. Not independently verified.
+
 ## Race report checkpoint, 2026-10-25
 
 Owner asked for a racer-style review of an A/B pair. Branch `feat/race-report`

@@ -87,6 +87,11 @@
     #st-rivalry-workspace .st-debrief button{font:inherit;padding:8px;border:1px solid var(--st-line);border-radius:4px;background:var(--st-panel);color:var(--st-fg)}
     #st-rivalry-workspace .st-debrief button:disabled{opacity:.55;cursor:default}
     #st-rivalry-workspace .st-race{border-color:var(--st-accent)}
+    #st-rivalry-workspace .st-analysis{margin-top:16px;scroll-margin-top:12px}
+    #st-rivalry-workspace .st-analysis h3{margin:0 0 2px;font-size:16px}
+    #st-rivalry-workspace .st-analysis details{font-size:14px;color:var(--st-fg)}
+    #st-rivalry-workspace .st-analysis summary{font-size:15px}
+    #st-rivalry-workspace button.st-compare{width:100%;cursor:pointer}
     #st-rivalry-workspace .st-race-headline{font-size:16px;margin:10px 0}
     #st-rivalry-workspace .st-race-story{background:var(--st-panel);border-radius:4px;padding:10px 12px;margin:10px 0}
     #st-rivalry-workspace .st-race-ai-headline{font-weight:600;font-size:15px;margin:0 0 6px}

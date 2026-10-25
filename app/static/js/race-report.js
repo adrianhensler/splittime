@@ -46,7 +46,7 @@
             body:JSON.stringify({lap_a,lap_b,retry:this.retry === true})} : {})});
         if (sequence !== this.sequence) return;
         if (response.status === 401 || response.status === 403 || response.redirected) {
-          throw new Error("Sign in with SplitTime management access to write an AI race report. Measurements remain public.");
+          throw new Error("This needs a signed-in account with SplitTime access to write an AI race report. If you are signed in, an admin can add you to SplitTime. Measurements remain public.");
         }
         const data = await response.json();
         if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : `HTTP ${response.status}`);

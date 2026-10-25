@@ -60,6 +60,13 @@
       host.innerHTML = `<svg class="st-route" viewBox="${left-30} ${top-30} ${width+60} ${height+60}" aria-hidden="true"><path d="${path}"/></svg>`;
     }
   }
+  // Open the analysis for the selected pair and bring it into view: the race
+  // report when there are two laps, otherwise A's session debrief.
+  function analyse() {
+    const target = state.a && state.b ? $("st-race-report") : $("st-debrief");
+    if (target) target.open = true;
+    $("st-analysis").scrollIntoView?.({behavior:"smooth", block:"start"});
+  }
   function choose(group) {
     state.group = M.key(group);
     [state.a,state.b] = M.defaults(group,M.drivers(state.data));
@@ -83,7 +90,7 @@
         `${esc(a.driver_name)}<div class="st-time">${(b.time_s-a.time_s).toFixed(3)} s ahead</div>`) +
         // one click from the table to the two bests, leader as A
         `<div class="st-row-actions"><a href="replay.html?laps=${a.lap_id},${b.lap_id}">Replay</a>` +
-        `<a href="${M.compare(a,b)}">Compare</a></div>`;
+        `<a href="${M.compare(a,b)}">Compare</a><a href="#st-analysis" data-analyse="${index}">Analyse</a></div>`;
       else if (a) {
         const waiting = drivers.filter(d => d.id !== a.driver_id);
         gap = !waiting.length ? "One driver recorded" :
@@ -152,8 +159,12 @@
         `<p><span class="st-time">${side} ${M.time(lap?.time_s)}</span><br><span class="st-quiet">${lap ? `${esc(lap.driver_name)} · lap ${lap.lap_id}` : "Choose a completed lap"}</span></p>`).join("")}
       <p>${href ? delta === 0 ? "Equal recorded times" : `${delta > 0 ? "A" : "B"} faster by <span class="st-time">${Math.abs(delta).toFixed(3)} s</span>` : "Choose two completed laps."}</p>
       <p class="st-quiet">${href && (!M.clean(a) || !M.clean(b)) ? "Includes a lap that does not count as a best · " : ""}Recorded difference · exploratory</p>
-      ${href ? `<a class="st-compare" href="${href}">Compare traces &amp; corners</a>
+      ${href ? `<button type="button" class="st-compare" data-analyse>Analyse A vs B</button>
+        <a class="st-replay" href="${href}">Compare traces &amp; corners</a>
         <a class="st-replay" href="replay.html?laps=${a.lap_id},${b.lap_id}">Replay A against B</a>` : '<span class="st-no-compare">Needs two completed laps</span>'}</div>`;
+    $("st-analysis-pair").textContent = a && b ? `${a.driver_name} (A, ${M.time(a.time_s)}) vs ${b.driver_name} (B, ${M.time(b.time_s)}) · ` +
+      "the race report explains where the time went; the session debrief reviews A's whole session." :
+      a ? `${a.driver_name} (A) · choose a B lap for the race report.` : "Choose an A and a B lap above.";
     drawOutlines();
     debrief?.setContext(a,b,refreshDebrief);
     raceReport?.setContext(a,b,refreshDebrief);
@@ -200,7 +211,19 @@
   $("st-refresh").addEventListener("click",load);
   $("st-find").addEventListener("input",event => {state.query = event.target.value; render();});
   $("st-history-filter").addEventListener("change",event => {state.history = event.target.value; render();});
+  $("st-inspector").addEventListener("click",event => {
+    if (event.target.closest("[data-analyse]")) analyse();
+  });
   $("st-events").addEventListener("click",event => {
+    const row = event.target.closest("[data-analyse]");
+    if (row) {
+      event.preventDefault?.();
+      // the row's two bests, leader as A, exactly as its Replay and Compare links
+      const group = state.data.categories.filter(g => M.visible(g,state.query))[Number(row.dataset.analyse)];
+      const [a,b] = M.standings(group);
+      state.group = M.key(group); [state.a,state.b] = [a.lap_id,b.lap_id];
+      render(); analyse(); return;
+    }
     const button = event.target.closest("[data-event]");
     if (!button) return;
     const shown = state.data.categories.filter(group => M.visible(group,state.query));
