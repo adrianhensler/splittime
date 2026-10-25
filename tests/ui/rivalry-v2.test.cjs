@@ -201,6 +201,7 @@ test("the banner leads with the latest takeover, escapes names and opens that pa
   const index = html.match(/closed to[\s\S]*?data-feed="(\d+)"/)[1];
   p.elt("st-latest").listeners.click({target:{closest:()=>({dataset:{feed:index}})}});
   assert.match(p.elt("st-inspector").innerHTML,/lap_a=3&lap_b=2/);
+  assert.equal(p.elt("st-race-report").open,true);  // straight into the A vs B analysis
   // a first time with no rival keeps its own lap as A, against the other driver's best now
   const first = page({drivers,categories:[group([lap(1,"a",60,10),lap(2,"b",59,20),lap(3,"a",58,30)])]});await first.settle();
   const at = first.elt("st-latest").innerHTML.match(/<strong>Alex<\/strong> set the first time[\s\S]*?data-feed="(\d+)"/);

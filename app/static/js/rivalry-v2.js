@@ -288,8 +288,7 @@
     state.group = M.key(item.group); state.query = "";
     const answer = M.standings(item.group).find(lap => lap.driver_id !== item.lap.driver_id);
     [state.a,state.b] = [item.lap.lap_id, (item.rival || answer)?.lap_id ?? null];
-    render();
-    $("st-context").scrollIntoView?.({behavior:"smooth", block:"start"});
+    render(); analyse();
   });
   $("st-more").addEventListener("click",() => {
     state.history = state.history === "best" ? "all" : "best"; render();
