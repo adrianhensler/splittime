@@ -124,6 +124,8 @@ def test_gamertags_are_stored_as_placeholders_and_never_read_as_numbers():
     once = writer.validate(narrative(story="A leads Bob, and {B} trails {A}."), short)
     assert once["story"] == "{A} leads {B}, and {B} trails {A}."
     assert writer.validate(once, short) == once
+    with pytest.raises(ValueError):  # the stored form must fit the limit too
+        writer.validate(narrative(headline="A " + "x" * 138), short)
 
 
 def test_one_drivers_two_runs_are_told_apart(circuit):

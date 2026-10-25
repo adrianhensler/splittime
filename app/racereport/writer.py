@@ -130,9 +130,11 @@ def _placeholders(text, drivers):
 
 
 def _check_text(text, limit, allowed, corners, drivers):
-    if not isinstance(text, str) or not text.strip() or len(text) > limit:
+    if not isinstance(text, str):
         raise ValueError("Race report text is missing or too long")
-    text = _placeholders(text, drivers)
+    text = _placeholders(text, drivers)  # limits apply to what is stored and read back
+    if not text.strip() or len(text) > limit:
+        raise ValueError("Race report text is missing or too long")
     if re.sub(r"\{[AB]\}", "", text).count("{") or "}" in re.sub(r"\{[AB]\}", "", text):
         raise ValueError("Race report uses an unknown placeholder")
     for n in _CORNER.findall(text):
