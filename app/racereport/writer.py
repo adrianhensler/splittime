@@ -156,6 +156,11 @@ def _check_text(text, limit, allowed, corners, drivers):
         if not any(abs(round(v, places) - value) < 1e-9 for v in allowed.get(unit, ())):
             raise ValueError(f"Race report states {token}{' ' + unit if unit else ''}, "
                              "which is not a measured fact")
+    # Closing rule: a digit nothing above read (".999", "9 000", "½"-style tricks)
+    # is a number that was never checked. Only digits inside a word ("S2") may remain.
+    residue = _NUMBER.sub(" ", _LAP_TIME.sub(" ", checked))
+    if re.search(r"\d", re.sub(r"\b[A-Za-z]+\d\w*", " ", residue)):
+        raise ValueError("Race report states a number that could not be checked")
     return text
 
 
