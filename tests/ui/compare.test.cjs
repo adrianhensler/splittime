@@ -45,4 +45,11 @@ test('unverified equivalence and clock warnings are explained beside lap times',
  assert.match(text,/Segment times are diagnostic only/);
  assert.match(text,/B: lap clock runs backwards/);
  assert.doesNotMatch(text,/route_equivalence_unverified/);
+ assert.match(text,/Exploratory comparison · see the warnings above/);
+});
+test('route equivalence alone is a caveat, not an incomplete comparison',async()=>{
+ const result=payload();result.comparable=false;result.reasons=['route_equivalence_unverified'];
+ const {elt}=await run(result),text=elt('summary').innerHTML;
+ assert.match(text,/Telemetry aligned · same recorded route; official route equivalence is not verified/);
+ assert.doesNotMatch(text,/evidence is incomplete/);
 });

@@ -37,8 +37,11 @@
   const quality=side=>esc(result[side].capture_quality)+' · '+esc(result[side].timing_source)+' · '+num(result[side].gaps,0)+' timestamp gaps';
   const warnings=[...(result.reasons||[]).map(describe),...(result.corners.warnings||[]),
    ...(result.a.warnings||[]).map(w=>'A: '+w),...(result.b.warnings||[]).map(w=>'B: '+w)];
+  // Route equivalence is never verified yet (ADR), so on its own it is a caveat, not a fault.
+  const onlyRoute=(result.reasons||[]).every(reason=>reason==='route_equivalence_unverified');
   const comparisonState=result.comparable===true?'Telemetry aligned · competitive equivalence remains unverified':
-   'Exploratory comparison · route or timing evidence is incomplete';
+   onlyRoute?'Telemetry aligned · same recorded route; official route equivalence is not verified':
+   'Exploratory comparison · see the warnings above';
   $('summary').innerHTML='<div class="panel"><div class="legend"><strong class="alpha">A: '+num(a.lap.lap_time,3)+' s</strong><strong class="beta">B: '+num(b.lap.lap_time,3)+' s</strong></div><p>A: '+quality('a')+'<br>B: '+quality('b')+'</p><p>Explained segment difference: '+num(result.totals?.dt,3)+' s · unexplained residual: '+num(result.sum_check.residual,3)+' s</p><p class="muted">'+
    (warnings.length?warnings.map(esc).join('; '):'No trace-alignment warnings. Competitive equivalence remains unverified.')+'</p><p class="notice">'+comparisonState+'</p></div>';
   $('traces').innerHTML='<p class="legend"><span class="alpha">A</span><span class="beta">B</span></p>'+plot(a,b,'speed_kmh','Speed (km/h)')+plot(a,b,'throttle','Throttle (%)',100)+plot(a,b,'brake','Brake (%)',100);

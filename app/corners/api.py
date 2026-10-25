@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Query, Request
 
+from ..rivalry import FULL_ROUTE_MIN, lap_covered
 from .compare import compare_laps
 from .detect import detect_corners
 from .trace import Trace, build_trace, samples_from_rows
@@ -33,15 +34,16 @@ def _trace(store, lap: dict) -> Trace:
                        lap_id=lap["id"], lap_time=lap["lap_time"])
 
 
-def pick_reference(laps: list[dict]) -> tuple[dict | None, list[str]]:
+def pick_reference(laps: list[dict], full_route=lambda lap: False) -> tuple[dict | None, list[str]]:
     """The lap corners are detected from: the fastest timed lap that is not
-    flagged (rewind, contact, cutoff) and not excluded by a user edit. When
-    every lap on the route is flagged the fastest one is used anyway, with a
-    warning, so the page can still show something and say what it rests on.
+    flagged (rewind, contact) and not excluded by a user edit. When every lap
+    on the route is flagged the fastest one is used anyway, with a warning, so
+    the page can still show something and say what it rests on.
 
-    A detector `cutoff` counts even after a user clears the visible flag
-    (`flags_auto` keeps it): the lap's time is an estimate and its trace stops
-    short, and an edit to what is displayed does not change either."""
+    A detector `cutoff` (time from the last packet) is clean only when
+    `full_route(lap)` shows the run covered the whole route, the rule Rivalry
+    applies to bests (ADR 27/30): every sprint ends this way. A cutoff counts
+    even after a user clears the visible flag (`flags_auto` keeps it)."""
     timed = sorted((lap for lap in laps if lap.get("lap_time") is not None),
                    key=lambda lap: lap["lap_time"])
     if not timed:
@@ -50,8 +52,12 @@ def pick_reference(laps: list[dict]) -> tuple[dict | None, list[str]]:
     def cut_off(lap: dict) -> bool:
         return "cutoff" in (lap.get("flags_auto") or "").split(",")
 
+    def flagged(lap: dict) -> bool:
+        return bool({f.strip() for f in (lap.get("flags") or "").split(",") if f.strip()} - {"cutoff"})
+
     for lap in timed:
-        if not lap.get("flags") and not lap.get("excluded") and not cut_off(lap):
+        if (not flagged(lap) and not lap.get("excluded")
+                and (not cut_off(lap) and "cutoff" not in (lap.get("flags") or "") or full_route(lap))):
             return lap, []
     lap = timed[0]
     why = lap.get("flags") or ("cutoff (flag cleared by hand)" if cut_off(lap) else "excluded")
@@ -63,7 +69,7 @@ def _reference(store, route_id: int) -> tuple[dict | None, list[str]]:
         session_ids = [row[0] for row in conn.execute(
             "SELECT id FROM sessions WHERE route_id = ?", (route_id,))]
     laps = [lap for sid in session_ids for lap in store.session_laps(sid)]  # edits applied
-    return pick_reference(laps)
+    return pick_reference(laps, lambda lap: (lap_covered(store, lap) or 0) >= FULL_ROUTE_MIN)
 
 
 def _detect(store, reference: dict, warnings: list[str]):

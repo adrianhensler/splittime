@@ -82,6 +82,13 @@ def test_reference_lap_prefers_clean_over_fast():
                 "excluded": False}
     assert pick_reference([forgiven, laps[2]]) == (forgiven, [])
     assert pick_reference([]) == (None, [])
+    # a last-packet run that covered the whole route is clean, as on Rivalry (every sprint)
+    sprint = {"id": 8, "lap_time": 37.0, "flags": "cutoff", "flags_auto": "cutoff", "excluded": False}
+    assert pick_reference([sprint, laps[2]], lambda lap: lap["id"] == 8) == (sprint, [])
+    assert pick_reference([sprint, laps[2]]) == (laps[2], [])
+    assert pick_reference([cleared], lambda lap: True) == (cleared, [])
+    crashed = {**sprint, "id": 9, "flags": "contact,cutoff"}
+    assert pick_reference([crashed, laps[2]], lambda lap: True) == (laps[2], [])
 
 
 def test_a_rewound_or_crashed_lap_is_not_used_as_the_reference(tmp_path):
