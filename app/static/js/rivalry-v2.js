@@ -72,24 +72,26 @@
   const others = (people, lap) => people.filter(d => d.id !== lap.driver_id).map(d => esc(d.name)).join(", ");
   function story(event, people) {
     const {kind, group, lap, rival, margin} = event, who = `<strong>${esc(lap.driver_name)}</strong>`;
-    const by = margin === null ? "" : `<span class="st-time">${margin.toFixed(3)} s</span>`;
+    // either time read from the last packet makes the margin an estimate too
+    const by = margin === null ? "" : `<span class="st-time">${margin.toFixed(3)} s</span>${
+      M.estimated(lap) || (rival && M.estimated(rival)) ? ` <abbr class="st-est" title="${EST}">est.</abbr>` : ""}`;
     return {
       takeover: `${who} took ${label(group)} from ${esc(rival?.driver_name)} by ${by}`,
       extended: `${who} extended the lead on ${label(group)} to ${by}`,
       closing: `${who} closed to ${by} of ${esc(rival?.driver_name)} on ${label(group)}`,
-      first: `${who} set the first time on ${label(group)}${others(people,lap) ? ` · waiting on ${others(people,lap)}` : ""}`,
-      unanswered: `${who} improved on ${label(group)}${others(people,lap) ? ` · still no time from ${others(people,lap)}` : ""}`,
+      first: `${who} set the first time on ${label(group)}${est(lap)}${others(people,lap) ? ` · waiting on ${others(people,lap)}` : ""}`,
+      unanswered: `${who} improved on ${label(group)}${est(lap)}${others(people,lap) ? ` · still no time from ${others(people,lap)}` : ""}`,
     }[kind];
   }
   // Takeovers and recent records across every group, above the table (ignores the search box).
   function latest(people) {
     const events = M.activity(state.data.categories, people);
     const takeover = events.find(event => event.kind === "takeover");
-    const seen = new Set(), recent = [];
+    const id = event => `${M.key(event.group)}|${event.lap.driver_id}`;  // newest per driver and group
+    const seen = new Set(takeover ? [id(takeover)] : []), recent = [];
     for (const event of events) {
-      const id = `${M.key(event.group)}|${event.lap.driver_id}`;  // newest per driver and group
-      if (event === takeover || seen.has(id)) continue;
-      seen.add(id); recent.push(event);
+      if (seen.has(id(event))) continue;
+      seen.add(id(event)); recent.push(event);
       if (recent.length === 4) break;
     }
     feed = [takeover, ...recent].filter(Boolean);
@@ -277,9 +279,11 @@
   $("st-latest").addEventListener("click",event => {
     const button = event.target.closest("[data-feed]"), item = feed[Number(button?.dataset.feed)];
     if (!item) return;
-    // the new time as A against the best it was measured against, as B
+    // the story's own lap as A, against the best it was measured against as B;
+    // with no rival then, B is another driver's best now, if there is one
     state.group = M.key(item.group); state.query = "";
-    [state.a,state.b] = item.rival ? [item.lap.lap_id,item.rival.lap_id] : M.defaults(item.group,M.drivers(state.data));
+    const answer = M.standings(item.group).find(lap => lap.driver_id !== item.lap.driver_id);
+    [state.a,state.b] = [item.lap.lap_id, (item.rival || answer)?.lap_id ?? null];
     render();
     $("st-context").scrollIntoView?.({behavior:"smooth", block:"start"});
   });

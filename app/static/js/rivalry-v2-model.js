@@ -136,16 +136,22 @@
     for (const group of categories) {
       const laps = timeline(group, pair).filter(lap => lap.pb).sort((a,b) => stamp(a)-stamp(b));
       const best = new Map();
-      for (const lap of laps) {
-        const rival = [...best.values()].filter(old => old.driver_id !== lap.driver_id)
-          .sort((a,b) => a.time_s-b.time_s)[0] || null;
-        const record = [...best.values()].sort((a,b) => a.time_s-b.time_s)[0];
-        const kind = !rival ? (lap.delta === null ? "first" : "unanswered") :
-          lap.time_s >= rival.time_s ? "closing" :
-          lap.lead || record.driver_id !== lap.driver_id ? "takeover" : "extended";
-        events.push({kind, group, lap, rival, at:stamp(lap),
-          margin:rival ? Math.abs(rival.time_s-lap.time_s) : null});
-        best.set(lap.driver_id, lap);
+      for (let i = 0; i < laps.length;) {
+        let j = i + 1;
+        while (j < laps.length && stamp(laps[j]) === stamp(laps[i])) j++;
+        // Equal finish timestamps are one batch, read against the bests before it,
+        // as timeline() does: no order is invented between them.
+        const before = [...best.values()].sort((a,b) => a.time_s-b.time_s), record = before[0];
+        for (const lap of laps.slice(i,j)) {
+          const rival = before.find(old => old.driver_id !== lap.driver_id) || null;
+          const kind = !rival ? (lap.delta === null ? "first" : "unanswered") :
+            lap.time_s >= rival.time_s ? "closing" :
+            lap.lead || record.driver_id !== lap.driver_id ? "takeover" : "extended";
+          events.push({kind, group, lap, rival, at:stamp(lap),
+            margin:rival ? Math.abs(rival.time_s-lap.time_s) : null});
+        }
+        for (const lap of laps.slice(i,j)) best.set(lap.driver_id, lap);
+        i = j;
       }
     }
     return events.sort((a,b) => b.at-a.at || b.lap.lap_id-a.lap.lap_id);

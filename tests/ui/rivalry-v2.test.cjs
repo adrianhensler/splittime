@@ -176,6 +176,11 @@ test("activity reads each improvement against the rival's best at that moment", 
   const board = M.scoreboard(cats,drivers);
   assert.equal(board.contested,1);
   assert.deepEqual(board.drivers.map(d=>[d.id,d.leads,d.unanswered]),[["b",0,1],["a",1,0]]);
+  // simultaneous finishes are one batch: no rival, no invented takeover, either order
+  for (const ids of [[11,12],[12,11]]) {
+    const same = M.activity([group([lap(ids[0],"a",60,10),lap(ids[1],"b",59,10)])],drivers);
+    assert.deepEqual(same.map(e=>e.kind),["first","first"]);
+  }
   assert.equal(M.ago(0,59*60000),"59 min ago");assert.equal(M.ago(0,3*3600000),"3 h ago");
   assert.equal(M.ago(0,5*86400000),"5 days ago");
 });
@@ -196,6 +201,19 @@ test("the banner leads with the latest takeover, escapes names and opens that pa
   const index = html.match(/closed to[\s\S]*?data-feed="(\d+)"/)[1];
   p.elt("st-latest").listeners.click({target:{closest:()=>({dataset:{feed:index}})}});
   assert.match(p.elt("st-inspector").innerHTML,/lap_a=3&lap_b=2/);
+  // a first time with no rival keeps its own lap as A, against the other driver's best now
+  const first = page({drivers,categories:[group([lap(1,"a",60,10),lap(2,"b",59,20),lap(3,"a",58,30)])]});await first.settle();
+  const at = first.elt("st-latest").innerHTML.match(/<strong>Alex<\/strong> set the first time[\s\S]*?data-feed="(\d+)"/);
+  assert.equal(at,null);  // superseded by Alex's newer takeover in the same group
+  const solo = page({drivers,categories:[group([lap(1,"a",60,10)]),{...group([lap(2,"b",50,5),lap(4,"a",49,6)]),route_id:4}]});
+  await solo.settle();
+  const soloIndex = solo.elt("st-latest").innerHTML.match(/set the first time on Test Circuit · A[\s\S]*?data-feed="(\d+)"/)[1];
+  solo.elt("st-latest").listeners.click({target:{closest:()=>({dataset:{feed:soloIndex}})}});
+  assert.match(solo.elt("st-inspector").innerHTML,/lap 1</);
+  assert.match(solo.elt("st-inspector").innerHTML,/Choose a completed lap/);
+  // estimated finishes stay marked in the stories
+  const sprint = page({drivers,categories:[group([lap(1,"a",60,10,{finish:"last_packet"}),lap(2,"b",59,20)])]});await sprint.settle();
+  assert.match(sprint.elt("st-latest").innerHTML,/1\.000 s<\/span> <abbr class="st-est"/);
   const quiet = page({drivers,categories:[]});await quiet.settle();
   assert.equal(quiet.elt("st-latest").hidden,true);
 });
