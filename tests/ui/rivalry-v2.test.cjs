@@ -165,3 +165,37 @@ test("Analyse opens the race report for the pair, from the inspector or straight
   assert.match(p.elt("st-inspector").innerHTML,/lap 3</);
   assert.match(p.elt("st-inspector").innerHTML,/compare\.html\?lap_a=3&amp;lap_b=4|compare\.html\?lap_a=3&lap_b=4/);
 });
+test("activity reads each improvement against the rival's best at that moment", () => {
+  const cats = [group([lap(1,"a",60,10),lap(2,"b",61,20),lap(3,"b",59.5,30),lap(4,"a",59,40),lap(5,"a",58,50)]),
+    {...group([lap(6,"b",70,15),lap(7,"b",69,25)]),route_id:4,route_name:"Solo Sprint"}];
+  const events = M.activity(cats,drivers);
+  assert.deepEqual(events.map(e=>[e.lap.lap_id,e.kind]),
+    [[5,"extended"],[4,"takeover"],[3,"takeover"],[7,"unanswered"],[2,"closing"],[6,"first"],[1,"first"]]);
+  assert.equal(events[1].rival.lap_id,3); assert.equal(events[1].margin,.5);
+  assert.equal(events[4].margin,1);
+  const board = M.scoreboard(cats,drivers);
+  assert.equal(board.contested,1);
+  assert.deepEqual(board.drivers.map(d=>[d.id,d.leads,d.unanswered]),[["b",0,1],["a",1,0]]);
+  assert.equal(M.ago(0,59*60000),"59 min ago");assert.equal(M.ago(0,3*3600000),"3 h ago");
+  assert.equal(M.ago(0,5*86400000),"5 days ago");
+});
+test("the banner leads with the latest takeover, escapes names and opens that pair", async () => {
+  const cats = [group([lap(1,"a",60,10),lap(2,"b",59,20),lap(3,"a",59.8,30)]),
+    {...group([lap(4,"b",70,40)]),route_id:4,route_name:"<b>Solo</b>"}];
+  const p = page({drivers,categories:cats});await p.settle();
+  const html = p.elt("st-latest").innerHTML;
+  assert.equal(p.elt("st-latest").hidden,false);
+  assert.match(html,/Lead change[\s\S]*<strong>Blair<\/strong> took Test Circuit · A from Alex by <span class="st-time">1\.000 s/);
+  assert.match(html,/href="replay\.html\?laps=2,1"/);
+  assert.match(html,/<strong>Alex<\/strong> closed to <span class="st-time">0\.800 s<\/span> of Blair/);
+  assert.match(html,/&lt;b&gt;Solo&lt;\/b&gt;/);assert.doesNotMatch(html,/<b>Solo/);
+  assert.match(html,/waiting on Alex/);
+  assert.match(html,/<strong>Blair<\/strong> leads 1 · <strong>Alex<\/strong> leads 0/);
+  assert.match(html,/closest: Test Circuit · A,\s*<span class="st-time">0\.800 s/);
+  // "Open" on the closing event selects its group with the new time as A and the rival's best as B
+  const index = html.match(/closed to[\s\S]*?data-feed="(\d+)"/)[1];
+  p.elt("st-latest").listeners.click({target:{closest:()=>({dataset:{feed:index}})}});
+  assert.match(p.elt("st-inspector").innerHTML,/lap_a=3&lap_b=2/);
+  const quiet = page({drivers,categories:[]});await quiet.settle();
+  assert.equal(quiet.elt("st-latest").hidden,true);
+});

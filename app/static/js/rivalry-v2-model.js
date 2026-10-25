@@ -125,12 +125,58 @@
     return [...bests(group).values()].sort((a,b) => a.time_s-b.time_s ||
       (stamp(a) ?? Infinity)-(stamp(b) ?? Infinity));
   }
+  /* What happened lately, newest first: every recorded improvement, read
+     against the best the other drivers held at that moment. A takeover is
+     any time the route record changes hands, including a first answer that
+     beats the only time (timeline() marks a lead change only once both have
+     a time); the rest say whether a lead grew, a gap closed or a time still
+     waits for an answer. */
+  function activity(categories, pair) {
+    const events = [];
+    for (const group of categories) {
+      const laps = timeline(group, pair).filter(lap => lap.pb).sort((a,b) => stamp(a)-stamp(b));
+      const best = new Map();
+      for (const lap of laps) {
+        const rival = [...best.values()].filter(old => old.driver_id !== lap.driver_id)
+          .sort((a,b) => a.time_s-b.time_s)[0] || null;
+        const record = [...best.values()].sort((a,b) => a.time_s-b.time_s)[0];
+        const kind = !rival ? (lap.delta === null ? "first" : "unanswered") :
+          lap.time_s >= rival.time_s ? "closing" :
+          lap.lead || record.driver_id !== lap.driver_id ? "takeover" : "extended";
+        events.push({kind, group, lap, rival, at:stamp(lap),
+          margin:rival ? Math.abs(rival.time_s-lap.time_s) : null});
+        best.set(lap.driver_id, lap);
+      }
+    }
+    return events.sort((a,b) => b.at-a.at || b.lap.lap_id-a.lap.lap_id);
+  }
+  /* Route/class groups each driver leads, and those nobody else has run yet. */
+  function scoreboard(categories, people) {
+    const rows = new Map(people.map(d => [d.id, {id:d.id, name:d.name, leads:0, unanswered:0}]));
+    let contested = 0;
+    for (const group of categories) {
+      const [first, second] = standings(group);
+      const row = first && rows.get(first.driver_id);
+      if (!row) continue;
+      if (!second) {row.unanswered++; continue;}
+      contested++;
+      if (second.time_s > first.time_s) row.leads++;
+    }
+    return {contested, drivers:[...rows.values()]};
+  }
+  function ago(value, now = Date.now()) {
+    const minutes = Math.max(0, Math.round((now-value)/60000));
+    if (minutes < 60) return minutes <= 1 ? "just now" : `${minutes} min ago`;
+    const hours = Math.round(minutes/60);
+    return hours < 48 ? `${hours} h ago` : `${Math.round(hours/24)} days ago`;
+  }
   function compare(a,b) {
     return usable(a || {}) && usable(b || {}) && a.lap_id !== b.lap_id ?
       `compare.html?lap_a=${a.lap_id}&lap_b=${b.lap_id}` : null;
   }
   const model = {timed, usable, clean, estimated, stamp, identity, key, time, date, drivers,
-    bests, timeline, defaults, matches, visible, compare, routeBests, standings};
+    bests, timeline, defaults, matches, visible, compare, routeBests, standings, activity,
+    scoreboard, ago};
   if (typeof module !== "undefined" && module.exports) module.exports = model;
   else root.RivalryModel = model;
 })(globalThis);
