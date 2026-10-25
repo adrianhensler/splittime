@@ -141,12 +141,18 @@
         while (j < laps.length && stamp(laps[j]) === stamp(laps[i])) j++;
         // Equal finish timestamps are one batch, read against the bests before it,
         // as timeline() does: no order is invented between them.
-        const before = [...best.values()].sort((a,b) => a.time_s-b.time_s), record = before[0];
+        const fastest = map => [...map.values()].sort((a,b) => a.time_s-b.time_s);
+        const before = fastest(best), record = before[0];
+        const after = new Map(best);
+        for (const lap of laps.slice(i,j)) after.set(lap.driver_id, lap);
+        // only the holder after the whole batch can have taken or extended the record
+        const standing = fastest(after), holder = standing[0];
         for (const lap of laps.slice(i,j)) {
-          const rival = before.find(old => old.driver_id !== lap.driver_id) || null;
-          const kind = !rival ? (lap.delta === null ? "first" : "unanswered") :
-            lap.time_s >= rival.time_s ? "closing" :
-            lap.lead || record.driver_id !== lap.driver_id ? "takeover" : "extended";
+          const other = list => list.find(old => old.driver_id !== lap.driver_id) || null;
+          let rival = other(before), kind;
+          if (!rival) kind = lap.delta === null ? "first" : "unanswered";
+          else if (lap === holder) kind = record.driver_id !== lap.driver_id ? "takeover" : "extended";
+          else {kind = "closing"; rival = other(standing);}
           events.push({kind, group, lap, rival, at:stamp(lap),
             margin:rival ? Math.abs(rival.time_s-lap.time_s) : null});
         }

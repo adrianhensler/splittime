@@ -176,6 +176,11 @@ test("activity reads each improvement against the rival's best at that moment", 
   const board = M.scoreboard(cats,drivers);
   assert.equal(board.contested,1);
   assert.deepEqual(board.drivers.map(d=>[d.id,d.leads,d.unanswered]),[["b",0,1],["a",1,0]]);
+  // both improve at once while the holder stays fastest: the other only closed in
+  const both = M.activity([group([lap(21,"a",60,10),lap(22,"a",58,20),lap(23,"b",59,20)])],drivers);
+  assert.equal(both.some(e=>e.kind==="takeover"),false);
+  const closed = both.find(e=>e.lap.lap_id===23);
+  assert.equal(closed.kind,"closing");assert.equal(closed.rival.lap_id,22);assert.equal(closed.margin,1);
   // simultaneous finishes are one batch: no rival, no invented takeover, either order
   for (const ids of [[11,12],[12,11]]) {
     const same = M.activity([group([lap(ids[0],"a",60,10),lap(ids[1],"b",59,10)])],drivers);
