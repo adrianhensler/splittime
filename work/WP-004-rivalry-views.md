@@ -1,5 +1,16 @@
 # WP-004: Rivalry views (M3)
 
+## Debrief for full-route sprints, 2026-10-25
+
+Owner asked for corner priorities on sprints, which always end on the last
+packet. PR #41 (branch `fix/debrief-full-route-sprints`) requires only
+`candidate_clean` (which already includes ADR 30's full-route test) and warns
+when a finish is estimated. ADR 32 updated. Self-checks: 341 pytest, ruff clean;
+on a copy of the live database, laps 98 vs 174 return coaching with C15 −0.481,
+C19 −0.420, C16 −0.410, C12 +0.340, C3 +0.251 and C22 +0.248 s, matching a manual
+trace analysis. Codex review: no findings. Not independently verified; AI
+generation on a sprint pair still untested live.
+
 ## Session debrief checkpoint, 2026-10-13
 
 **Admission/deployment update:** GPT-6 Astra independently reviewed final
