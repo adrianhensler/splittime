@@ -104,6 +104,14 @@ test("controller fetches relative APIs, escapes names and handles filters and st
   assert.match(p.elt("st-message").textContent,/Previous results remain.*stale/);
   assert.equal(p.elt("st-refresh").disabled,false);
 });
+test("a contested row links straight to replay and compare of the two bests, leader first", async () => {
+  const p = page({drivers,categories:[group([lap(1,"a",60,10),lap(2,"b",59,20),lap(3,"a",58.5,30,{candidate_clean:false})])]});
+  await p.settle();
+  assert.match(p.elt("st-events").innerHTML,/href="replay\.html\?laps=2,1"/);
+  assert.match(p.elt("st-events").innerHTML,/href="compare\.html\?lap_a=2&lap_b=1"/);
+  const solo = page({drivers,categories:[group([lap(1,"a",60,10)])]});await solo.settle();
+  assert.doesNotMatch(solo.elt("st-events").innerHTML,/st-row-actions/);
+});
 test("empty results and missing chronology stay explicit, no sample opponent", async () => {
   const p = page({drivers,categories:[]});await p.settle();
   assert.match(p.elt("st-events").innerHTML,/No recordings yet/);

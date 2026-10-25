@@ -78,8 +78,11 @@
       // fastest first, for however many drivers there are
       const order = M.standings(group), [a,b] = order;
       let gap = "No valid times yet";
-      if (a && b) gap = a.time_s === b.time_s ? "Equal recorded bests" :
-        `${esc(a.driver_name)}<div class="st-time">${(b.time_s-a.time_s).toFixed(3)} s ahead</div>`;
+      if (a && b) gap = (a.time_s === b.time_s ? "Equal recorded bests" :
+        `${esc(a.driver_name)}<div class="st-time">${(b.time_s-a.time_s).toFixed(3)} s ahead</div>`) +
+        // one click from the table to the two bests, leader as A
+        `<div class="st-row-actions"><a href="replay.html?laps=${a.lap_id},${b.lap_id}">Replay</a>` +
+        `<a href="${M.compare(a,b)}">Compare</a></div>`;
       else if (a) {
         const waiting = drivers.filter(d => d.id !== a.driver_id);
         gap = !waiting.length ? "One driver recorded" :
