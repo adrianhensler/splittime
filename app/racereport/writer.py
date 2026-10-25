@@ -111,7 +111,7 @@ def _corners(facts):
 _NUMBER = re.compile(r"(?<![\w.:])(\d+(?:\.\d+)?)(?:\s*(" + "|".join(
     re.escape(w) for w in sorted(_UNIT_WORDS, key=len, reverse=True)) + r")(?![\w/]))?")
 _CORNER = re.compile(r"\bC(\d+)\b")
-_LAP_TIME = re.compile(r"(?<![\w.:])(\d+):([0-5]\d(?:\.\d+)?)(?![\w.:])")
+_LAP_TIME = re.compile(r"(?<![\w.:])(\d+):([0-5]\d(?:\.\d+)?)(?![\w:]|\.\d)")
 
 
 def _placeholders(text, drivers):
@@ -140,6 +140,8 @@ def _check_text(text, limit, allowed, corners, drivers):
     for n in _CORNER.findall(text):
         if int(n) not in corners:
             raise ValueError(f"Race report names corner C{n}, which was not measured")
+    if re.search(r"\d:\d", _LAP_TIME.sub(" ", text)):
+        raise ValueError("Race report states a time that is not a measured lap time")
     found = [(f"{minutes}:{seconds}", int(minutes) * 60 + float(seconds), len(seconds.partition(".")[2]), "lap")
              for minutes, seconds in _LAP_TIME.findall(text)]
     found += [(token, float(token), len(token.partition(".")[2]), _UNIT_WORDS.get(word))

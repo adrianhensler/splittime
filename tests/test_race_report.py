@@ -73,6 +73,19 @@ def test_only_comparable_eligible_pairs_are_measured(circuit, monkeypatch):
     assert error.value.status_code == 409 and "eligible" in error.value.detail
 
 
+def test_a_stop_keeps_its_samples_and_a_rewind_keeps_the_last_pass(monkeypatch):
+    monkeypatch.setattr(facts, "parse", lambda raw: raw)
+
+    def frame(d, accel):
+        return {"distance_traveled": d, "accel": accel}
+    stopped = [frame(10, 0)] * 100 + [frame(10 + i, 255) for i in range(1, 101)]
+    kept = facts._frames([(0, f) for f in stopped], 0)
+    assert len(kept) == 200 and facts._share(kept, lambda f: f["accel"] >= facts.FLAT) == 50
+    rewound = [frame(d, 0) for d in (1, 2, 3, 4)] + [frame(d, 255) for d in (2, 3, 4, 5)]
+    assert [(s, f["accel"]) for s, f in facts._frames([(0, f) for f in rewound], 0)] == \
+        [(1, 0), (2, 255), (3, 255), (4, 255), (5, 255)]
+
+
 REPORT = {"facts": {
     "a_gain_s": -4.751, "route_m": 5965, "same_car": True,
     "lap": {"a": {"time_s": 167.13, "flat_pct": 42, "max_g": 3.7},
@@ -102,6 +115,7 @@ def test_narrative_numbers_must_be_measured_facts_in_the_right_unit():
                 {"story": "{A} lost 7 s"},               # small numbers still checked with a unit
                 {"story": "{A} missed C40"},
                 {"story": "Times 99:47.130 and 2:42.379"},  # minutes are checked too
+                {"story": "Time 2:59.999."},              # sentence punctuation is no way round it
                 {"story": "{A} lost 47.130 s"},           # lap-time seconds are not a gap
                 {"story": "{FishFighterNS} lost"},       # names never come from the model
                 {"story": "x" * 1200},

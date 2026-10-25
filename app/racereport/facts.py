@@ -16,7 +16,7 @@ from fastapi import HTTPException
 from ..corners.api import _reference
 from ..corners.compare import compare_laps
 from ..corners.detect import VERSION as DETECTOR_VERSION, detect_corners
-from ..corners.trace import build_trace, samples_from_rows
+from ..corners.trace import REWIND_EPS, build_trace, samples_from_rows
 from ..debrief.summary import _eligible
 from ..telemetry.packet import parse
 
@@ -31,13 +31,15 @@ LINE_STEP = 8     # compare one A position in this many with B's line
 
 
 def _frames(rows, start_distance):
-    """(s, frame) in distance order; a rewound stretch keeps only its last pass."""
+    """(s, frame) in distance order; a rewound stretch keeps only its last pass.
+    Stationary samples stay, since input shares count samples (build_trace's rule)."""
     out = []
     for _, raw in rows:
         frame = parse(raw)
         s = frame["distance_traveled"] - start_distance
-        while out and out[-1][0] >= s:
-            out.pop()
+        if out and s < out[-1][0] - REWIND_EPS:
+            while out and out[-1][0] >= s:
+                out.pop()
         out.append((s, frame))
     return out
 
