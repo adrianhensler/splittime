@@ -631,8 +631,12 @@ confirmed them.
   Nothing new leaves the server. A cached or failed report is never sent
   again automatically; a session still recording waits for the next pass;
   an ineligible pair is skipped.
+- Every takeover handled is kept in an `auto_reports` table in the ledger
+  file, so a restart or a later cache change never sends it again. Laps
+  finishing at the same instant count as a takeover only if the holder after
+  the whole batch changed.
 - Automatic calls stop at 20 per UTC month (at most $0.20 at the $0.01
-  reservation), counted in an `auto_reports` table in the same ledger file,
+  reservation), counted from that table,
   so most of the shared $1 month stays for manual use. A spent budget pauses
   the pass. `SPLITTIME_AUTO_RACE_REPORTS=0` turns it off.
 - This relaxes ADR 33's "generation is manual": inference is still never

@@ -26,6 +26,10 @@ def test_takeovers_are_changes_of_record_holder_newest_first():
     assert auto.takeovers(summary(route), 25) == [(3, 2, 30)]  # the window
     # simultaneous finishes are one batch: neither took anything from the other
     assert auto.takeovers(summary([lap(1, "a", 60, 10), lap(2, "b", 59, 10)]), 0) == []
+    # both improve at once but the holder stays fastest: no takeover; if the
+    # other driver ends up fastest, only that one is
+    assert auto.takeovers(summary([lap(1, "a", 60, 10), lap(2, "a", 58, 20), lap(3, "b", 59, 20)]), 0) == []
+    assert auto.takeovers(summary([lap(1, "a", 60, 10), lap(2, "a", 59, 20), lap(3, "b", 58, 20)]), 0) == [(3, 1, 20)]
     # an undated clean lap makes the order unknown, so nothing is claimed
     assert auto.takeovers(summary([lap(1, "a", 60, None), lap(2, "b", 59, 20)]), 0) == []
 
@@ -65,12 +69,21 @@ def test_a_pass_sends_each_takeover_once_within_the_monthly_cap(tmp_path, monkey
     assert auto.run_once(None, drivers, db, "key", done, now=1_800_000_000) == 1
     assert [c[0] for c in calls] == [11]
 
+    # a restart forgets `done`, but the durable history still stops a second send,
+    # including for the takeover whose report was already cached (13)
+    calls.clear()
+    assert auto.run_once(None, drivers, db, "key", set(), now=1_800_000_000) == 0
+    assert [c[0] for c in calls] == [12]                     # only the ineligible one is re-read
+    assert auto.auto_calls(db) == 3
+
     # the automatic share of the month stops at AUTO_MONTH_CALLS; a spent budget pauses
     monkeypatch.setattr(auto, "AUTO_MONTH_CALLS", 3)
     calls.clear()
     assert auto.run_once(None, drivers, db, "key", set(), now=1_800_000_000) == 0
     assert calls == []
     monkeypatch.setattr(auto, "AUTO_MONTH_CALLS", 20)
-    outcome[10] = BudgetError("spent")
+    monkeypatch.setattr(auto, "takeovers", lambda summary, since: [(20, 200, 1_800_000_000)])
+    outcome[20] = BudgetError("spent")
     assert auto.run_once(None, drivers, db, "key", set(), now=1_800_000_000) == 0
-    assert [c[0] for c in calls] == [10]
+    assert [c[0] for c in calls] == [20]
+    assert not auto.handled(db, 20, 200)                     # a paused pass tries again later

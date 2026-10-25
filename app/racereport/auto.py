@@ -54,30 +54,45 @@ def takeovers(summary, since):
             j = i
             while j < len(stamped) and stamped[j][0] == stamped[i][0]:
                 j += 1
-            record = min(best.values(), key=lambda lap: lap["time_s"], default=None)
+            before = min(best.values(), key=lambda lap: lap["time_s"], default=None)
             batch = {}
             for t, lap in stamped[i:j]:
                 own = best.get(lap["driver_id"])
                 if (own is None or lap["time_s"] < own["time_s"]) and (
                         lap["driver_id"] not in batch or lap["time_s"] < batch[lap["driver_id"]][1]["time_s"]):
                     batch[lap["driver_id"]] = (t, lap)
-            for t, lap in batch.values():
-                if (record is not None and record["driver_id"] != lap["driver_id"]
-                        and lap["time_s"] < record["time_s"] and t >= since):
-                    found.append((lap["lap_id"], record["lap_id"], t))
             for _, lap in batch.values():
                 best[lap["driver_id"]] = lap
+            # Only the holder after the whole batch took anything: two drivers
+            # improving at once while the old holder stays fastest is no takeover.
+            after = min(best.values(), key=lambda lap: lap["time_s"])
+            if (before is not None and after["driver_id"] != before["driver_id"]
+                    and after["time_s"] < before["time_s"] and stamped[i][0] >= since):
+                found.append((after["lap_id"], before["lap_id"], stamped[i][0]))
             i = j
     return sorted(found, key=lambda item: -item[2])
 
 
+def _table(conn):
+    # every takeover handled, sent or found already cached: durable, so a restart
+    # or a later cache change never sends the same takeover again
+    conn.execute("CREATE TABLE IF NOT EXISTS auto_reports ("
+                 "lap_a INTEGER NOT NULL, lap_b INTEGER NOT NULL, month TEXT NOT NULL, "
+                 "created REAL NOT NULL, sent INTEGER NOT NULL, PRIMARY KEY (lap_a, lap_b))")
+
+
 def auto_calls(db: Ledger):
     with db.connection() as conn:
-        conn.execute("CREATE TABLE IF NOT EXISTS auto_reports ("
-                     "lap_a INTEGER NOT NULL, lap_b INTEGER NOT NULL, month TEXT NOT NULL, "
-                     "created REAL NOT NULL, PRIMARY KEY (lap_a, lap_b))")
-        return conn.execute("SELECT count(*) FROM auto_reports WHERE month=?",
+        _table(conn)
+        return conn.execute("SELECT count(*) FROM auto_reports WHERE month=? AND sent=1",
                             (db.month(),)).fetchone()[0]
+
+
+def handled(db: Ledger, lap_a, lap_b):
+    with db.connection() as conn:
+        _table(conn)
+        return conn.execute("SELECT 1 FROM auto_reports WHERE lap_a=? AND lap_b=?",
+                            (lap_a, lap_b)).fetchone() is not None
 
 
 def run_once(store, drivers, db: Ledger, key, done: set, now=None):
@@ -86,7 +101,8 @@ def run_once(store, drivers, db: Ledger, key, done: set, now=None):
     names = {d.id: d.name for d in drivers}
     sent = 0
     for lap_a, lap_b, _ in takeovers(rivalry_summary(store, drivers), now - WINDOW_S):
-        if (lap_a, lap_b) in done:
+        if (lap_a, lap_b) in done or handled(db, lap_a, lap_b):
+            done.add((lap_a, lap_b))
             continue
         if auto_calls(db) >= AUTO_MONTH_CALLS:
             log.info("Automatic race reports: monthly limit of %d reached", AUTO_MONTH_CALLS)
@@ -107,11 +123,11 @@ def run_once(store, drivers, db: Ledger, key, done: set, now=None):
             log.info("Automatic race reports paused: %s", exc)
             break
         done.add((lap_a, lap_b))
+        with db.connection() as conn:
+            conn.execute("INSERT OR IGNORE INTO auto_reports VALUES (?,?,?,?,?)",
+                         (lap_a, lap_b, db.month(), now, int(called)))
         if called:
             sent += 1
-            with db.connection() as conn:
-                conn.execute("INSERT OR IGNORE INTO auto_reports VALUES (?,?,?,?)",
-                             (lap_a, lap_b, db.month(), now))
             log.info("Automatic race report written for takeover %d vs %d", lap_a, lap_b)
     return sent
 
