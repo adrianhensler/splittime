@@ -1,5 +1,19 @@
 # WP-004: Rivalry views (M3)
 
+## Takeovers banner and scoreboard, 2026-10-25
+
+Owner asked to surface recent wins and takeovers. Branch `feat/takeovers-banner`
+adds a strip above the Rivalry table, computed on the page from `api/rivalry`
+(no server change): the latest lead change, a scoreboard (groups each driver
+leads, unanswered groups, closest gap), and the four newest improvements, each
+with Open (selects the group, new time as A against the rival's best as B) and
+Replay. A takeover is any change of record holder, including a first answer
+that beats the only time; the history table's "Took recorded lead" still needs
+both drivers to have a time, so the banner finds 5 takeovers in the live data
+where the table marks 1. Self-checks: 89 UI tests (2 new), rendered from a
+copy of live `api/rivalry`. Not checked in a real browser. Not independently
+verified.
+
 ## A vs B analysis section, 2026-10-25
 
 Owner could not find the debrief: it was a collapsed one-line `<details>` in

@@ -74,7 +74,17 @@
     #st-rivalry-workspace .st-replay{display:block;border:1px solid var(--st-accent);border-radius:5px;padding:8px;text-align:center;text-decoration:none;font-weight:600;margin-top:8px}
     #st-rivalry-workspace .st-row-actions{display:flex;gap:6px;margin-top:6px}
     #st-rivalry-workspace .st-row-actions a{border:1px solid var(--st-accent);border-radius:5px;padding:3px 8px;text-decoration:none;font-weight:600;font-size:12px}
-    @media(pointer:coarse){#st-rivalry-workspace .st-row-actions a{min-height:44px;display:inline-flex;align-items:center}}
+    #st-rivalry-workspace .st-row-actions button{background:transparent;color:var(--st-accent);border:1px solid var(--st-accent);border-radius:5px;padding:3px 8px;font:600 12px/1.45 inherit;cursor:pointer}
+    @media(pointer:coarse){#st-rivalry-workspace .st-row-actions a,#st-rivalry-workspace .st-row-actions button{min-height:44px;display:inline-flex;align-items:center}}
+    #st-rivalry-workspace .st-latest{margin:4px 0 14px;padding:12px;background:var(--st-panel);border:1px solid var(--st-line);border-radius:8px}
+    #st-rivalry-workspace .st-takeover{border-left:3px solid var(--st-warn);padding:2px 0 8px 10px;margin-bottom:8px}
+    #st-rivalry-workspace .st-takeover p{margin:4px 0;font-size:16px}
+    #st-rivalry-workspace .st-badge{color:var(--st-warn);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+    #st-rivalry-workspace .st-scoreboard{margin:0 0 6px}
+    #st-rivalry-workspace .st-recent{list-style:none;margin:0;padding:0}
+    #st-rivalry-workspace .st-recent li{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline;padding:6px 0;border-top:1px solid var(--st-line)}
+    #st-rivalry-workspace .st-recent li>span:first-child{min-width:5.5em}
+    #st-rivalry-workspace .st-recent .st-row-actions{margin-top:0;margin-left:auto}
     #st-rivalry-workspace .st-debrief{border:1px solid var(--st-line);border-radius:6px;padding:10px 12px;color:var(--st-fg);margin-top:12px}
     #st-rivalry-workspace .st-debrief summary{font-weight:600;line-height:1.6}
     #st-rivalry-workspace .st-debrief-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-top:10px}

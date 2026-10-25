@@ -21,6 +21,7 @@
     state.history = HISTORY.includes(saved.history) ? saved.history : "best";
   }
   const outlines = new Map();
+  let feed = [];
   const selected = () => state.data.categories.find(group => M.key(group) === state.group);
   function save() {
     const group = selected();
@@ -67,6 +68,56 @@
     if (target) target.open = true;
     $("st-analysis").scrollIntoView?.({behavior:"smooth", block:"start"});
   }
+  const label = group => `${esc(group.route_name)} · ${esc(group.car_class_label)}`;
+  const others = (people, lap) => people.filter(d => d.id !== lap.driver_id).map(d => esc(d.name)).join(", ");
+  function story(event, people) {
+    const {kind, group, lap, rival, margin} = event, who = `<strong>${esc(lap.driver_name)}</strong>`;
+    // either time read from the last packet makes the margin an estimate too
+    const by = margin === null ? "" : `<span class="st-time">${margin.toFixed(3)} s</span>${
+      M.estimated(lap) || (rival && M.estimated(rival)) ? ` <abbr class="st-est" title="${EST}">est.</abbr>` : ""}`;
+    return {
+      takeover: `${who} took ${label(group)} from ${esc(rival?.driver_name)} by ${by}`,
+      extended: `${who} extended the lead on ${label(group)} to ${by}`,
+      closing: `${who} closed to ${by} of ${esc(rival?.driver_name)} on ${label(group)}`,
+      first: `${who} set the first time on ${label(group)}${est(lap)}${others(people,lap) ? ` · waiting on ${others(people,lap)}` : ""}`,
+      tied: `${who} equalled ${esc(rival?.driver_name)}'s time on ${label(group)}${est(lap)}${rival && M.estimated(rival) ? ` <abbr class="st-est" title="${EST}">est.</abbr>` : ""}`,
+      unanswered: `${who} improved on ${label(group)}${est(lap)}${others(people,lap) ? ` · still no time from ${others(people,lap)}` : ""}`,
+    }[kind];
+  }
+  // Takeovers and recent records across every group, above the table (ignores the search box).
+  function latest(people) {
+    const events = M.activity(state.data.categories, people);
+    const takeover = events.find(event => event.kind === "takeover");
+    // newest story per driver and group; the headline takeover hides only older
+    // stories of its own, never a newer record set after it
+    const id = event => `${M.key(event.group)}|${event.lap.driver_id}`;
+    const seen = new Set(), recent = [];
+    for (const event of events) {
+      if (seen.has(id(event))) continue;
+      seen.add(id(event));
+      if (event === takeover) continue;
+      recent.push(event);
+      if (recent.length === 4) break;
+    }
+    feed = [takeover, ...recent].filter(Boolean);
+    const board = M.scoreboard(state.data.categories, people);
+    const closest = state.data.categories.map(group => [group, M.standings(group)])
+      .filter(([, [a,b]]) => a && b && b.time_s > a.time_s)
+      .sort(([, x], [, y]) => (x[1].time_s-x[0].time_s)-(y[1].time_s-y[0].time_s))[0];
+    const open = (index, lap, rival) => `<button type="button" data-feed="${index}">Open</button>${rival ?
+      `<a href="replay.html?laps=${lap.lap_id},${rival.lap_id}">Replay</a>` : ""}`;
+    $("st-latest").hidden = !events.length;
+    $("st-latest").innerHTML = !events.length ? "" : `
+      ${takeover ? `<div class="st-takeover"><span class="st-badge">Lead change · ${esc(M.ago(takeover.at))}</span>
+        <p>${story(takeover, people)}</p><div class="st-row-actions">${open(0, takeover.lap, takeover.rival)}</div></div>` : ""}
+      <p class="st-scoreboard">${board.drivers.map(d => `<strong>${esc(d.name)}</strong> leads ${d.leads}`).join(" · ")}
+        <span class="st-quiet">of ${board.contested} contested · unanswered: ${board.drivers.map(d =>
+          `${esc(d.name)} ${d.unanswered}`).join(", ")}${closest ? ` · closest: ${label(closest[0])},
+          <span class="st-time">${(closest[1][1].time_s-closest[1][0].time_s).toFixed(3)} s</span>${
+            closest[1].slice(0,2).some(M.estimated) ? ` <abbr class="st-est" title="${EST}">est.</abbr>` : ""}` : ""}</span></p>
+      <ul class="st-recent">${recent.map((event, i) => `<li><span class="st-quiet">${esc(M.ago(event.at))}</span>
+        <span>${story(event, people)}</span><span class="st-row-actions">${open(i + (takeover ? 1 : 0), event.lap, event.rival)}</span></li>`).join("")}</ul>`;
+  }
   function choose(group) {
     state.group = M.key(group);
     [state.a,state.b] = M.defaults(group,M.drivers(state.data));
@@ -76,6 +127,7 @@
     $("st-find").value = state.query;
     $("st-history-filter").value = state.history;
     const drivers = M.drivers(state.data), categories = state.data.categories;
+    latest(drivers);
     const shown = categories.filter(group => M.visible(group,state.query));
     if (shown.length && !shown.some(group => M.key(group) === state.group)) choose(shown[0]);
     $("st-overview-label").textContent = `${shown.length} of ${categories.length} route/class groups · recorded times`;
@@ -229,6 +281,16 @@
     const shown = state.data.categories.filter(group => M.visible(group,state.query));
     choose(shown[Number(button.dataset.event)]); render();
     $("st-events").querySelector(`[data-event="${button.dataset.event}"]`)?.focus();
+  });
+  $("st-latest").addEventListener("click",event => {
+    const button = event.target.closest("[data-feed]"), item = feed[Number(button?.dataset.feed)];
+    if (!item) return;
+    // the story's own lap as A, against the best it was measured against as B;
+    // with no rival then, B is another driver's best now, if there is one
+    state.group = M.key(item.group); state.query = "";
+    const answer = M.standings(item.group).find(lap => lap.driver_id !== item.lap.driver_id);
+    [state.a,state.b] = [item.lap.lap_id, (item.rival || answer)?.lap_id ?? null];
+    render(); analyse();
   });
   $("st-more").addEventListener("click",() => {
     state.history = state.history === "best" ? "all" : "best"; render();
