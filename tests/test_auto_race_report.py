@@ -35,7 +35,13 @@ def test_takeovers_are_changes_of_record_holder_newest_first():
     # both improve at once but the holder stays fastest: no takeover; if the
     # other driver ends up fastest, only that one is
     assert auto.takeovers(summary([lap(1, "a", 60, 10), lap(2, "a", 58, 20), lap(3, "b", 59, 20)]), 0) == []
-    assert [t[:3] for t in auto.takeovers(summary([lap(1, "a", 60, 10), lap(2, "a", 59, 20), lap(3, "b", 58, 20)]), 0)] == [(3, 1, 20)]
+    # ...and the report is against the old holder's best after the batch (2), not before (1)
+    assert [t[:3] for t in auto.takeovers(summary([lap(1, "a", 60, 10), lap(2, "a", 59, 20), lap(3, "b", 58, 20)]), 0)] == [(3, 2, 20)]
+    # a tie keeps the holder, whatever order the laps are stored in
+    tied = [lap(1, "a", 60, 10), lap(2, "b", 59, 20), lap(3, "a", 59, 30)]
+    for order in (tied, tied[::-1]):
+        assert [t[:3] for t in auto.takeovers(summary(order + [lap(4, "a", 58, 40)]), 0)] == [(4, 2, 40), (2, 1, 20)]
+        assert [t[:3] for t in auto.takeovers(summary(order + [lap(5, "b", 58, 40)]), 0)] == [(2, 1, 20)]
     # an undated clean lap makes the order unknown, so nothing is claimed
     assert auto.takeovers(summary([lap(1, "a", 60, None), lap(2, "b", 59, 20)]), 0) == []
 

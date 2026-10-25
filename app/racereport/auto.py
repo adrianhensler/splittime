@@ -54,13 +54,12 @@ def takeovers(summary, since):
         if any(t is None for t, _ in stamped):
             continue
         stamped.sort(key=lambda item: item[0])
-        best = {}
+        best, holder = {}, None  # holder: the driver with the outright record, if any
         i = 0
         while i < len(stamped):
             j = i
             while j < len(stamped) and stamped[j][0] == stamped[i][0]:
                 j += 1
-            before = min(best.values(), key=lambda lap: lap["time_s"], default=None)
             batch = {}
             for t, lap in stamped[i:j]:
                 own = best.get(lap["driver_id"])
@@ -69,15 +68,20 @@ def takeovers(summary, since):
                     batch[lap["driver_id"]] = (t, lap)
             for _, lap in batch.values():
                 best[lap["driver_id"]] = lap
-            # Only the holder after the whole batch took anything: two drivers
-            # improving at once while the old holder stays fastest is no takeover.
+            # The holder is tracked, never rebuilt from dictionary order: only an
+            # outright fastest time after the whole batch can change it, a tie
+            # keeps it, and the report is against the old holder's best now.
             standing = sorted(best.values(), key=lambda lap: lap["time_s"])
-            after = standing[0]
-            outright = len(standing) < 2 or after["time_s"] < standing[1]["time_s"]  # a tie takes nothing
-            if (before is not None and outright and after["driver_id"] != before["driver_id"]
-                    and after["time_s"] < before["time_s"] and stamped[i][0] >= since):
-                found.append((after["lap_id"], before["lap_id"], stamped[i][0],
-                              f"{_run(after)}|{_run(before)}"))
+            if len(standing) < 2 or standing[0]["time_s"] < standing[1]["time_s"]:
+                leader = standing[0]
+                if holder is not None and leader["driver_id"] != holder and stamped[i][0] >= since:
+                    beaten = best[holder]
+                    found.append((leader["lap_id"], beaten["lap_id"], stamped[i][0],
+                                  f"{_run(leader)}|{_run(beaten)}"))
+                holder = leader["driver_id"]
+            elif holder not in {lap["driver_id"] for lap in standing
+                                if lap["time_s"] == standing[0]["time_s"]}:
+                holder = None  # a record shared by others: nobody holds it outright
             i = j
     return sorted(found, key=lambda item: -item[2])
 
