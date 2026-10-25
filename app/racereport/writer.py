@@ -80,7 +80,7 @@ _UNIT_WORDS = {"km/h": "kmh", "kmh": "kmh", "km": "km", "seconds": "s", "second"
 
 def _numbers(value, out, key=""):
     """Every number a fact can be written as, by unit: None holds them all,
-    "km" holds metres as km, and a lap time can be written as m:ss."""
+    "km" holds metres as km, and "lap" holds whole lap times, written as m:ss."""
     if isinstance(value, bool):
         return
     if isinstance(value, (int, float)):
@@ -89,7 +89,7 @@ def _numbers(value, out, key=""):
         if unit == "m":
             spellings.append(("km", abs(value) / 1000))
         if key == "time_s":
-            spellings.append(("s", value % 60))
+            out.setdefault("lap", set()).add(value)
         for name, number in spellings:
             out.setdefault(name, set()).add(number)
             out.setdefault(None, set()).add(number)  # a unitless number may be any of them
@@ -111,18 +111,22 @@ def _corners(facts):
 _NUMBER = re.compile(r"(?<![\w.:])(\d+(?:\.\d+)?)(?:\s*(" + "|".join(
     re.escape(w) for w in sorted(_UNIT_WORDS, key=len, reverse=True)) + r")(?![\w/]))?")
 _CORNER = re.compile(r"\bC(\d+)\b")
-_LAP_TIME = re.compile(r"\b\d+:(\d\d(?:\.\d+)?)\b")
+_LAP_TIME = re.compile(r"(?<![\w.:])(\d+):([0-5]\d(?:\.\d+)?)(?![\w.:])")
 
 
 def _placeholders(text, drivers):
-    """Gamertags back to {A}/{B}, longest first so one name inside another is safe."""
+    """Gamertags back to {A}/{B}: whole words only, longest first so one name
+    inside another is safe, and never inside a placeholder already there."""
     tags = sorted(((name, f"{{{side.upper()}}}") for side, name in drivers.items() if name),
                   key=lambda tag: len(tag[0]), reverse=True)
     if not tags:
         return text
     lookup = {name.casefold(): mark for name, mark in tags}
-    pattern = re.compile("|".join(re.escape(name) for name, _ in tags), re.IGNORECASE)
-    return pattern.sub(lambda m: lookup[m.group(0).casefold()], text)
+    pattern = re.compile(r"(?<!\w)(?:" + "|".join(re.escape(name) for name, _ in tags) + r")(?!\w)",
+                         re.IGNORECASE)
+    parts = re.split(r"(\{[AB]\})", text)  # odd parts are existing placeholders
+    return "".join(part if i % 2 else pattern.sub(lambda m: lookup[m.group(0).casefold()], part)
+                   for i, part in enumerate(parts))
 
 
 def _check_text(text, limit, allowed, corners, drivers):
@@ -134,10 +138,11 @@ def _check_text(text, limit, allowed, corners, drivers):
     for n in _CORNER.findall(text):
         if int(n) not in corners:
             raise ValueError(f"Race report names corner C{n}, which was not measured")
-    found = [(seconds, "s") for seconds in _LAP_TIME.findall(text)]
-    found += [(token, _UNIT_WORDS.get(word)) for token, word in _NUMBER.findall(_LAP_TIME.sub(" ", text))]
-    for token, unit in found:
-        value, places = float(token), len(token.partition(".")[2])
+    found = [(f"{minutes}:{seconds}", int(minutes) * 60 + float(seconds), len(seconds.partition(".")[2]), "lap")
+             for minutes, seconds in _LAP_TIME.findall(text)]
+    found += [(token, float(token), len(token.partition(".")[2]), _UNIT_WORDS.get(word))
+              for token, word in _NUMBER.findall(_LAP_TIME.sub(" ", text))]
+    for token, value, places, unit in found:
         # small unitless whole numbers are counts and ordinals ("three corners", "5th gear")
         if unit is None and not places and value <= 10:
             continue

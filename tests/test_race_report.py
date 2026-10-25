@@ -101,6 +101,8 @@ def test_narrative_numbers_must_be_measured_facts_in_the_right_unit():
                 {"story": "{A} was 37 km/h slower"},
                 {"story": "{A} lost 7 s"},               # small numbers still checked with a unit
                 {"story": "{A} missed C40"},
+                {"story": "Times 99:47.130 and 2:42.379"},  # minutes are checked too
+                {"story": "{A} lost 47.130 s"},           # lap-time seconds are not a gap
                 {"story": "{FishFighterNS} lost"},       # names never come from the model
                 {"story": "x" * 1200},
                 {"a": {"strengths": [], "costs": [], "practice": "Go", "extra": "!"}}):
@@ -117,6 +119,11 @@ def test_gamertags_are_stored_as_placeholders_and_never_read_as_numbers():
     assert writer.validate(out, named) == out  # cached results re-check unchanged
     with pytest.raises(ValueError):
         writer.validate(narrative(story="Captn Compass 78 won"), named)
+    # a one-letter gamertag never touches stored placeholders or other words
+    short = {**REPORT, "drivers": {"a": "A", "b": "Bob"}}
+    once = writer.validate(narrative(story="A leads Bob, and {B} trails {A}."), short)
+    assert once["story"] == "{A} leads {B}, and {B} trails {A}."
+    assert writer.validate(once, short) == once
 
 
 def test_one_drivers_two_runs_are_told_apart(circuit):
