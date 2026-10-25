@@ -41,7 +41,7 @@ test("login error preserves measurements and never retries itself",async()=>{
   const p=panel(async(url)=>url.includes("generate")?{ok:false,status:403}:response(sample()));
   p.controller.setContext(a,b);await p.controller.load();const before=p.content.innerHTML;
   await p.controller.load(true);assert.equal(p.content.innerHTML,before);
-  assert.match(p.status.textContent,/Sign in with SplitTime management access/);assert.equal(p.requests.length,2);
+  assert.match(p.status.textContent,/signed-in account with SplitTime access/);assert.equal(p.requests.length,2);
 });
 test("failed calls need explicit retry; pending/cached reports disable generation",async()=>{
   const p=panel(async()=>response(sample()));p.controller.setContext(a,b);
