@@ -111,6 +111,7 @@ def _corners(facts):
 _NUMBER = re.compile(r"(?<![\w.:])(\d+(?:\.\d+)?)(?:\s*(" + "|".join(
     re.escape(w) for w in sorted(_UNIT_WORDS, key=len, reverse=True)) + r")(?![\w/]))?")
 _CORNER = re.compile(r"\bC(\d+)\b")
+_GROUPED = re.compile(r"(?<![\d.,])\d{1,3}(?:,\d{3})+(?![\d,]|\.\d)")
 _LAP_TIME = re.compile(r"(?<![\w.:])(\d+):([0-5]\d(?:\.\d+)?)(?![\w:]|\.\d)")
 
 
@@ -135,17 +136,19 @@ def _check_text(text, limit, allowed, corners, drivers):
     text = _placeholders(text, drivers)  # limits apply to what is stored and read back
     if not text.strip() or len(text) > limit:
         raise ValueError("Race report text is missing or too long")
+    # "9,000 m" is one number: check it whole, never its fragments ("9" and "000 m")
+    checked = _GROUPED.sub(lambda m: m.group(0).replace(",", ""), text)
     if re.sub(r"\{[AB]\}", "", text).count("{") or "}" in re.sub(r"\{[AB]\}", "", text):
         raise ValueError("Race report uses an unknown placeholder")
     for n in _CORNER.findall(text):
         if int(n) not in corners:
             raise ValueError(f"Race report names corner C{n}, which was not measured")
-    if re.search(r"\d:\d", _LAP_TIME.sub(" ", text)):
+    if re.search(r"\d:\d", _LAP_TIME.sub(" ", checked)):
         raise ValueError("Race report states a time that is not a measured lap time")
     found = [(f"{minutes}:{seconds}", int(minutes) * 60 + float(seconds), len(seconds.partition(".")[2]), "lap")
-             for minutes, seconds in _LAP_TIME.findall(text)]
+             for minutes, seconds in _LAP_TIME.findall(checked)]
     found += [(token, float(token), len(token.partition(".")[2]), _UNIT_WORDS.get(word))
-              for token, word in _NUMBER.findall(_LAP_TIME.sub(" ", text))]
+              for token, word in _NUMBER.findall(_LAP_TIME.sub(" ", checked))]
     for token, value, places, unit in found:
         # small unitless whole numbers are counts and ordinals ("three corners", "5th gear")
         if unit is None and not places and value <= 10:

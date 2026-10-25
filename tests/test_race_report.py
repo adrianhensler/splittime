@@ -130,6 +130,7 @@ def narrative(**changes):
 
 def test_narrative_numbers_must_be_measured_facts_in_the_right_unit():
     assert writer.validate(narrative(), REPORT)
+    assert writer.validate(narrative(story="Section 6 runs from 4,261 m to 5,115 m."), REPORT)
     for bad in ({"headline": "{B} wins by 3.9 s"},       # not a measured time
                 {"headline": "{B} wins by 4.1 s"},       # a g value is not seconds
                 {"story": "{A} was 37 km/h slower"},
@@ -137,6 +138,7 @@ def test_narrative_numbers_must_be_measured_facts_in_the_right_unit():
                 {"story": "{A} missed C40"},
                 {"story": "Times 99:47.130 and 2:42.379"},  # minutes are checked too
                 {"story": "Time 2:59.999."},              # sentence punctuation is no way round it
+                {"story": "The route is 9,000 m long."},  # a grouped number is checked whole
                 {"story": "{A} lost 47.130 s"},           # lap-time seconds are not a gap
                 {"story": "{FishFighterNS} lost"},       # names never come from the model
                 {"story": "x" * 1200},
