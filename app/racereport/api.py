@@ -53,26 +53,17 @@ def race_report(request: Request, response: Response, lap_a: int = Query(gt=0),
     return view(report_for(request, lap_a, lap_b), ledger(request))
 
 
-@router.post("/race-report/generate")
-def generate(body: Generate, request: Request, response: Response):
-    # The deployment gateway authenticates all management POSTs, as for the debrief.
-    key = os.environ.get("OPENROUTER_API_KEY", "")
-    if not key:
-        raise HTTPException(503, "AI race reports are not configured; measurements remain available.")
-    response.headers["Cache-Control"] = "no-store"
-    db = ledger(request)
-    report = report_for(request, body.lap_a, body.lap_b)
-    try:
-        encoded = writer.encode_request(report)  # prove the cap before reserving or sending
-    except ValueError as exc:
-        raise HTTPException(409, str(exc)) from exc
+def write(store, db, names, lap_a, lap_b, key, retry=False):
+    """One bounded, cached call for a pair: the button and the automatic writer
+    (ADR 34) share it. Returns False when nothing was sent (cached, in flight,
+    or a failure that needs an explicit retry). Raises ValueError when the
+    request cannot fit the reservation and BudgetError when the month is spent."""
+    report = build(store, lap_a, lap_b, names)
+    encoded = writer.encode_request(report)  # prove the cap before reserving or sending
     fingerprint = cache_key(report)
-    try:
-        call_id = db.claim(fingerprint, body.retry)
-    except BudgetError as exc:
-        raise HTTPException(429, str(exc)) from exc
+    call_id = db.claim(fingerprint, retry)
     if call_id is None:
-        return view(report, db)
+        return False
     cost, receipt_id, model, result = None, None, None, None
     try:
         provider = openrouter.request(encoded, key)
@@ -81,7 +72,7 @@ def generate(body: Generate, request: Request, response: Response):
         if cost > CALL_LIMIT:
             raise ValueError("Provider exceeded the reserved cost")
         result = writer.decode(provider, report)
-        if cache_key(report_for(request, body.lap_a, body.lap_b)) != fingerprint:
+        if cache_key(build(store, lap_a, lap_b, names)) != fingerprint:
             result = None  # recordings changed while the provider was working
     except Exception:
         # Never expose provider error bodies/keys, retry automatically or refund an uncertain charge.
@@ -89,4 +80,22 @@ def generate(body: Generate, request: Request, response: Response):
     finally:
         db.finish(fingerprint, call_id, result=result, cost=cost,
                   receipt_id=receipt_id, model=model)
+    return True
+
+
+@router.post("/race-report/generate")
+def generate(body: Generate, request: Request, response: Response):
+    # The deployment gateway authenticates all management POSTs, as for the debrief.
+    key = os.environ.get("OPENROUTER_API_KEY", "")
+    if not key:
+        raise HTTPException(503, "AI race reports are not configured; measurements remain available.")
+    response.headers["Cache-Control"] = "no-store"
+    db = ledger(request)
+    names = {d.id: d.name for d in getattr(request.app.state, "drivers", ())}
+    try:
+        write(request.app.state.store, db, names, body.lap_a, body.lap_b, key, body.retry)
+    except ValueError as exc:
+        raise HTTPException(409, str(exc)) from exc
+    except BudgetError as exc:
+        raise HTTPException(429, str(exc)) from exc
     return view(report_for(request, body.lap_a, body.lap_b), db)

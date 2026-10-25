@@ -609,7 +609,33 @@ implementer's; the owner has not confirmed them.
 - Same provider policy, model, management POST, ledger file and $1 UTC-month
   budget as ADR 32, under a separate cache key. Requests are sized to fit the
   $0.01 worst-case reservation. Viewing never triggers inference.
-- Generation is manual for now. Writing one automatically when a recorded lead
-  changes is the next slice.
+- Generation was manual at first; ADR 34 adds writing one when a record
+  changes hands.
 
 *Rests on:* 27, 30, 32. *Work:* WP-004.
+
+## 34. A race report is written when a record changes hands
+
+**Proposed, 2026-10-25** (owner agreed the order: findability, then an
+automatic race report on each lead change, then a per-driver view, then
+notifications). Defaults below are the implementer's; the owner has not
+confirmed them.
+
+- The web role, when it has a provider key, checks every 5 minutes for
+  takeovers in the last 14 days: a clean best that beats the route-and-class
+  record held by another driver, including a first answer that beats the only
+  time. Laps finishing at the same instant are one batch, and a group with an
+  undated clean lap is skipped, as on the Rivalry page.
+- Each takeover is written once, through the same bounded, cached path as the
+  management button (ADR 33): the new record as A, the record it beat as B.
+  Nothing new leaves the server. A cached or failed report is never sent
+  again automatically; a session still recording waits for the next pass;
+  an ineligible pair is skipped.
+- Automatic calls stop at 20 per UTC month (at most $0.20 at the $0.01
+  reservation), counted in an `auto_reports` table in the same ledger file,
+  so most of the shared $1 month stays for manual use. A spent budget pauses
+  the pass. `SPLITTIME_AUTO_RACE_REPORTS=0` turns it off.
+- This relaxes ADR 33's "generation is manual": inference is still never
+  triggered by viewing, only by a recorded change of record holder.
+
+*Rests on:* 32, 33. *Work:* WP-004.

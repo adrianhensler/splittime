@@ -33,6 +33,8 @@ requires the gateway's login and service grant (ADR 23).
   with an optional Gemini review written on request by management. Every
   number and corner in it must match a measured fact. Only derived facts and
   the two configured gamertags go to the provider, under the same cap (ADR 33).
+- A race report is written by itself when a route record changes hands, at
+  most 20 a month within the same cap (ADR 34).
 - Manual correction of lap flags by either driver.
 
 **Out (v1)** — tracked in [BUILD_PLAN.md](BUILD_PLAN.md#deferred)
