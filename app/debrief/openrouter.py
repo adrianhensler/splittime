@@ -20,12 +20,16 @@ SYSTEM = (
 )
 
 
+# Shared with the race report. Prices are dollars per million tokens, hard caps.
+PROVIDER = {"data_collection": "deny", "zdr": True, "require_parameters": True,
+            "only": ["google-vertex/global"], "allow_fallbacks": False,
+            "max_price": {"prompt": 0.75, "completion": 3.75, "request": 0}}
+
+
 def payload(report):
     return {"model": MODEL, "max_tokens": 512,
             "reasoning": {"effort": "minimal", "exclude": True},
-            "provider": {"data_collection": "deny", "zdr": True, "require_parameters": True,
-                         "only": ["google-vertex/global"], "allow_fallbacks": False,
-                         "max_price": {"prompt": 0.75, "completion": 3.75, "request": 0}},
+            "provider": PROVIDER,
             "messages": [{"role": "system", "content": SYSTEM},
                          {"role": "user", "content": json.dumps(anonymous_facts(report),
                                                                   allow_nan=False)}],
@@ -69,7 +73,8 @@ def receipt(response):
     return int((Decimal(str(value)) * 1_000_000).to_integral_value(rounding=ROUND_CEILING))
 
 
-def decode(response, report):
+def content(response):
+    """The completed JSON answer from the expected model, or ValueError."""
     if response.get("model") not in {MODEL, "google/gemini-3.8-flash-20260902"}:
         raise ValueError("Provider returned a different model")
     if not isinstance(response.get("id"), str) or not response["id"]:
@@ -77,4 +82,8 @@ def decode(response, report):
     choice = response["choices"][0]
     if choice.get("finish_reason") != "stop":
         raise ValueError("Provider did not complete the debrief")
-    return validate(json.loads(choice["message"]["content"]), report)
+    return json.loads(choice["message"]["content"])
+
+
+def decode(response, report):
+    return validate(content(response), report)

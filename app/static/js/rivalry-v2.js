@@ -11,6 +11,7 @@
   const est = lap => M.estimated(lap) ? ` <abbr class="st-est" title="${EST}">est.</abbr>` : "";
   const state = {data:{categories:[],drivers:[]}, group:null, a:null, b:null, query:"", history:"best"};
   const debrief = globalThis.SessionDebrief ? new globalThis.SessionDebrief($("st-debrief")) : null;
+  const raceReport = globalThis.RaceReport ? new globalThis.RaceReport($("st-race-report")) : null;
   const storageKey = `splittime-rivalry-v2:${globalThis.location?.pathname || ""}`;
   let saved = null;
   try {saved = JSON.parse(globalThis.sessionStorage?.getItem(storageKey) || "null");} catch { /* storage may be blocked */ }
@@ -102,7 +103,7 @@
         <td class="st-quiet">${gap}</td><td class="st-quiet">${progress}</td></tr>`;
     }).join("") || `<tr><td colspan="${drivers.length+3}" class="st-empty">${categories.length ? "No recordings match your search." : "No recordings yet. Captured events will appear here."}</td></tr>`;
     $("st-context").hidden = !shown.length;
-    if (!shown.length) {debrief?.setContext(null,null); save(); return;}
+    if (!shown.length) {debrief?.setContext(null,null); raceReport?.setContext(null,null); save(); return;}
     const group = selected(), history = M.timeline(group,drivers);
     // "best": each driver's one best valid lap; everything else is a click away
     const top = new Set([...M.bests(group).values()].map(lap => lap.lap_id));
@@ -155,6 +156,7 @@
         <a class="st-replay" href="replay.html?laps=${a.lap_id},${b.lap_id}">Replay A against B</a>` : '<span class="st-no-compare">Needs two completed laps</span>'}</div>`;
     drawOutlines();
     debrief?.setContext(a,b,refreshDebrief);
+    raceReport?.setContext(a,b,refreshDebrief);
     save();
   }
   async function load() {
