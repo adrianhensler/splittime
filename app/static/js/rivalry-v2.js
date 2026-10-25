@@ -87,11 +87,15 @@
   function latest(people) {
     const events = M.activity(state.data.categories, people);
     const takeover = events.find(event => event.kind === "takeover");
-    const id = event => `${M.key(event.group)}|${event.lap.driver_id}`;  // newest per driver and group
-    const seen = new Set(takeover ? [id(takeover)] : []), recent = [];
+    // newest story per driver and group; the headline takeover hides only older
+    // stories of its own, never a newer record set after it
+    const id = event => `${M.key(event.group)}|${event.lap.driver_id}`;
+    const seen = new Set(), recent = [];
     for (const event of events) {
       if (seen.has(id(event))) continue;
-      seen.add(id(event)); recent.push(event);
+      seen.add(id(event));
+      if (event === takeover) continue;
+      recent.push(event);
       if (recent.length === 4) break;
     }
     feed = [takeover, ...recent].filter(Boolean);

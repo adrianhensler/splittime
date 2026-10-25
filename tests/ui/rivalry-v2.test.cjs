@@ -214,6 +214,11 @@ test("the banner leads with the latest takeover, escapes names and opens that pa
   // estimated finishes stay marked in the stories
   const sprint = page({drivers,categories:[group([lap(1,"a",60,10,{finish:"last_packet"}),lap(2,"b",59,20)])]});await sprint.settle();
   assert.match(sprint.elt("st-latest").innerHTML,/1\.000 s<\/span> <abbr class="st-est"/);
+  // a record set after the headline takeover still shows
+  const later = page({drivers,categories:[group([lap(1,"a",60,10),lap(2,"b",59,20),lap(3,"a",58,30),lap(4,"a",57,40)])]});
+  await later.settle();
+  assert.match(later.elt("st-latest").innerHTML,/Lead change[\s\S]*Alex<\/strong> took/);
+  assert.match(later.elt("st-latest").innerHTML,/Alex<\/strong> extended the lead on Test Circuit · A to <span class="st-time">2\.000 s/);
   const quiet = page({drivers,categories:[]});await quiet.settle();
   assert.equal(quiet.elt("st-latest").hidden,true);
 });
