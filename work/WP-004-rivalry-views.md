@@ -1,5 +1,15 @@
 # WP-004: Rivalry views (M3)
 
+## First automatic pass, and logging why a narrative is rejected, 2026-10-25
+
+After deploy (53b0c55) the first pass wrote all 5 takeovers at about $0.005
+each (estimate was $0.0015): 98 vs 21, 88 vs 14 and 82 vs 20 passed the fact
+check; 174 vs 98 and 92 vs 66 failed, and nothing records why. Branch
+`fix/race-report-rejection-reason` logs the fact check's own reason (for
+example "states 99.9 s, which is not a measured fact"); provider and network
+errors are logged by type only. Next: one owner Retry on 174 vs 98 to read the
+reason, then tune the checker or the prompt. Not independently verified.
+
 ## Automatic race report on a change of record holder, 2026-10-25
 
 Branch `feat/auto-race-report`: `app/racereport/auto.py` runs in the web role
