@@ -180,6 +180,17 @@ test("activity reads each improvement against the rival's best at that moment", 
   const tie = M.activity([group([lap(31,"a",60,10),lap(32,"b",59,20),lap(33,"a",59,30)])],drivers);
   assert.equal(tie.find(e=>e.lap.lap_id===33).kind,"tied");
   assert.deepEqual(tie.filter(e=>e.kind==="takeover").map(e=>e.lap.lap_id),[32]);
+  // a later outright time after a tie is read against the holder the tie kept
+  const after = M.activity([group([lap(31,"a",60,10),lap(32,"b",59,20),lap(33,"a",59,30),lap(34,"a",58,40)])],drivers);
+  assert.deepEqual(after.filter(e=>e.kind==="takeover").map(e=>[e.lap.lap_id,e.rival.lap_id]),[[34,32],[32,31]]);
+  const kept = M.activity([group([lap(31,"a",60,10),lap(32,"b",59,20),lap(33,"a",59,30),lap(35,"b",58,40)])],drivers);
+  assert.deepEqual(kept.filter(e=>e.kind==="takeover").map(e=>e.lap.lap_id),[32]);
+  assert.equal(kept.find(e=>e.lap.lap_id===35).kind,"extended");
+  // both improve at once: the leader's margin is against the other's new best, as is Open
+  const both2 = M.activity([group([lap(41,"a",60,10),lap(42,"b",61,15),lap(43,"a",58,20),lap(44,"b",59,20)])],drivers);
+  const lead = both2.find(e=>e.lap.lap_id===43), chase = both2.find(e=>e.lap.lap_id===44);
+  assert.equal(lead.kind,"extended");assert.equal(lead.margin,1);assert.equal(lead.rival.lap_id,44);
+  assert.equal(chase.kind,"closing");assert.equal(chase.margin,1);
   // both improve at once while the holder stays fastest: the other only closed in
   const both = M.activity([group([lap(21,"a",60,10),lap(22,"a",58,20),lap(23,"b",59,20)])],drivers);
   assert.equal(both.some(e=>e.kind==="takeover"),false);

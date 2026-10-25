@@ -136,29 +136,32 @@
     for (const group of categories) {
       const laps = timeline(group, pair).filter(lap => lap.pb).sort((a,b) => stamp(a)-stamp(b));
       const best = new Map();
+      let holder = null;  // the driver with the outright record, tracked through ties
+      const fastest = map => [...map.values()].sort((a,b) => a.time_s-b.time_s);
       for (let i = 0; i < laps.length;) {
         let j = i + 1;
         while (j < laps.length && stamp(laps[j]) === stamp(laps[i])) j++;
-        // Equal finish timestamps are one batch, read against the bests before it,
-        // as timeline() does: no order is invented between them.
-        const fastest = map => [...map.values()].sort((a,b) => a.time_s-b.time_s);
-        const before = fastest(best), record = before[0];
-        const after = new Map(best);
-        for (const lap of laps.slice(i,j)) after.set(lap.driver_id, lap);
-        // only the holder after the whole batch can have taken or extended the record
-        const standing = fastest(after), holder = standing[0];
-        // a time equal to the next driver's is a tie: nobody took or extended anything
-        const outright = !standing[1] || holder.time_s < standing[1].time_s;
+        // Equal finish timestamps are one batch, as timeline() reads them: no order
+        // is invented between them. Who holds the record is decided after the whole
+        // batch, a tie keeps the holder, and margins are against the bests after it.
+        const before = fastest(best);
+        for (const lap of laps.slice(i,j)) best.set(lap.driver_id, lap);
+        const standing = fastest(best);
+        const leader = !standing[1] || standing[0].time_s < standing[1].time_s ? standing[0] : null;
         for (const lap of laps.slice(i,j)) {
           const other = list => list.find(old => old.driver_id !== lap.driver_id) || null;
           let rival = other(before), kind;
           if (!rival) kind = lap.delta === null ? "first" : "unanswered";
-          else if (lap === holder && outright) kind = record.driver_id !== lap.driver_id ? "takeover" : "extended";
-          else {rival = other(standing); kind = lap.time_s === rival.time_s ? "tied" : "closing";}
+          else {
+            rival = other(standing);
+            kind = lap === leader ? (holder !== null && holder !== lap.driver_id ? "takeover" : "extended") :
+              lap.time_s === rival.time_s ? "tied" : "closing";
+          }
           events.push({kind, group, lap, rival, at:stamp(lap),
             margin:rival ? Math.abs(rival.time_s-lap.time_s) : null});
         }
-        for (const lap of laps.slice(i,j)) best.set(lap.driver_id, lap);
+        if (leader) holder = leader.driver_id;
+        else if (!standing.some(lap => lap.time_s === standing[0].time_s && lap.driver_id === holder)) holder = null;
         i = j;
       }
     }
