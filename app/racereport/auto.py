@@ -36,9 +36,15 @@ def _stamp(value):
         return None
 
 
+def _run(lap):
+    return f"{lap['session_id']}@{lap['started_at_utc']}"
+
+
 def takeovers(summary, since):
-    """(new record lap, record it beat, finish time), newest first, for every
-    change of record holder finishing at or after `since`. Laps finishing at
+    """(new record lap, record it beat, finish time, identity), newest first,
+    for every change of record holder finishing at or after `since`. The
+    identity names both runs by session and start time, since lap IDs can be
+    reused after the newest laps are deleted. Laps finishing at
     the same instant are one batch read against the bests before it, and an
     undated clean lap makes a group's order unknown, so it is skipped."""
     found = []
@@ -65,10 +71,13 @@ def takeovers(summary, since):
                 best[lap["driver_id"]] = lap
             # Only the holder after the whole batch took anything: two drivers
             # improving at once while the old holder stays fastest is no takeover.
-            after = min(best.values(), key=lambda lap: lap["time_s"])
-            if (before is not None and after["driver_id"] != before["driver_id"]
+            standing = sorted(best.values(), key=lambda lap: lap["time_s"])
+            after = standing[0]
+            outright = len(standing) < 2 or after["time_s"] < standing[1]["time_s"]  # a tie takes nothing
+            if (before is not None and outright and after["driver_id"] != before["driver_id"]
                     and after["time_s"] < before["time_s"] and stamped[i][0] >= since):
-                found.append((after["lap_id"], before["lap_id"], stamped[i][0]))
+                found.append((after["lap_id"], before["lap_id"], stamped[i][0],
+                              f"{_run(after)}|{_run(before)}"))
             i = j
     return sorted(found, key=lambda item: -item[2])
 
@@ -77,8 +86,8 @@ def _table(conn):
     # every takeover handled, sent or found already cached: durable, so a restart
     # or a later cache change never sends the same takeover again
     conn.execute("CREATE TABLE IF NOT EXISTS auto_reports ("
-                 "lap_a INTEGER NOT NULL, lap_b INTEGER NOT NULL, month TEXT NOT NULL, "
-                 "created REAL NOT NULL, sent INTEGER NOT NULL, PRIMARY KEY (lap_a, lap_b))")
+                 "pair TEXT PRIMARY KEY, lap_a INTEGER NOT NULL, lap_b INTEGER NOT NULL, "
+                 "month TEXT NOT NULL, created REAL NOT NULL, sent INTEGER NOT NULL)")
 
 
 def auto_calls(db: Ledger):
@@ -88,11 +97,11 @@ def auto_calls(db: Ledger):
                             (db.month(),)).fetchone()[0]
 
 
-def handled(db: Ledger, lap_a, lap_b):
+def handled(db: Ledger, pair):
     with db.connection() as conn:
         _table(conn)
-        return conn.execute("SELECT 1 FROM auto_reports WHERE lap_a=? AND lap_b=?",
-                            (lap_a, lap_b)).fetchone() is not None
+        return conn.execute("SELECT 1 FROM auto_reports WHERE pair=?",
+                            (pair,)).fetchone() is not None
 
 
 def run_once(store, drivers, db: Ledger, key, done: set, now=None):
@@ -100,9 +109,9 @@ def run_once(store, drivers, db: Ledger, key, done: set, now=None):
     now = time.time() if now is None else now
     names = {d.id: d.name for d in drivers}
     sent = 0
-    for lap_a, lap_b, _ in takeovers(rivalry_summary(store, drivers), now - WINDOW_S):
-        if (lap_a, lap_b) in done or handled(db, lap_a, lap_b):
-            done.add((lap_a, lap_b))
+    for lap_a, lap_b, _, pair in takeovers(rivalry_summary(store, drivers), now - WINDOW_S):
+        if pair in done or handled(db, pair):
+            done.add(pair)
             continue
         if auto_calls(db) >= AUTO_MONTH_CALLS:
             log.info("Automatic race reports: monthly limit of %d reached", AUTO_MONTH_CALLS)
@@ -113,19 +122,19 @@ def run_once(store, drivers, db: Ledger, key, done: set, now=None):
             if "still recording" in str(exc.detail):
                 continue  # try again once the session closes
             log.info("Automatic race report %d vs %d skipped: %s", lap_a, lap_b, exc.detail)
-            done.add((lap_a, lap_b))
+            done.add(pair)
             continue
         except ValueError as exc:
             log.info("Automatic race report %d vs %d skipped: %s", lap_a, lap_b, exc)
-            done.add((lap_a, lap_b))
+            done.add(pair)
             continue
         except BudgetError as exc:
             log.info("Automatic race reports paused: %s", exc)
             break
-        done.add((lap_a, lap_b))
+        done.add(pair)
         with db.connection() as conn:
-            conn.execute("INSERT OR IGNORE INTO auto_reports VALUES (?,?,?,?,?)",
-                         (lap_a, lap_b, db.month(), now, int(called)))
+            conn.execute("INSERT OR IGNORE INTO auto_reports VALUES (?,?,?,?,?,?)",
+                         (pair, lap_a, lap_b, db.month(), now, int(called)))
         if called:
             sent += 1
             log.info("Automatic race report written for takeover %d vs %d", lap_a, lap_b)

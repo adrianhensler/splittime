@@ -9,7 +9,8 @@ from app.racereport import auto
 
 def lap(lap_id, driver, time_s, at, clean=True):
     stamp = None if at is None else datetime.fromtimestamp(at, timezone.utc).isoformat().replace("+00:00", "Z")
-    return {"lap_id": lap_id, "driver_id": driver, "time_s": time_s,
+    return {"lap_id": lap_id, "session_id": lap_id * 10, "started_at_utc": f"start-{lap_id}",
+            "driver_id": driver, "time_s": time_s,
             "finished_at_utc": stamp, "candidate_clean": clean}
 
 
@@ -22,14 +23,19 @@ def test_takeovers_are_changes_of_record_holder_newest_first():
              lap(3, "a", 58, 30), lap(4, "a", 57, 40),      # a takes it back, then extends
              lap(5, "b", 56.5, 50, clean=False)]            # a lap that does not count
     other = [lap(6, "b", 70, 15), lap(7, "a", 71, 25)]      # slower answer: no takeover
-    assert auto.takeovers(summary(route, other), 0) == [(3, 2, 30), (2, 1, 20)]
-    assert auto.takeovers(summary(route), 25) == [(3, 2, 30)]  # the window
+    found = auto.takeovers(summary(route, other), 0)
+    assert [t[:3] for t in found] == [(3, 2, 30), (2, 1, 20)]
+    assert found[0][3] == "30@start-3|20@start-2"  # runs, not reusable lap IDs
+    assert [t[:3] for t in auto.takeovers(summary(route), 25)] == [(3, 2, 30)]  # the window
+    # an equalled time takes nothing, whoever sorts first
+    assert auto.takeovers(summary([lap(1, "a", 60, 10), lap(2, "b", 59, 20), lap(3, "a", 59, 30)]), 0)[0][:3] == (2, 1, 20)
+    assert len(auto.takeovers(summary([lap(1, "a", 60, 10), lap(2, "b", 59, 20), lap(3, "a", 59, 30)]), 0)) == 1
     # simultaneous finishes are one batch: neither took anything from the other
     assert auto.takeovers(summary([lap(1, "a", 60, 10), lap(2, "b", 59, 10)]), 0) == []
     # both improve at once but the holder stays fastest: no takeover; if the
     # other driver ends up fastest, only that one is
     assert auto.takeovers(summary([lap(1, "a", 60, 10), lap(2, "a", 58, 20), lap(3, "b", 59, 20)]), 0) == []
-    assert auto.takeovers(summary([lap(1, "a", 60, 10), lap(2, "a", 59, 20), lap(3, "b", 58, 20)]), 0) == [(3, 1, 20)]
+    assert [t[:3] for t in auto.takeovers(summary([lap(1, "a", 60, 10), lap(2, "a", 59, 20), lap(3, "b", 58, 20)]), 0)] == [(3, 1, 20)]
     # an undated clean lap makes the order unknown, so nothing is claimed
     assert auto.takeovers(summary([lap(1, "a", 60, None), lap(2, "b", 59, 20)]), 0) == []
 
@@ -41,7 +47,7 @@ class Driver:
 
 def test_a_pass_sends_each_takeover_once_within_the_monthly_cap(tmp_path, monkeypatch):
     db = Ledger(tmp_path / "debrief.db", now=lambda: 1_800_000_000)
-    pairs = [(10 + n, 100 + n, 1_800_000_000 - n) for n in range(5)]
+    pairs = [(10 + n, 100 + n, 1_800_000_000 - n, f"run{n}") for n in range(5)]
     monkeypatch.setattr(auto, "rivalry_summary", lambda store, drivers: None)
     monkeypatch.setattr(auto, "takeovers", lambda summary, since: pairs)
     calls, outcome = [], {}
@@ -61,7 +67,7 @@ def test_a_pass_sends_each_takeover_once_within_the_monthly_cap(tmp_path, monkey
     assert auto.run_once(None, drivers, db, "key", done, now=1_800_000_000) == 2
     assert all(retry is False for _, _, retry, _ in calls)   # never an automatic retry
     assert calls[0][3] == {"a": "FishFighterNS"}
-    assert done == {(10, 100), (12, 102), (13, 103), (14, 104)}  # 11 waits for its session
+    assert done == {"run0", "run2", "run3", "run4"}           # run1 waits for its session
     assert auto.auto_calls(db) == 2
 
     calls.clear()
@@ -82,8 +88,10 @@ def test_a_pass_sends_each_takeover_once_within_the_monthly_cap(tmp_path, monkey
     assert auto.run_once(None, drivers, db, "key", set(), now=1_800_000_000) == 0
     assert calls == []
     monkeypatch.setattr(auto, "AUTO_MONTH_CALLS", 20)
-    monkeypatch.setattr(auto, "takeovers", lambda summary, since: [(20, 200, 1_800_000_000)])
+    monkeypatch.setattr(auto, "takeovers", lambda summary, since: [(20, 200, 1_800_000_000, "new")])
     outcome[20] = BudgetError("spent")
     assert auto.run_once(None, drivers, db, "key", set(), now=1_800_000_000) == 0
     assert [c[0] for c in calls] == [20]
-    assert not auto.handled(db, 20, 200)                     # a paused pass tries again later
+    assert not auto.handled(db, "new")                       # a paused pass tries again later
+    # a reused lap ID is a different run, so it is not taken as already handled
+    assert auto.handled(db, "run0") and not auto.handled(db, "run0-reused")

@@ -632,7 +632,9 @@ confirmed them.
   again automatically; a session still recording waits for the next pass;
   an ineligible pair is skipped.
 - Every takeover handled is kept in an `auto_reports` table in the ledger
-  file, so a restart or a later cache change never sends it again. Laps
+  file, keyed by both runs' session and start time (lap IDs can be reused),
+  so a restart or a later cache change never sends it again. A tie takes
+  nothing. Laps
   finishing at the same instant count as a takeover only if the holder after
   the whole batch changed.
 - Automatic calls stop at 20 per UTC month (at most $0.20 at the $0.01
