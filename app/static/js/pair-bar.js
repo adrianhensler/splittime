@@ -37,11 +37,20 @@
     const group = found[0]?.group || found[1]?.group;
     return `<div class="st-pair-who">${group ? `<span class="st-quiet">${esc(group.route_name)} · ${esc(group.car_class_label)}</span> ` : ""}
       ${who("A", a, found[0])} vs ${who("B", b, found[1])}${inPage ? "" :
-        ` <a class="st-pair-swap" href="${href(current, b, a)}">⇄ Swap A and B</a>`}</div>
+        ` <a class="st-pair-swap" href="${href(current, b, a)}">⇄ Swap A and B</a>`}${current === "replay" ? "" :
+        ` <button type="button" class="st-pair-copy" data-pair-copy="${href(current, a, b)}">Copy link</button>`}</div>
       <nav class="st-pair-views" aria-label="This pair">${VIEWS.map(([view, label]) => view === current ?
         `<span aria-current="page">${label.replace("&", "&amp;")}</span>` :
         `<a href="${href(view, a, b)}">${label.replace("&", "&amp;")}</a>`).join("")}${inPage ? "" :
         '<a class="st-pair-back" href="rivalry-v2.html">← Rivalry</a>'}</nav>`;
+  }
+  /* Copies the full address of this pair's view; Replay has its own button. */
+  async function copy(button, base, clipboard) {
+    const url = new URL(button.dataset.pairCopy, base).href;
+    try {await clipboard.writeText(url); button.textContent = "Link copied";}
+    catch {button.textContent = "Copy the address bar";}
+    setTimeout(() => {button.textContent = "Copy link";}, 2000);
+    return url;
   }
   /* Fills every [data-pair-bar] on the page from the address bar. */
   async function mount(doc, search, fetcher) {
@@ -57,10 +66,14 @@
       host.hidden = false;
     }
   }
-  const bar = {parse, href, find, html, mount};
+  const bar = {parse, href, find, html, mount, copy};
   if (typeof module !== "undefined" && module.exports) module.exports = bar;
   else {
     root.PairBar = bar;
+    root.document?.addEventListener?.("click", event => {
+      const button = event.target.closest?.("[data-pair-copy]");
+      if (button) copy(button, root.location.href, root.navigator.clipboard);
+    });
     if (root.document?.querySelector?.("[data-pair-bar]"))
       mount(root.document, root.location.search, (...args) => root.fetch(...args));
   }

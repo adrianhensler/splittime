@@ -1,5 +1,24 @@
 # WP-004: Rivalry views (M3)
 
+## Shareable race report link, 2026-10-26
+
+The owner could not share the race report he was reading. Branch
+`feat/share-pair-link`: Rivalry keeps `?laps=a,b` in the address while a pair
+is selected (replaceState, keeping the hash), instead of dropping it after
+arrival; a link selects the pair and opens its report. The pair strip has a
+Copy link button on Rivalry and Traces & corners (Replay keeps its own),
+copying the absolute address, or saying "Copy the address bar" without a
+clipboard. UI suite 102 passed. Headless check with the report API stubbed in
+the browser: a cold `?laps=174,98#st-analysis` load makes one report request
+and shows the review; Copy link copies that address; picking B = 22 makes one
+request and the address becomes `?laps=174,22`.
+Incident while testing: an earlier headless script used a self-invalidating
+selector ("first unchecked B radio") that flipped B between 98 and 22 about
+60 times; every cancelled `api/race-report` request kept computing on the
+server (about 80 MB each), taking the web container to 5.5 GB twice and
+swapping the host. Not a page bug. Gateway PR caps the web container at 1 GB;
+limiting concurrent report builds is a separate follow-up.
+
 ## Menu and What's new, 2026-10-26
 
 Owner's choices: Rivalry_legacy leaves the site menu (still linked from

@@ -26,6 +26,16 @@ test("every view links the same pair; the current one is marked, swap stays on i
   assert.match(html,/Ito &lt;Sprint&gt; · S2/);
   assert.match(html,/&lt;img src=x&gt;/);assert.doesNotMatch(html,/<img/);
   assert.match(html,/href="rivalry-v2\.html">← Rivalry/);
+  assert.match(html,/data-pair-copy="compare\.html\?laps=174,98">Copy link/);
+  assert.doesNotMatch(P.html(cats,174,98,"replay"),/data-pair-copy/);  // Replay has its own
+});
+test("Copy link puts the full address of this view on the clipboard, or says how to share", async () => {
+  const button = {dataset:{pairCopy:"rivalry-v2.html?laps=174,98#st-analysis"},textContent:"Copy link"}, copied = [];
+  const url = await P.copy(button,"https://test.hensler.work/splittime/compare.html?laps=1,2",{writeText:async t=>copied.push(t)});
+  assert.equal(url,"https://test.hensler.work/splittime/rivalry-v2.html?laps=174,98#st-analysis");
+  assert.deepEqual(copied,[url]);assert.equal(button.textContent,"Link copied");
+  await P.copy(button,"https://x/",undefined);
+  assert.equal(button.textContent,"Copy the address bar");
 });
 test("on Rivalry itself there is no reload swap or back link; unknown laps still link by number", () => {
   const html = P.html(cats,174,98,"report",{inPage:true});

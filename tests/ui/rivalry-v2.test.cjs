@@ -245,7 +245,7 @@ test("the banner leads with the latest takeover, escapes names and opens that pa
   const quiet = page({drivers,categories:[]});await quiet.settle();
   assert.equal(quiet.elt("st-latest").hidden,true);
 });
-test("a link with ?laps=a,b selects that pair, opens the report once, then leaves the address", async () => {
+test("a link with ?laps=a,b selects that pair and opens its report; the address then follows the selection", async () => {
   const PairBar = require(path.join(root,"app/static/js/pair-bar.js")), replaced = [];
   const payload = {drivers,categories:[group([lap(1,"a",60,10),lap(2,"b",59,20),lap(3,"a",61,5)]),
     {...group([lap(7,"a",70,10),lap(8,"b",71,20)]),route_id:4,route_name:"Other Road"}]};
@@ -255,11 +255,15 @@ test("a link with ?laps=a,b selects that pair, opens the report once, then leave
   assert.equal(p.elt("st-event-heading").textContent,"Other Road · A");
   assert.match(p.elt("st-inspector").innerHTML,/compare\.html\?laps=8,7/);
   assert.equal(p.elt("st-race-report").open,true);
-  assert.deepEqual(replaced,["/rivalry-v2.html#st-analysis"]);
+  assert.deepEqual(replaced,[]);  // already the right address
   assert.match(p.elt("st-pair").innerHTML,/aria-current="page">Race report/);
   assert.doesNotMatch(p.elt("st-pair").innerHTML,/st-pair-swap/);
+  assert.match(p.elt("st-pair").innerHTML,/data-pair-copy="rivalry-v2\.html\?laps=8,7#st-analysis">Copy link/);
   // laps on different routes are not a pair: the page opens as usual
-  const q = page(payload,new Map(),{PairBar,location:{search:"?laps=1,7",pathname:"/r",hash:""},history:{replaceState(){}}});
+  const moved = [], q = page(payload,new Map(),{PairBar,location:{search:"?laps=1,7",pathname:"/r",hash:""},
+    history:{replaceState:(s,t,url)=>moved.push(url)}});
   await q.settle();
   assert.doesNotMatch(q.elt("st-inspector").innerHTML,/laps=1,7/);
+  assert.match(moved.at(-1),/^\/r\?laps=\d+,\d+$/);  // the address names the pair actually shown
+  assert.notEqual(moved.at(-1),"/r?laps=1,7");
 });
