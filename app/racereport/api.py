@@ -53,7 +53,8 @@ def view(report, db):
 async def race_report(request: Request, response: Response, lap_a: int = Query(gt=0),
                       lap_b: int = Query(gt=0)):
     response.headers["Cache-Control"] = "no-store"
-    return await heavy.run(request, lambda: view(report_for(request, lap_a, lap_b), ledger(request)))
+    return await heavy.run(request, ("race-report", lap_a, lap_b),
+                           lambda: view(report_for(request, lap_a, lap_b), ledger(request)))
 
 
 def write(store, db, names, lap_a, lap_b, key, retry=False):

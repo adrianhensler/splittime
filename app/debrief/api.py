@@ -45,8 +45,8 @@ def view(report, db):
 async def debrief(request: Request, response: Response, lap_a: int = Query(gt=0),
                   lap_b: int | None = Query(default=None, gt=0)):
     response.headers["Cache-Control"] = "no-store"
-    return await heavy.run(request, lambda: view(build_report(request.app.state.store, lap_a, lap_b),
-                                                 ledger(request)))
+    return await heavy.run(request, ("debrief", lap_a, lap_b),
+                           lambda: view(build_report(request.app.state.store, lap_a, lap_b), ledger(request)))
 
 
 @router.post("/debrief/generate")
