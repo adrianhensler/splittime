@@ -1039,6 +1039,7 @@ async function reloadSession() {
   // on a pick from a session other than the displayed one
   await refetchPickData();
   renderPicks();
+  reviewContext(true);  // the same laps, measured again after the edit
   loadSessions();  // lap counts / best on the session cards may have moved
 }
 
@@ -1212,12 +1213,16 @@ function renderPicks() {
 }
 
 /* The session review follows the tray: A's whole session, measured against
-   B when the tray holds a second lap. */
-function reviewContext() {
+   B when the tray's second lap is on the same known route (the server refuses
+   any other B, and A's own review must not go with it). `refresh` reloads it
+   for the same laps, after an edit changed what they measure. */
+function reviewContext(refresh = false) {
   if (!sessionReview) return;
+  const [a, b] = state.picks;
   const lap = (p) => p && { lap_id: p.lapId, session_id: p.session.id,
     driver_name: driverLabel(p.session) || "Driver" };
-  sessionReview.setContext(lap(state.picks[0]), lap(state.picks[1]));
+  const same = a && b && a.session.route_id != null && a.session.route_id === b.session.route_id;
+  sessionReview.setContext(lap(a), same ? lap(b) : null, refresh);
 }
 
 function renderTray() {

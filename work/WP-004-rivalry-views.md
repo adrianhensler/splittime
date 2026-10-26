@@ -16,6 +16,13 @@ Wording: "Session review", "AI priorities", and no "counted separately above"
 Headless Analysis check with the debrief API answered in the browser: opening
 a session fills the panel from the tray (`?lap_a=186`) and renders in the
 page's styling. What's new entry added.
+Codex (two P2): (1) a tray with laps on different or unknown routes made
+the server refuse the whole review (409), A's own stats included; B is now
+passed only when both picks share a known `route_id`, else A is reviewed
+alone. (2) After a lap edit `reloadSession()` re-rendered with the same lap
+IDs, so the review kept stale measurements; it now calls `reviewContext(true)`
+to reload them. Test runs `reviewContext` itself for same / other / unknown
+routes and the refresh flag. UI suite 107 passed.
 ## At most two report builds at once, 2026-10-26
 
 Follow-up to the 5.5 GB incidents (see the shareable-link checkpoint below):
