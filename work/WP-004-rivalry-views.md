@@ -1,5 +1,25 @@
 # WP-004: Rivalry views (M3)
 
+## At most two report builds at once, 2026-10-26
+
+Follow-up to the 5.5 GB incidents (see the shareable-link checkpoint below):
+cancelled `GET api/race-report` requests kept computing. Branch
+`fix/limit-report-builds` adds `app/heavy.py`: the race report and debrief
+GETs are async and run their build in a worker thread behind one per-app
+semaphore of `MAX_BUILDS = 2`. Errors raised in the build (404/409) still
+reach the caller. The gateway's 1 GB cap stays as the outer guard.
+Codex (P2): the first version skipped queued requests whose caller had
+disconnected, but behind `create_app`'s `@app.middleware("http")` wrappers
+`request.is_disconnected()` never sees the disconnect. Replaced, without
+relying on disconnects: identical requests in flight (same endpoint and laps)
+share one build (`asyncio.shield`, so one caller leaving does not cancel it);
+at most `MAX_PENDING = 6` different builds wait or run, past that 503 with
+`Retry-After: 2`. Tests: `tests/test_heavy.py` (peak 2 of 6; 60 requests for
+two pairs = 2 builds; the cap and an identical request still joining; errors
+reach every caller) and an integration test through the real app and its
+middleware with lifespan (12 concurrent GETs for one pair = 1 build, all 200).
+Full suite 358 passed, Ruff clean.
+
 ## Shareable race report link, 2026-10-26
 
 The owner could not share the race report he was reading. Branch

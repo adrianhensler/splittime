@@ -238,3 +238,37 @@ def test_generate_without_a_key_keeps_measurements(circuit, monkeypatch):
     client = TestClient(app, base_url="http://localhost")
     assert client.post("/api/race-report/generate", json={"lap_a": a, "lap_b": b}).status_code == 503
     assert client.get(f"/api/race-report?lap_a={a}&lap_b={b}").json()["ai"]["enabled"] is False
+
+
+def test_a_flood_of_report_requests_through_the_real_app_builds_once(circuit, monkeypatch, tmp_path):
+    # through create_app's middleware, where a caller leaving is not visible
+    import threading
+    import time
+
+    from app.racereport import api as race_api
+    store, a, b = circuit
+    real, builds = race_api.report_for, []
+
+    def slow(request, lap_a, lap_b):
+        builds.append((lap_a, lap_b))
+        time.sleep(0.3)
+        return real(request, lap_a, lap_b)
+    monkeypatch.setattr(race_api, "report_for", slow)
+    # one event loop for every request, as in production: run the app's lifespan
+    monkeypatch.setenv("SPLITTIME_COLLECTOR_URL", "http://127.0.0.1:9")
+    monkeypatch.setenv("DATA_DIR", str(tmp_path))
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    app = create_app("web")
+    with TestClient(app, base_url="http://localhost") as client:
+        app.state.store = store
+        codes = []
+
+        def get():
+            codes.append(client.get(f"/api/race-report?lap_a={a}&lap_b={b}").status_code)
+        threads = [threading.Thread(target=get) for _ in range(12)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+    assert codes == [200] * 12
+    assert builds == [(a, b)]

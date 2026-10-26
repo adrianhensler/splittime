@@ -8,6 +8,7 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException, Query, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
 
+from .. import heavy
 from . import openrouter
 from .contracts import MODEL, PROMPT_VERSION, explain
 from .ledger import CALL_LIMIT, BudgetError, Ledger
@@ -41,10 +42,11 @@ def view(report, db):
 
 
 @router.get("/debrief")
-def debrief(request: Request, response: Response, lap_a: int = Query(gt=0),
-            lap_b: int | None = Query(default=None, gt=0)):
+async def debrief(request: Request, response: Response, lap_a: int = Query(gt=0),
+                  lap_b: int | None = Query(default=None, gt=0)):
     response.headers["Cache-Control"] = "no-store"
-    return view(build_report(request.app.state.store, lap_a, lap_b), ledger(request))
+    return await heavy.run(request, ("debrief", lap_a, lap_b),
+                           lambda: view(build_report(request.app.state.store, lap_a, lap_b), ledger(request)))
 
 
 @router.post("/debrief/generate")
