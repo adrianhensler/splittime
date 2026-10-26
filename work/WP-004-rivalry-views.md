@@ -1,5 +1,15 @@
 # WP-004: Rivalry views (M3)
 
+## Menu and What's new, 2026-10-26
+
+Owner's choices: Rivalry_legacy leaves the site menu (still linked from
+Rivalry's footer, and keeps its own entry on its own page), Analysis stays.
+Branch `feat/nav-whats-new`: every page's menu is Live · Analysis · Rivalry ·
+Replay · Stats · How it works · What's new. New `whats-new.html` (docs
+styling) lists user-visible changes in plain language, newest first; the
+owner asked for it because the repository is private. Every later
+user-visible PR adds its entry there. UI suite passed; headless render of the
+new page checked.
 ## One pair, three views: the pair bar, 2026-10-26
 
 The owner found Rivalry, the race report, Compare and Replay "a bunch of random
