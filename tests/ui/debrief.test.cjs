@@ -55,3 +55,12 @@ test("failed calls need explicit retry; pending/cached reports disable generatio
   assert.match(p.content.innerHTML,/One practice focus/);
   assert.match(p.content.innerHTML,/data-debrief="generate" disabled/);
 });
+test("the session review lives on Analysis, next to that session's laps, not on Rivalry",()=>{
+  const read=f=>fs.readFileSync(`app/static/${f}`,"utf8");
+  const analysis=read("analysis.html"),rivalry=read("rivalry-v2.html"),code=read("js/analysis.js");
+  assert.match(analysis,/<details id="st-debrief"/);assert.match(analysis,/js\/debrief\.js/);
+  assert.match(analysis,/js\/rivalry-v2-model\.js/);  // debrief.js formats times with it
+  assert.doesNotMatch(rivalry,/st-debrief"|js\/debrief\.js/);
+  assert.match(code,/new globalThis\.SessionDebrief\(\$\("#st-debrief"\)\)/);
+  assert.match(code,/sessionReview\.setContext\(lap\(state\.picks\[0\]\), lap\(state\.picks\[1\]\)\)/);
+});

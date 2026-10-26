@@ -6,7 +6,7 @@
   class SessionDebrief {
     constructor(host) {
       this.host = host; this.context = null; this.sequence = 0; this.busy = false;
-      host.innerHTML = '<summary>Session debrief · select A to review its session</summary><div class="st-debrief-content" aria-live="polite"></div>';
+      host.innerHTML = '<summary>Session review · pick a lap to review its session</summary><div class="st-debrief-content" aria-live="polite"></div>';
       this.content = host.querySelector("div");
       host.addEventListener("toggle", () => {if (host.open) this.load();});
       host.addEventListener("click", event => {
@@ -21,14 +21,14 @@
       if (!refresh && JSON.stringify(next) === JSON.stringify(this.context)) return;
       this.context = next; ++this.sequence; this.controller?.abort(); this.busy = false;
       this.host.querySelector("summary").textContent = a ?
-        `Session debrief · ${a.driver_name} · session ${a.session_id} · A vs ${b ? "B" : "no reference"}` :
-        "Session debrief · choose an A lap";
+        `Session review · ${a.driver_name} · session ${a.session_id}${b ? " · against B" : ""}` :
+        "Session review · pick a lap to review its session";
       this.content.textContent = "Expand to review measured session results.";
       if (this.host.open) this.load();
     }
     async load(generate = false) {
       if (this.busy) return;
-      if (!this.context) {this.content.textContent = "Choose an A lap from this event."; return;}
+      if (!this.context) {this.content.textContent = "Pick a lap to review its session."; return;}
       const sequence = ++this.sequence, {lap_a,lap_b} = this.context;
       this.busy = true; this.controller?.abort(); this.controller = new AbortController();
       if (generate) {
@@ -43,7 +43,7 @@
             body:JSON.stringify({lap_a,lap_b,retry:this.retry === true})} : {})});
         if (sequence !== this.sequence) return;
         if (response.status === 401 || response.status === 403 || response.redirected) {
-          throw new Error("This needs a signed-in account with SplitTime access to generate an AI debrief. If you are signed in, an admin can add you to SplitTime. Measurements remain public.");
+          throw new Error("This needs a signed-in account with SplitTime access to generate AI priorities. If you are signed in, an admin can add you to SplitTime. Measurements remain public.");
         }
         const data = await response.json();
         if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : `HTTP ${response.status}`);
@@ -84,13 +84,13 @@
         ${corners.length ? `<ul>${corners.slice(0,3).map(f => `<li>${esc(f.text)}</li>`).join("")}</ul>
         <p class="st-quiet">Corner numbering uses reference lap ${pair.reference_lap_id}; detection can change with a new reference.</p>` : '<p class="st-quiet">No dependable corner priorities for this selection.</p>'}
         ${compare ? `<a href="${compare}">Traces &amp; corners for these laps</a>` : ""}</div>
-        <div><h3>${explanation ? "Gemini’s priorities" : "Optional AI debrief"}</h3>
+        <div><h3>${explanation ? "Gemini’s priorities" : "Optional AI priorities"}</h3>
           ${explanation ? `<ul>${explanation.highlights.map(t => `<li>${esc(t)}</li>`).join("")}</ul>
           <h3>One practice focus · hypothesis</h3><p>${esc(explanation.focus)}</p><p>${esc(explanation.practice)}</p>` : ""}
-          <p class="st-quiet st-debrief-status">${esc(status)}</p><div class="st-debrief-actions"><button type="button" data-debrief="generate" ${disabled ? "disabled" : ""}>${this.retry ? "Retry AI debrief" : "Generate AI debrief"}</button>
+          <p class="st-quiet st-debrief-status">${esc(status)}</p><div class="st-debrief-actions"><button type="button" data-debrief="generate" ${disabled ? "disabled" : ""}>${this.retry ? "Retry AI priorities" : "Generate AI priorities"}</button>
           <button type="button" data-debrief="refresh">Reload measurements</button></div>
           <p class="st-quiet">Generating one needs a signed-in SplitTime account · shared AI budget $1 / UTC month, up to $0.01 reserved per call · $${ai.budget.remaining_usd.toFixed(3)} left.</p></div></div>
-      <p class="st-quiet">${s.estimated} estimated finishes · ${s.laps_runs - s.eligible} laps/runs not eligible. Event starts are counted separately above.</p>
+      <p class="st-quiet">${s.estimated} estimated finishes · ${s.laps_runs - s.eligible} laps/runs not eligible.</p>
       <ul class="st-quiet st-debrief-warnings">${report.warnings.map(w => `<li>${esc(w)}</li>`).join("")}</ul>`;
     }
   }

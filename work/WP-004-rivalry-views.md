@@ -1,5 +1,21 @@
 # WP-004: Rivalry views (M3)
 
+## Session review moves to Analysis, 2026-10-26
+
+The owner found two AI reviews under "A vs B analysis" confusing (race report
+and session debrief) and agreed to move the session one. Branch
+`feat/debrief-in-analysis`: Rivalry keeps only the race report (no
+`#st-debrief`, no `debrief.js`; Analyse with only A no longer opens anything;
+the analysis note points to Analysis for whole sessions). Analysis gets a
+"Session review" panel under the lap comparison, `js/debrief.js` unchanged in
+behaviour, mounted with each detail pane and given the tray's first two picks
+(A = reference, B = second pick if any) on every tray change. New
+`css/debrief.css` scopes its styles to that panel in Analysis's palette.
+Wording: "Session review", "AI priorities", and no "counted separately above"
+(that referred to Rivalry). UI suite 106 passed (new placement test).
+Headless Analysis check with the debrief API answered in the browser: opening
+a session fills the panel from the tray (`?lap_a=186`) and renders in the
+page's styling. What's new entry added.
 ## At most two report builds at once, 2026-10-26
 
 Follow-up to the 5.5 GB incidents (see the shareable-link checkpoint below):

@@ -48,6 +48,7 @@ const state = {
 };
 
 const pickOf = (lapId) => state.picks.find((p) => p.lapId === lapId);
+let sessionReview = null;  // js/debrief.js, remade with each detail pane
 const refPick = () => (state.picks[0] && state.picks[0].data ? state.picks[0] : null);
 const pickLetter = (pick) => String.fromCharCode(65 + state.picks.indexOf(pick)); // A–F
 const nextColor = () => PICK_COLORS.find((c) => !state.picks.some((p) => p.color === c));
@@ -666,6 +667,9 @@ function mountDetail() {
   detail.classList.remove("busy");
   detail.innerHTML = "";
   detail.appendChild($("#detail-template").content.cloneNode(true));
+  sessionReview = globalThis.SessionDebrief && $("#st-debrief")
+    ? new globalThis.SessionDebrief($("#st-debrief")) : null;
+  reviewContext();
   $("#btn-map-png").onclick = exportMapPng;
   $("#color-mode").value = state.colorMode;
   $("#color-mode").onchange = (e) => {
@@ -1204,6 +1208,16 @@ function renderPicks() {
   drawCharts();
   renderRawSection();
   maybeWarnCrossRoute();
+  reviewContext();
+}
+
+/* The session review follows the tray: A's whole session, measured against
+   B when the tray holds a second lap. */
+function reviewContext() {
+  if (!sessionReview) return;
+  const lap = (p) => p && { lap_id: p.lapId, session_id: p.session.id,
+    driver_name: driverLabel(p.session) || "Driver" };
+  sessionReview.setContext(lap(state.picks[0]), lap(state.picks[1]));
 }
 
 function renderTray() {
