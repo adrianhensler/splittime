@@ -1,5 +1,17 @@
 # WP-004: Rivalry views (M3)
 
+## At most two report builds at once, 2026-10-26
+
+Follow-up to the 5.5 GB incidents (see the shareable-link checkpoint below):
+cancelled `GET api/race-report` requests kept computing. Branch
+`fix/limit-report-builds` adds `app/heavy.py`: the race report and debrief
+GETs are async and run their build in a worker thread behind one per-app
+semaphore of `MAX_BUILDS = 2`; a queued request whose caller has disconnected
+is answered 499 without building. Errors raised in the build (404/409) still
+reach the caller. New `tests/test_heavy.py` (peak concurrency 2 of 6, a
+departed caller costs nothing, errors propagate); full suite 355 passed, Ruff
+clean. The gateway's 1 GB cap stays as the outer guard.
+
 ## Shareable race report link, 2026-10-26
 
 The owner could not share the race report he was reading. Branch

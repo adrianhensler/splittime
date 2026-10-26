@@ -11,6 +11,7 @@ import os
 from fastapi import APIRouter, HTTPException, Query, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
 
+from .. import heavy
 from ..debrief import openrouter
 from ..debrief.api import ledger
 from ..debrief.contracts import MODEL
@@ -49,10 +50,10 @@ def view(report, db):
 
 
 @router.get("/race-report")
-def race_report(request: Request, response: Response, lap_a: int = Query(gt=0),
-                lap_b: int = Query(gt=0)):
+async def race_report(request: Request, response: Response, lap_a: int = Query(gt=0),
+                      lap_b: int = Query(gt=0)):
     response.headers["Cache-Control"] = "no-store"
-    return view(report_for(request, lap_a, lap_b), ledger(request))
+    return await heavy.run(request, lambda: view(report_for(request, lap_a, lap_b), ledger(request)))
 
 
 def write(store, db, names, lap_a, lap_b, key, retry=False):
