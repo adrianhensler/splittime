@@ -141,6 +141,12 @@ internet timing/storage field checks remain in WP-003. `/api/drivers` and
 `/api/status` still return configured ports; the page does not display them.
 No full route-summary/storage acceptance is implied by optional Live viewing.
 
+## Comparison page menu, 2026-10-26
+
+`feat/nav-whats-new` (WP-004 owns the slice): the comparison page's site menu
+matches every other page (Replay and What's new in, Rivalry_legacy out). No
+change to the comparison itself.
+
 ## Pair bar on the comparison page, 2026-10-26
 
 `feat/pair-bar` (WP-004 owns the slice; see its checkpoint): `compare.html`
