@@ -36,6 +36,8 @@ test("needs both laps, costs nothing collapsed, then measures with a relative GE
   assert.match(html,/Section 2 · 0.9 km–6.0 km · C19/);
   assert.match(html,/on\/off pedals, on\/off steering/);
   assert.match(html,/&lt;img src=x&gt;/);assert.doesNotMatch(html,/<img|<script>/);
+  assert.match(html,/data-race="generate" >Write AI race report/);
+  assert.match(html,/needs a signed-in SplitTime account/);assert.doesNotMatch(html,/Management login/);
   await p.controller.load(true);
   assert.equal(p.requests[1].url,"api/race-report/generate");assert.equal(p.requests[1].options.method,"POST");
   assert.deepEqual(JSON.parse(p.requests[1].options.body),{lap_a:98,lap_b:174,retry:false});
@@ -48,7 +50,10 @@ test("names go into the narrative only here, escaped; cached reports disable wri
   const html=p.content.innerHTML;
   assert.match(html,/<strong>Captn Compass<\/strong> takes it by 4.751 s/);
   assert.match(html,/<strong>&lt;img src=x&gt;<\/strong> lifted &lt;b&gt;early&lt;\/b&gt;/);
-  assert.match(html,/Written by Gemini 3.8 Flash/);assert.match(html,/data-race="generate" disabled/);
+  assert.match(html,/Written by Gemini 3.8 Flash/);assert.doesNotMatch(html,/data-race="generate"/);
+  // the written review comes first, before the measured sections
+  assert.ok(html.indexOf("Race engineer’s review")<html.indexOf("Where the time went"));
+  assert.ok(html.indexOf("takes it by")<html.indexOf("Where the time went"));
 });
 test("login error keeps the measurements; failures need an explicit retry",async()=>{
   const p=panel(async(url)=>url.includes("generate")?{ok:false,status:403}:response(sample()));

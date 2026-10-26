@@ -8,7 +8,7 @@
   class RaceReport {
     constructor(host) {
       this.host = host; this.context = null; this.sequence = 0; this.busy = false;
-      host.innerHTML = '<summary>Race report · choose A and B</summary><div class="st-race-content" aria-live="polite"></div>';
+      host.innerHTML = '<summary>Race report &amp; engineer’s review · choose A and B</summary><div class="st-race-content" aria-live="polite"></div>';
       this.content = host.querySelector("div");
       host.addEventListener("toggle", () => {if (host.open) this.load();});
       host.addEventListener("click", event => {
@@ -21,7 +21,7 @@
       if (!refresh && JSON.stringify(next) === JSON.stringify(this.context)) return;
       this.context = next; ++this.sequence; this.controller?.abort(); this.busy = false;
       this.host.querySelector("summary").textContent = next ?
-        `Race report · ${next.a} (A) vs ${next.b} (B)` : "Race report · choose A and B";
+        `Race report & engineer’s review · ${next.a} (A) vs ${next.b} (B)` : "Race report & engineer’s review · choose A and B";
       this.content.textContent = next ? "Expand to see where the time went." : "Choose an A and a B lap.";
       if (this.host.open) this.load();
     }
@@ -79,8 +79,12 @@
       this.content.innerHTML = `
         <p class="st-race-headline"><strong>${esc(leader)}</strong> faster by <span class="st-time">${secs(f.a_gain_s)}</span>
           over ${km(f.route_m)}${f.same_car ? " · same car and PI" : " · different cars or PI"}</p>
-        ${story ? `<div class="st-race-story"><p class="st-race-ai-headline">${this.named(story.headline)}</p><p>${this.named(story.story)}</p>
-          <div class="st-debrief-grid">${side(a, story.a)}${side(b, story.b)}</div></div>` : ""}
+        <div class="st-race-story"><h3>Race engineer’s review</h3>
+          ${story ? `<p class="st-race-ai-headline">${this.named(story.headline)}</p><p>${this.named(story.story)}</p>
+          <div class="st-debrief-grid">${side(a, story.a)}${side(b, story.b)}</div>` : ""}
+          <p class="st-quiet st-race-status">${esc(state)}</p>
+          ${ai.state === "ready" ? "" : `<div class="st-debrief-actions"><button type="button" data-race="generate" ${disabled ? "disabled" : ""}>${this.retry ? "Retry AI race report" : "Write AI race report"}</button></div>
+          <p class="st-quiet">Writing one needs a signed-in SplitTime account · shared AI budget $1 / UTC month · $${ai.budget.remaining_usd.toFixed(3)} left.</p>`}</div>
         <h3>Where the time went</h3>
         <ol class="st-race-sections">${f.sections.map(s => {
           const gainer = s.a_gain_s >= 0 ? "a" : "b", width = Math.round(100 * Math.abs(s.a_gain_s) / worst);
@@ -95,11 +99,8 @@
           A ${c.a.gear ? `gear ${c.a.gear}, ` : ""}min ${c.a.min_kmh ?? "—"} km/h, exit ${c.a.exit_kmh ?? "—"} ·
           B ${c.b.gear ? `gear ${c.b.gear}, ` : ""}min ${c.b.min_kmh ?? "—"} km/h, exit ${c.b.exit_kmh ?? "—"}</li>`).join("")}</ul>
         <p class="st-quiet">A · ${esc(a)}: ${style(f.lap.a)}<br>B · ${esc(b)}: ${style(f.lap.b)}</p>
-        <p class="st-quiet st-race-status">${esc(state)}</p>
-        <div class="st-debrief-actions"><button type="button" data-race="generate" ${disabled ? "disabled" : ""}>${this.retry ? "Retry AI race report" : "Write AI race report"}</button>
-          <a href="replay.html?laps=${report.lap_a},${report.lap_b}">Replay A against B</a></div>
-        <p class="st-quiet">Management login required to write · shares the debrief’s $1 / UTC month cap · $${ai.budget.remaining_usd.toFixed(3)} remaining.
-          Corner numbers use reference lap ${report.reference_lap_id}.</p>
+        <div class="st-debrief-actions"><a href="replay.html?laps=${report.lap_a},${report.lap_b}">Replay A against B</a></div>
+        <p class="st-quiet">Corner numbers use reference lap ${report.reference_lap_id}.</p>
         <ul class="st-quiet st-debrief-warnings">${report.warnings.map(w => `<li>${esc(w)}</li>`).join("")}</ul>`;
     }
   }
