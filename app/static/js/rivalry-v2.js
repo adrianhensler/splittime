@@ -215,7 +215,7 @@
         <a class="st-replay" href="${href}">Compare traces &amp; corners</a>
         <a class="st-replay" href="replay.html?laps=${a.lap_id},${b.lap_id}">Replay A against B</a>` : '<span class="st-no-compare">Needs two completed laps</span>'}</div>`;
     $("st-analysis-pair").textContent = a && b ? `${a.driver_name} (A, ${M.time(a.time_s)}) vs ${b.driver_name} (B, ${M.time(b.time_s)}) · ` +
-      "the race report explains where the time went; the session debrief reviews A's whole session." :
+      "the race report and engineer’s review explain where the time went; the session debrief reviews A's whole session." :
       a ? `${a.driver_name} (A) · choose a B lap for the race report.` : "Choose an A and a B lap above.";
     drawOutlines();
     debrief?.setContext(a,b,refreshDebrief);

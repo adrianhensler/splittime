@@ -1,5 +1,19 @@
 # WP-004: Rivalry views (M3)
 
+## Review first in the race report, 2026-10-26
+
+Merged #48 deployed (6ce6041). The owner's Retry on 174 vs 98 passed the fact
+check ($0.0048), so that earlier rejection's reason stays unknown. The owner
+could not find the written review: it sat below the measured sections, under
+the same look as them. Branch `fix/race-review-first` puts a "Race engineer's
+review" block directly under the headline (narrative, or the write button and
+its status), drops the button once a review is stored, names the panel
+"Race report & engineer's review", and replaces "Management login required"
+with "needs a signed-in SplitTime account" in the race report and debrief.
+Not auto-opened on selection: the measured GET takes about 3 s per pair on a
+public page. UI suite: 95 passed; headless render of 174 vs 98 against live
+data shows the review above "Where the time went".
+
 ## First automatic pass, and logging why a narrative is rejected, 2026-10-25
 
 After deploy (53b0c55) the first pass wrote all 5 takeovers at about $0.005
