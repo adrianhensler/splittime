@@ -296,3 +296,17 @@ test("a reload of the tab's own pair keeps the identity checks: a reused lap ID 
   const rebuilt = page(changed,storage,at);await rebuilt.settle();
   assert.match(rebuilt.elt("st-inspector").innerHTML,/laps=2,1/);
 });
+test("#st-analysis opens the report for a restored pair too, once", async () => {
+  const PairBar = require(path.join(root,"app/static/js/pair-bar.js"));
+  const payload = {drivers,categories:[group([lap(1,"a",60,10),lap(2,"b",59,20),lap(3,"a",61,5)])]};
+  const at = hash => ({PairBar,location:{search:"?laps=2,3",pathname:"/rivalry-v2.html",hash},history:{replaceState(){}}});
+  const storage = new Map(), first = page(payload,storage,at(""));await first.settle();
+  const plain = page(payload,storage,at(""));await plain.settle();
+  assert.notEqual(plain.elt("st-race-report").open,true);  // a plain reload leaves it as it was
+  const back = page(payload,storage,at("#st-analysis"));await back.settle();
+  assert.equal(back.elt("st-race-report").open,true);
+  assert.match(back.elt("st-inspector").innerHTML,/laps=2,3/);
+  back.elt("st-race-report").open = false;
+  await back.elt("st-refresh").listeners.click();
+  assert.equal(back.elt("st-race-report").open,false);  // a later refresh does not reopen it
+});

@@ -28,6 +28,10 @@ this tab already saved, it is a restore (saved search, identity checks), not
 an incoming link; only a different pair goes through arrival. Tests for both:
 reused ID on reload falls back to the defaults; a link to another pair keeps a
 compatible search and clears a hiding one. UI suite 104 passed.
+Codex (third P2): a Race report link back to the tab's own pair restored it
+but left the report closed. `#st-analysis` in the address now opens the report
+on first load whether the pair was linked or restored; plain reloads and later
+refreshes do not. UI suite 105 passed.
 
 ## Menu and What's new, 2026-10-26
 

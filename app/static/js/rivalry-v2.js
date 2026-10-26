@@ -17,6 +17,8 @@
   // a link to a pair (?laps=a,b) selects that pair once on arrival; after that
   // the address follows the selection, so it can be shared, bookmarked or refreshed
   let incoming = globalThis.PairBar?.parse(globalThis.location?.search || "") || null;
+  // #st-analysis asks for the report, whether the pair needs selecting or is restored
+  let opening = globalThis.location?.hash === "#st-analysis";
   try {saved = JSON.parse(globalThis.sessionStorage?.getItem(storageKey) || "null");} catch { /* storage may be blocked */ }
   if (saved && typeof saved === "object") {
     state.group = typeof saved.group === "string" ? saved.group : null;
@@ -282,7 +284,8 @@
         choose(latest);
       }
       render(true);
-      if (linked) analyse();
+      if (linked || opening && state.a && state.b) analyse();
+      opening = false;
       $("st-message").textContent = `${data.categories.reduce((n,g) => n+g.attempts.length,0)} attempts · refreshed ${new Date().toLocaleTimeString()}`;
       // Fetch each unique outline once per refresh, without replacing focused controls.
       const ids = [...new Set(data.categories.map(g => g.route_id).filter(id => Number.isSafeInteger(id) && id > 0))];
