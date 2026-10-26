@@ -267,17 +267,32 @@ test("a link with ?laps=a,b selects that pair and opens its report; the address 
   assert.match(moved.at(-1),/^\/r\?laps=\d+,\d+$/);  // the address names the pair actually shown
   assert.notEqual(moved.at(-1),"/r?laps=1,7");
 });
-test("a reload keeps a restored search that still shows the linked pair; a hiding one is cleared", async () => {
+test("a link to another pair keeps a saved search that shows it, and clears one that would hide it", async () => {
+  const PairBar = require(path.join(root,"app/static/js/pair-bar.js"));
+  const payload = {drivers,categories:[group([lap(1,"a",60,10),lap(2,"b",59,20),lap(3,"a",61,5)])]};
+  const own = {PairBar,location:{search:"?laps=2,3",pathname:"/rivalry-v2.html",hash:""},history:{replaceState(){}}};
+  const link = {...own,location:{...own.location,search:"?laps=2,1"}};
+  const storage = new Map(), first = page(payload,storage,own);await first.settle();
+  first.elt("st-find").listeners.input({target:{value:"test"}});
+  const kept = page(payload,storage,link);await kept.settle();
+  assert.equal(kept.elt("st-find").value,"test");
+  assert.match(kept.elt("st-inspector").innerHTML,/laps=2,1/);
+  kept.elt("st-find").listeners.input({target:{value:"blair"}});  // would hide lap 1 (Alex)
+  const cleared = page(payload,storage,{...own,location:{...own.location,search:"?laps=1,2"}});await cleared.settle();
+  assert.equal(cleared.elt("st-find").value,"");
+  assert.match(cleared.elt("st-inspector").innerHTML,/laps=1,2/);
+});
+test("a reload of the tab's own pair keeps the identity checks: a reused lap ID is not taken", async () => {
   const PairBar = require(path.join(root,"app/static/js/pair-bar.js"));
   const payload = {drivers,categories:[group([lap(1,"a",60,10),lap(2,"b",59,20),lap(3,"a",61,5)])]};
   const at = {PairBar,location:{search:"?laps=2,3",pathname:"/rivalry-v2.html",hash:""},history:{replaceState(){}}};
   const storage = new Map(), first = page(payload,storage,at);await first.settle();
   first.elt("st-find").listeners.input({target:{value:"test"}});
-  const reloaded = page(payload,storage,at);await reloaded.settle();
-  assert.equal(reloaded.elt("st-find").value,"test");
-  assert.match(reloaded.elt("st-inspector").innerHTML,/laps=2,3/);
-  reloaded.elt("st-find").listeners.input({target:{value:"blair"}});  // hides lap 3 (Alex)
-  const again = page(payload,storage,at);await again.settle();
-  assert.equal(again.elt("st-find").value,"");
-  assert.match(again.elt("st-inspector").innerHTML,/laps=2,3/);
+  const same = page(payload,storage,at);await same.settle();
+  assert.equal(same.elt("st-find").value,"test");
+  assert.match(same.elt("st-inspector").innerHTML,/laps=2,3/);
+  // lap 3 deleted and its ID reused by another run: the reload falls back to the defaults
+  const changed = structuredClone(payload);changed.categories[0].attempts[2].session_id=88;
+  const rebuilt = page(changed,storage,at);await rebuilt.settle();
+  assert.match(rebuilt.elt("st-inspector").innerHTML,/laps=2,1/);
 });

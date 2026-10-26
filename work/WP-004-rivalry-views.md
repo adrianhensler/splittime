@@ -22,6 +22,12 @@ Codex (P2): with the pair now always in the address, a reload looked like an
 incoming link and cleared the restored search. Fixed: the search is cleared
 only when it would hide one of the linked laps; regression test added
 (UI suite 103 passed).
+Codex (second P2, same cause): a reload also skipped the identity checks
+that reject a reused lap ID. Fixed at the root: when the address names the pair
+this tab already saved, it is a restore (saved search, identity checks), not
+an incoming link; only a different pair goes through arrival. Tests for both:
+reused ID on reload falls back to the defaults; a link to another pair keeps a
+compatible search and clears a hiding one. UI suite 104 passed.
 
 ## Menu and What's new, 2026-10-26
 

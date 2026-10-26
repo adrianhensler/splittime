@@ -22,6 +22,11 @@
     state.group = typeof saved.group === "string" ? saved.group : null;
     state.query = typeof saved.query === "string" ? saved.query : "";
     state.history = HISTORY.includes(saved.history) ? saved.history : "best";
+    // A reload or a return to this tab keeps the address, so it names the pair the
+    // tab already saved: that is a restore, not a link, and the saved state decides,
+    // including the identity checks that reject a lap whose ID was reused.
+    const id = text => {try {return JSON.parse(text)[0];} catch {return null;}};
+    if (incoming && id(saved.a) === incoming[0] && id(saved.b) === incoming[1]) incoming = null;
   }
   const outlines = new Map();
   let feed = [];
