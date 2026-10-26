@@ -141,6 +141,14 @@ internet timing/storage field checks remain in WP-003. `/api/drivers` and
 `/api/status` still return configured ports; the page does not display them.
 No full route-summary/storage acceptance is implied by optional Live viewing.
 
+## Pair bar on the comparison page, 2026-10-26
+
+`feat/pair-bar` (WP-004 owns the slice; see its checkpoint): `compare.html`
+gets the site header and the shared pair strip, its title becomes "Traces &
+corners", and `compare.js` also reads `?laps=a,b` (old `lap_a/lap_b` links
+still work). No change to the comparison's measurements or warnings. UI suite
+101 passed, including a compare `?laps=` test.
+
 ## Verification
 
 [PR #20](https://github.com/adrianhensler/splittime/pull/20), PR #17 accessibility
