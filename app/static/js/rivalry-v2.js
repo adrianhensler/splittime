@@ -238,7 +238,11 @@
     incoming = null;
     const group = data.categories.find(g => [x,y].every(id => g.attempts.some(lap => lap.lap_id === id && M.usable(lap))));
     if (!group) return false;
-    state.group = M.key(group); state.query = ""; $("st-find").value = "";
+    state.group = M.key(group);
+    // a reload or a return keeps the address, so keep a restored search that still
+    // shows both laps; clear it only when it would hide the pair the link names
+    const shown = [x,y].every(id => M.matches(group, group.attempts.find(lap => lap.lap_id === id), state.query));
+    if (!shown) {state.query = ""; $("st-find").value = "";}
     [state.a,state.b] = [x,y];
     return true;
   }

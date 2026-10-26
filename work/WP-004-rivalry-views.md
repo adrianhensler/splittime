@@ -18,6 +18,10 @@ selector ("first unchecked B radio") that flipped B between 98 and 22 about
 server (about 80 MB each), taking the web container to 5.5 GB twice and
 swapping the host. Not a page bug. Gateway PR caps the web container at 1 GB;
 limiting concurrent report builds is a separate follow-up.
+Codex (P2): with the pair now always in the address, a reload looked like an
+incoming link and cleared the restored search. Fixed: the search is cleared
+only when it would hide one of the linked laps; regression test added
+(UI suite 103 passed).
 
 ## Menu and What's new, 2026-10-26
 

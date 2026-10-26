@@ -267,3 +267,17 @@ test("a link with ?laps=a,b selects that pair and opens its report; the address 
   assert.match(moved.at(-1),/^\/r\?laps=\d+,\d+$/);  // the address names the pair actually shown
   assert.notEqual(moved.at(-1),"/r?laps=1,7");
 });
+test("a reload keeps a restored search that still shows the linked pair; a hiding one is cleared", async () => {
+  const PairBar = require(path.join(root,"app/static/js/pair-bar.js"));
+  const payload = {drivers,categories:[group([lap(1,"a",60,10),lap(2,"b",59,20),lap(3,"a",61,5)])]};
+  const at = {PairBar,location:{search:"?laps=2,3",pathname:"/rivalry-v2.html",hash:""},history:{replaceState(){}}};
+  const storage = new Map(), first = page(payload,storage,at);await first.settle();
+  first.elt("st-find").listeners.input({target:{value:"test"}});
+  const reloaded = page(payload,storage,at);await reloaded.settle();
+  assert.equal(reloaded.elt("st-find").value,"test");
+  assert.match(reloaded.elt("st-inspector").innerHTML,/laps=2,3/);
+  reloaded.elt("st-find").listeners.input({target:{value:"blair"}});  // hides lap 3 (Alex)
+  const again = page(payload,storage,at);await again.settle();
+  assert.equal(again.elt("st-find").value,"");
+  assert.match(again.elt("st-inspector").innerHTML,/laps=2,3/);
+});
