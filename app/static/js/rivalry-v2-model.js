@@ -189,7 +189,7 @@
   }
   function compare(a,b) {
     return usable(a || {}) && usable(b || {}) && a.lap_id !== b.lap_id ?
-      `compare.html?lap_a=${a.lap_id}&lap_b=${b.lap_id}` : null;
+      `compare.html?laps=${a.lap_id},${b.lap_id}` : null;
   }
   const model = {timed, usable, clean, estimated, stamp, identity, key, time, date, drivers,
     bests, timeline, defaults, matches, visible, compare, routeBests, standings, activity,

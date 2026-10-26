@@ -53,3 +53,7 @@ test('route equivalence alone is a caveat, not an incomplete comparison',async()
  assert.match(text,/Telemetry aligned · same recorded route; official route equivalence is not verified/);
  assert.doesNotMatch(text,/evidence is incomplete/);
 });
+test("the pair views' ?laps=a,b shape loads the same two laps",async()=>{
+ const {calls}=await run(payload(),'?laps=11,12');
+ assert.ok(calls.includes('api/corners/compare?lap_a=11&lap_b=12'));
+});

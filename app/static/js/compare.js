@@ -15,7 +15,9 @@
   no_shared_distance:'The laps have no shared route-position range.'
  };
  const describe=value=>descriptions[value]||String(value).replaceAll('_',' ');
- const ids=[params.get("lap_a"),params.get("lap_b")];
+ // ?laps=a,b like the other pair views; ?lap_a=&lap_b= from older links
+ const laps=(params.get("laps")||"").split(",");
+ const ids=laps.length===2?laps:[params.get("lap_a"),params.get("lap_b")];
  async function get(url){const response=await fetch(url,{cache:"no-store"});if(!response.ok)throw Error("HTTP "+response.status);return response.json();}
  function plot(a,b,key,title,maximum){
   const extent=Math.max(...a.dist,...b.dist,1);

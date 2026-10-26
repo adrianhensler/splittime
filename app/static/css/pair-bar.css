@@ -1,0 +1,13 @@
+/* The pair strip (js/pair-bar.js): the same on Rivalry, Traces & corners and Replay.
+   Colours come from the Rivalry tokens where a page has them, else the dark defaults. */
+.st-pair{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 16px;margin:12px 0;padding:10px 12px;
+  background:var(--st-panel,#132131);border:1px solid var(--st-line,#344b60);border-radius:6px;color:var(--st-fg,#eaf2f7);font-size:14px}
+.st-pair .st-quiet{color:var(--st-muted,#a9bed0);font-size:12px}
+.st-pair .st-time{font-variant-numeric:tabular-nums;font-weight:600}
+.st-pair a{color:var(--st-accent,#6ce0cb)}
+.st-pair-swap{font-size:12px;margin-left:6px;white-space:nowrap}
+.st-pair-views{display:flex;flex-wrap:wrap;gap:6px}
+.st-pair-views a,.st-pair-views span{border:1px solid var(--st-accent,#6ce0cb);border-radius:5px;padding:4px 10px;font-weight:600;font-size:13px;text-decoration:none;white-space:nowrap}
+.st-pair-views span[aria-current]{background:var(--st-accent,#6ce0cb);color:var(--st-bg,#0a1420)}
+.st-pair-views .st-pair-back{border-color:transparent}
+@media(pointer:coarse){.st-pair-views a,.st-pair-views span{min-height:44px;display:inline-flex;align-items:center}}
