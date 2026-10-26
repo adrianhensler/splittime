@@ -1,5 +1,22 @@
 # WP-004: Rivalry views (M3)
 
+## One pair, three views: the pair bar, 2026-10-26
+
+The owner found Rivalry, the race report, Compare and Replay "a bunch of random
+interfaces": Compare linked only back to Rivalry and Analysis, Replay was in no
+menu and linked nowhere, and the same pair had two URL shapes. Branch
+`feat/pair-bar` adds `js/pair-bar.js` + `css/pair-bar.css`: one strip (route,
+both drivers and times with est., then Race report / Traces & corners / Replay,
+swap A and B, back to Rivalry) on `compare.html` (now with the site header),
+`replay.html` (when exactly two laps are replayed) and Rivalry's analysis
+section. Every pair link is `?laps=a,b`; compare.js still reads `lap_a/lap_b`.
+Rivalry selects a linked pair once, opens its report and drops the parameter.
+Row/inspector links are renamed to the same three names. No API or recording
+change. UI suite: 101 passed (new pair-bar tests, arrival test, compare
+`?laps=`). Headless round trip over live data (worktree static files, live
+API): Traces → Replay → Race report → Traces kept 174 vs 98 throughout. Next
+slice: nav (Replay in, Rivalry_legacy out) and an in-app What's new page.
+
 ## Review first in the race report, 2026-10-26
 
 Merged #48 deployed (6ce6041). The owner's Retry on 174 vs 98 passed the fact

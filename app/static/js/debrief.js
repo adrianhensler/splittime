@@ -63,7 +63,7 @@
       const s = report.stats, ai = report.ai, pair = report.pair;
       const corners = report.facts.filter(f => f.id.startsWith("corner_"));
       const progress = report.facts.find(f => f.id === "progress");
-      const compare = pair ? `compare.html?lap_a=${pair.a}&lap_b=${pair.b}` : null;
+      const compare = pair ? `compare.html?laps=${pair.a},${pair.b}` : null;
       this.retry = ["failed","uncertain"].includes(ai.state);
       const explanation = ai.explanation;
       const status = !ai.enabled ? "AI is not configured; measured results are available." :
@@ -83,7 +83,7 @@
         <p class="st-quiet">A: ${pair.a_finish === "last_packet" ? "estimated finish" : "confirmed finish"}${pair.a_eligible ? "" : " · not eligible"} · B: ${pair.b_finish === "last_packet" ? "estimated finish" : "confirmed finish"}${pair.b_eligible ? "" : " · not eligible"}</p>` : ""}
         ${corners.length ? `<ul>${corners.slice(0,3).map(f => `<li>${esc(f.text)}</li>`).join("")}</ul>
         <p class="st-quiet">Corner numbering uses reference lap ${pair.reference_lap_id}; detection can change with a new reference.</p>` : '<p class="st-quiet">No dependable corner priorities for this selection.</p>'}
-        ${compare ? `<a href="${compare}">Open traces and corners</a>` : ""}</div>
+        ${compare ? `<a href="${compare}">Traces &amp; corners for these laps</a>` : ""}</div>
         <div><h3>${explanation ? "Gemini’s priorities" : "Optional AI debrief"}</h3>
           ${explanation ? `<ul>${explanation.highlights.map(t => `<li>${esc(t)}</li>`).join("")}</ul>
           <h3>One practice focus · hypothesis</h3><p>${esc(explanation.focus)}</p><p>${esc(explanation.practice)}</p>` : ""}

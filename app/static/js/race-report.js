@@ -99,7 +99,6 @@
           A ${c.a.gear ? `gear ${c.a.gear}, ` : ""}min ${c.a.min_kmh ?? "—"} km/h, exit ${c.a.exit_kmh ?? "—"} ·
           B ${c.b.gear ? `gear ${c.b.gear}, ` : ""}min ${c.b.min_kmh ?? "—"} km/h, exit ${c.b.exit_kmh ?? "—"}</li>`).join("")}</ul>
         <p class="st-quiet">A · ${esc(a)}: ${style(f.lap.a)}<br>B · ${esc(b)}: ${style(f.lap.b)}</p>
-        <div class="st-debrief-actions"><a href="replay.html?laps=${report.lap_a},${report.lap_b}">Replay A against B</a></div>
         <p class="st-quiet">Corner numbers use reference lap ${report.reference_lap_id}.</p>
         <ul class="st-quiet st-debrief-warnings">${report.warnings.map(w => `<li>${esc(w)}</li>`).join("")}</ul>`;
     }

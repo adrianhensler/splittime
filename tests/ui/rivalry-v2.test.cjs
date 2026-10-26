@@ -61,7 +61,7 @@ test("A and B use configured driver order; solo comparisons use own history", ()
   assert.deepEqual(M.defaults(group([lap(1,"a",60,10),lap(2,"a",59,20)]),drivers),[2,1]);
   assert.equal(M.compare(lap(2,"a",60,10),lap(2,"a",60,10)),null);
   assert.equal(M.compare(lap(2,"a",60,10),lap(3,"a",60,10,{completion:"incomplete"})),null);
-  assert.equal(M.compare(lap(2,"a",60,10),lap(3,"a",60,10)),"compare.html?lap_a=2&lap_b=3");
+  assert.equal(M.compare(lap(2,"a",60,10),lap(3,"a",60,10)),"compare.html?laps=2,3");
 });
 test("search covers route, driver, car, flags and both dates; reused ID changes identity", () => {
   const l = lap(1,"a",60,10,{flags:["contact"]}), g = group([l]);
@@ -70,7 +70,7 @@ test("search covers route, driver, car, flags and both dates; reused ID changes 
   assert.equal(M.matches(g,l,"Ferrari"),false);
   assert.notEqual(M.identity(l),M.identity({...l,time_s:61}));
 });
-function page(payload, storage = new Map()) {
+function page(payload, storage = new Map(), globals = {}) {
   const controls = new Map(), calls = [];
   const elt = id => {
     if (!controls.has(id)) controls.set(id,{value:"",innerHTML:"",textContent:"",hidden:false,listeners:{},
@@ -80,6 +80,7 @@ function page(payload, storage = new Map()) {
   let data = payload, offline = false;
   const ctx = vm.createContext({RivalryModel:M,Intl,Date,document:{getElementById:elt,querySelectorAll:()=>[]},
     sessionStorage:{getItem:key=>storage.get(key),setItem:(key,value)=>storage.set(key,value)},
+    ...globals,
     fetch:async(url,opts) => {calls.push({url,opts});if(offline)throw new Error("offline");
       return {ok:true,json:async()=>url === "api/rivalry" ? data : {outline:[0,0,100,100]}};}});
   new vm.Script(fs.readFileSync(path.join(root,"app/static/js/rivalry-v2.js"),"utf8")).runInContext(ctx);
@@ -96,7 +97,7 @@ test("controller fetches relative APIs, escapes names and handles filters and st
   assert.match(p.elt("st-events").innerHTML,/&lt;img/);
   assert.doesNotMatch(p.elt("st-events").innerHTML,/<img/);
   assert.match(p.elt("st-event-columns").innerHTML,/&lt;script/);
-  assert.match(p.elt("st-inspector").innerHTML,/lap_a=2&lap_b=1/);
+  assert.match(p.elt("st-inspector").innerHTML,/laps=2,1/);
   p.elt("st-find").listeners.input({target:{value:"does not exist"}});
   assert.equal(p.elt("st-context").hidden,true);
   assert.match(p.elt("st-events").innerHTML,/No recordings match/);
@@ -108,7 +109,7 @@ test("a contested row links straight to replay and compare of the two bests, lea
   const p = page({drivers,categories:[group([lap(1,"a",60,10),lap(2,"b",59,20),lap(3,"a",58.5,30,{candidate_clean:false})])]});
   await p.settle();
   assert.match(p.elt("st-events").innerHTML,/href="replay\.html\?laps=2,1"/);
-  assert.match(p.elt("st-events").innerHTML,/href="compare\.html\?lap_a=2&lap_b=1"/);
+  assert.match(p.elt("st-events").innerHTML,/href="compare\.html\?laps=2,1"/);
   const solo = page({drivers,categories:[group([lap(1,"a",60,10)])]});await solo.settle();
   assert.doesNotMatch(solo.elt("st-events").innerHTML,/st-row-actions/);
 });
@@ -124,12 +125,12 @@ test("refresh preserves a deliberate pair but resets reused lap IDs", async () =
   const payload = {drivers,categories:[group([lap(1,"a",60,10),lap(2,"b",59,20),lap(3,"a",61,5)])]};
   const p = page(payload);await p.settle();
   p.elt("st-history").listeners.change({target:{dataset:{side:"b",lap:"3"}}});
-  assert.match(p.elt("st-inspector").innerHTML,/lap_a=2&lap_b=3/);
+  assert.match(p.elt("st-inspector").innerHTML,/laps=2,3/);
   await p.elt("st-refresh").listeners.click();
-  assert.match(p.elt("st-inspector").innerHTML,/lap_a=2&lap_b=3/);
+  assert.match(p.elt("st-inspector").innerHTML,/laps=2,3/);
   const changed = structuredClone(payload);changed.categories[0].attempts[2].session_id=88;
   p.setData(changed);await p.elt("st-refresh").listeners.click();
-  assert.match(p.elt("st-inspector").innerHTML,/lap_a=2&lap_b=1/);
+  assert.match(p.elt("st-inspector").innerHTML,/laps=2,1/);
 });
 test("returning from comparison restores filter, search and verified lap pair", async () => {
   const storage = new Map(), payload = {drivers,categories:[group([lap(1,"a",60,10),lap(2,"b",59,20),lap(3,"a",61,5)])]};
@@ -140,16 +141,16 @@ test("returning from comparison restores filter, search and verified lap pair", 
   const returned = page(payload,storage);await returned.settle();
   assert.equal(returned.elt("st-find").value,"test");
   assert.equal(returned.elt("st-history-filter").value,"improvements");
-  assert.match(returned.elt("st-inspector").innerHTML,/lap_a=2&lap_b=3/);
+  assert.match(returned.elt("st-inspector").innerHTML,/laps=2,3/);
   const changed = structuredClone(payload);changed.categories[0].attempts[2].session_id=88;
   const rebuilt = page(changed,storage);await rebuilt.settle();
-  assert.match(rebuilt.elt("st-inspector").innerHTML,/lap_a=2&lap_b=1/);
+  assert.match(rebuilt.elt("st-inspector").innerHTML,/laps=2,1/);
 });
 test("Analyse opens the race report for the pair, from the inspector or straight from a table row", async () => {
   const p = page({drivers,categories:[group([lap(1,"a",60,10),lap(2,"b",59,20)]),
     {...group([lap(3,"a",50,30),lap(4,"b",51,40)]),route_id:4,route_name:"Second Route"}]});
   await p.settle();
-  assert.match(p.elt("st-inspector").innerHTML,/data-analyse>Analyse A vs B</);
+  assert.match(p.elt("st-inspector").innerHTML,/data-analyse>Race report</);
   assert.match(p.elt("st-analysis-pair").textContent,/\(A, .*\) vs .*\(B, /);
   p.elt("st-inspector").listeners.click({target:{closest:sel => sel === "[data-analyse]" ? {} : null}});
   assert.equal(p.elt("st-race-report").open,true);
@@ -163,7 +164,7 @@ test("Analyse opens the race report for the pair, from the inspector or straight
   assert.equal(prevented,true);
   assert.equal(p.elt("st-race-report").open,true);
   assert.match(p.elt("st-inspector").innerHTML,/lap 3</);
-  assert.match(p.elt("st-inspector").innerHTML,/compare\.html\?lap_a=3&amp;lap_b=4|compare\.html\?lap_a=3&lap_b=4/);
+  assert.match(p.elt("st-inspector").innerHTML,/compare\.html\?laps=3,4/);
 });
 test("activity reads each improvement against the rival's best at that moment", () => {
   const cats = [group([lap(1,"a",60,10),lap(2,"b",61,20),lap(3,"b",59.5,30),lap(4,"a",59,40),lap(5,"a",58,50)]),
@@ -220,7 +221,7 @@ test("the banner leads with the latest takeover, escapes names and opens that pa
   // "Open" on the closing event selects its group with the new time as A and the rival's best as B
   const index = html.match(/closed to[\s\S]*?data-feed="(\d+)"/)[1];
   p.elt("st-latest").listeners.click({target:{closest:()=>({dataset:{feed:index}})}});
-  assert.match(p.elt("st-inspector").innerHTML,/lap_a=3&lap_b=2/);
+  assert.match(p.elt("st-inspector").innerHTML,/laps=3,2/);
   assert.equal(p.elt("st-race-report").open,true);  // straight into the A vs B analysis
   // a first time with no rival keeps its own lap as A, against the other driver's best now
   const first = page({drivers,categories:[group([lap(1,"a",60,10),lap(2,"b",59,20),lap(3,"a",58,30)])]});await first.settle();
@@ -243,4 +244,22 @@ test("the banner leads with the latest takeover, escapes names and opens that pa
   assert.match(later.elt("st-latest").innerHTML,/Alex<\/strong> extended the lead on Test Circuit · A to <span class="st-time">2\.000 s/);
   const quiet = page({drivers,categories:[]});await quiet.settle();
   assert.equal(quiet.elt("st-latest").hidden,true);
+});
+test("a link with ?laps=a,b selects that pair, opens the report once, then leaves the address", async () => {
+  const PairBar = require(path.join(root,"app/static/js/pair-bar.js")), replaced = [];
+  const payload = {drivers,categories:[group([lap(1,"a",60,10),lap(2,"b",59,20),lap(3,"a",61,5)]),
+    {...group([lap(7,"a",70,10),lap(8,"b",71,20)]),route_id:4,route_name:"Other Road"}]};
+  const p = page(payload,new Map(),{PairBar,location:{search:"?laps=8,7",pathname:"/rivalry-v2.html",hash:"#st-analysis"},
+    history:{replaceState:(s,t,url)=>replaced.push(url)}});
+  await p.settle();
+  assert.equal(p.elt("st-event-heading").textContent,"Other Road · A");
+  assert.match(p.elt("st-inspector").innerHTML,/compare\.html\?laps=8,7/);
+  assert.equal(p.elt("st-race-report").open,true);
+  assert.deepEqual(replaced,["/rivalry-v2.html#st-analysis"]);
+  assert.match(p.elt("st-pair").innerHTML,/aria-current="page">Race report/);
+  assert.doesNotMatch(p.elt("st-pair").innerHTML,/st-pair-swap/);
+  // laps on different routes are not a pair: the page opens as usual
+  const q = page(payload,new Map(),{PairBar,location:{search:"?laps=1,7",pathname:"/r",hash:""},history:{replaceState(){}}});
+  await q.settle();
+  assert.doesNotMatch(q.elt("st-inspector").innerHTML,/laps=1,7/);
 });

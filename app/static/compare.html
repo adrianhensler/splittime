@@ -1,9 +1,11 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>SplitTime · Lap comparison</title><link rel="stylesheet" href="css/compare.css"></head>
-<body><main><nav><a href="rivalry-v2.html">← Rivalry</a><a href="analysis.html">Full telemetry analysis</a></nav>
-<h1>Lap comparison</h1><p>Recorded telemetry · exploratory comparison</p>
+<title>SplitTime · Traces &amp; corners</title><link rel="stylesheet" href="css/compare.css"><link rel="stylesheet" href="css/pair-bar.css"></head>
+<body><main><header class="site"><a class="brand" href="index.html">Split<span>//</span>Time</a>
+<nav aria-label="Site"><a href="index.html">Live</a><a href="analysis.html">Analysis</a><a href="rivalry-v2.html">Rivalry</a><a href="stats.html">Stats</a><a href="rivalry.html">Rivalry_legacy</a><a href="how-it-works.html">How it works</a></nav></header>
+<div class="st-pair" data-pair-bar="traces" hidden></div>
+<h1>Traces &amp; corners</h1><p>Recorded telemetry · exploratory comparison</p>
 <p class="notice">Differences describe captured driving. Route equivalence, game mode and official validity remain unverified; these measurements do not award a winner. Route position is a game parameter, not metres.</p>
 <p id="status" role="status" aria-live="polite">Loading laps…</p>
 <section id="summary"></section><section id="traces" aria-label="Overlaid telemetry"></section>
-<section id="corners"></section></main><script src="js/compare.js"></script></body></html>
+<section id="corners"></section></main><script src="js/rivalry-v2-model.js"></script><script src="js/pair-bar.js"></script><script src="js/compare.js"></script></body></html>

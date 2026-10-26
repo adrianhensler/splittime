@@ -14,6 +14,8 @@
   const raceReport = globalThis.RaceReport ? new globalThis.RaceReport($("st-race-report")) : null;
   const storageKey = `splittime-rivalry-v2:${globalThis.location?.pathname || ""}`;
   let saved = null;
+  // a link from another view of a pair (?laps=a,b) selects that pair once on arrival
+  let incoming = globalThis.PairBar?.parse(globalThis.location?.search || "") || null;
   try {saved = JSON.parse(globalThis.sessionStorage?.getItem(storageKey) || "null");} catch { /* storage may be blocked */ }
   if (saved && typeof saved === "object") {
     state.group = typeof saved.group === "string" ? saved.group : null;
@@ -141,8 +143,8 @@
       if (a && b) gap = (a.time_s === b.time_s ? "Equal recorded bests" :
         `${esc(a.driver_name)}<div class="st-time">${(b.time_s-a.time_s).toFixed(3)} s ahead</div>`) +
         // one click from the table to the two bests, leader as A
-        `<div class="st-row-actions"><a href="replay.html?laps=${a.lap_id},${b.lap_id}">Replay</a>` +
-        `<a href="${M.compare(a,b)}">Compare</a><a href="#st-analysis" data-analyse="${index}">Analyse</a></div>`;
+        `<div class="st-row-actions"><a href="#st-analysis" data-analyse="${index}">Race report</a>` +
+        `<a href="${M.compare(a,b)}">Traces &amp; corners</a><a href="replay.html?laps=${a.lap_id},${b.lap_id}">Replay</a></div>`;
       else if (a) {
         const waiting = drivers.filter(d => d.id !== a.driver_id);
         gap = !waiting.length ? "One driver recorded" :
@@ -211,16 +213,34 @@
         `<p><span class="st-time">${side} ${M.time(lap?.time_s)}</span><br><span class="st-quiet">${lap ? `${esc(lap.driver_name)} · lap ${lap.lap_id}` : "Choose a completed lap"}</span></p>`).join("")}
       <p>${href ? delta === 0 ? "Equal recorded times" : `${delta > 0 ? "A" : "B"} faster by <span class="st-time">${Math.abs(delta).toFixed(3)} s</span>` : "Choose two completed laps."}</p>
       <p class="st-quiet">${href && (!M.clean(a) || !M.clean(b)) ? "Includes a lap that does not count as a best · " : ""}Recorded difference · exploratory</p>
-      ${href ? `<button type="button" class="st-compare" data-analyse>Analyse A vs B</button>
-        <a class="st-replay" href="${href}">Compare traces &amp; corners</a>
-        <a class="st-replay" href="replay.html?laps=${a.lap_id},${b.lap_id}">Replay A against B</a>` : '<span class="st-no-compare">Needs two completed laps</span>'}</div>`;
-    $("st-analysis-pair").textContent = a && b ? `${a.driver_name} (A, ${M.time(a.time_s)}) vs ${b.driver_name} (B, ${M.time(b.time_s)}) · ` +
-      "the race report and engineer’s review explain where the time went; the session debrief reviews A's whole session." :
+      ${href ? `<button type="button" class="st-compare" data-analyse>Race report</button>
+        <a class="st-replay" href="${href}">Traces &amp; corners</a>
+        <a class="st-replay" href="replay.html?laps=${a.lap_id},${b.lap_id}">Replay</a>` : '<span class="st-no-compare">Needs two completed laps</span>'}</div>`;
+    const pair = $("st-pair"), bar = globalThis.PairBar;
+    if (pair && bar) {
+      pair.hidden = !(a && b);
+      pair.innerHTML = a && b ? bar.html(state.data.categories, a.lap_id, b.lap_id, "report", {inPage:true}) : "";
+    }
+    $("st-analysis-pair").textContent = a && b ? (bar ? "" : `${a.driver_name} (A, ${M.time(a.time_s)}) vs ${b.driver_name} (B, ${M.time(b.time_s)}) · `) +
+      "The race report and engineer’s review explain where the time went; the session debrief reviews A's whole session." :
       a ? `${a.driver_name} (A) · choose a B lap for the race report.` : "Choose an A and a B lap above.";
     drawOutlines();
     debrief?.setContext(a,b,refreshDebrief);
     raceReport?.setContext(a,b,refreshDebrief);
     save();
+  }
+  // Select the pair a link asked for, if both laps are on one route and class;
+  // then drop it from the address so later choices and refreshes are the user's.
+  function arrive(data) {
+    if (!incoming) return false;
+    const [x,y] = incoming;
+    incoming = null;
+    const group = data.categories.find(g => [x,y].every(id => g.attempts.some(lap => lap.lap_id === id && M.usable(lap))));
+    try {globalThis.history?.replaceState?.(null, "", globalThis.location.pathname + globalThis.location.hash);} catch { /* keep the address */ }
+    if (!group) return false;
+    state.group = M.key(group); state.query = ""; $("st-find").value = "";
+    [state.a,state.b] = [x,y];
+    return true;
   }
   async function load() {
     $("st-refresh").disabled = true;
@@ -234,8 +254,10 @@
       if (!Array.isArray(data.categories) || !Array.isArray(data.drivers) ||
           data.categories.some(group => !Array.isArray(group.attempts))) throw new Error("Invalid response");
       state.data = data;
+      const linked = arrive(data);
       const next = selected();
-      if (next) {
+      if (linked) { /* the linked pair is already chosen */ }
+      else if (next) {
         const defaults = M.defaults(next,M.drivers(data));
         const a = next.attempts.find(lap => M.usable(lap) && M.identity(lap) === oldA);
         const b = next.attempts.find(lap => M.usable(lap) && M.identity(lap) === oldB);
@@ -246,6 +268,7 @@
         choose(latest);
       }
       render(true);
+      if (linked) analyse();
       $("st-message").textContent = `${data.categories.reduce((n,g) => n+g.attempts.length,0)} attempts · refreshed ${new Date().toLocaleTimeString()}`;
       // Fetch each unique outline once per refresh, without replacing focused controls.
       const ids = [...new Set(data.categories.map(g => g.route_id).filter(id => Number.isSafeInteger(id) && id > 0))];
