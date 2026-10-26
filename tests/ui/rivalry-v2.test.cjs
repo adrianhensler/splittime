@@ -245,7 +245,7 @@ test("the banner leads with the latest takeover, escapes names and opens that pa
   const quiet = page({drivers,categories:[]});await quiet.settle();
   assert.equal(quiet.elt("st-latest").hidden,true);
 });
-test("a link with ?laps=a,b selects that pair, opens the report once, then leaves the address", async () => {
+test("a link with ?laps=a,b selects that pair and opens its report; the address then follows the selection", async () => {
   const PairBar = require(path.join(root,"app/static/js/pair-bar.js")), replaced = [];
   const payload = {drivers,categories:[group([lap(1,"a",60,10),lap(2,"b",59,20),lap(3,"a",61,5)]),
     {...group([lap(7,"a",70,10),lap(8,"b",71,20)]),route_id:4,route_name:"Other Road"}]};
@@ -255,11 +255,58 @@ test("a link with ?laps=a,b selects that pair, opens the report once, then leave
   assert.equal(p.elt("st-event-heading").textContent,"Other Road · A");
   assert.match(p.elt("st-inspector").innerHTML,/compare\.html\?laps=8,7/);
   assert.equal(p.elt("st-race-report").open,true);
-  assert.deepEqual(replaced,["/rivalry-v2.html#st-analysis"]);
+  assert.deepEqual(replaced,[]);  // already the right address
   assert.match(p.elt("st-pair").innerHTML,/aria-current="page">Race report/);
   assert.doesNotMatch(p.elt("st-pair").innerHTML,/st-pair-swap/);
+  assert.match(p.elt("st-pair").innerHTML,/data-pair-copy="rivalry-v2\.html\?laps=8,7#st-analysis">Copy link/);
   // laps on different routes are not a pair: the page opens as usual
-  const q = page(payload,new Map(),{PairBar,location:{search:"?laps=1,7",pathname:"/r",hash:""},history:{replaceState(){}}});
+  const moved = [], q = page(payload,new Map(),{PairBar,location:{search:"?laps=1,7",pathname:"/r",hash:""},
+    history:{replaceState:(s,t,url)=>moved.push(url)}});
   await q.settle();
   assert.doesNotMatch(q.elt("st-inspector").innerHTML,/laps=1,7/);
+  assert.match(moved.at(-1),/^\/r\?laps=\d+,\d+$/);  // the address names the pair actually shown
+  assert.notEqual(moved.at(-1),"/r?laps=1,7");
+});
+test("a link to another pair keeps a saved search that shows it, and clears one that would hide it", async () => {
+  const PairBar = require(path.join(root,"app/static/js/pair-bar.js"));
+  const payload = {drivers,categories:[group([lap(1,"a",60,10),lap(2,"b",59,20),lap(3,"a",61,5)])]};
+  const own = {PairBar,location:{search:"?laps=2,3",pathname:"/rivalry-v2.html",hash:""},history:{replaceState(){}}};
+  const link = {...own,location:{...own.location,search:"?laps=2,1"}};
+  const storage = new Map(), first = page(payload,storage,own);await first.settle();
+  first.elt("st-find").listeners.input({target:{value:"test"}});
+  const kept = page(payload,storage,link);await kept.settle();
+  assert.equal(kept.elt("st-find").value,"test");
+  assert.match(kept.elt("st-inspector").innerHTML,/laps=2,1/);
+  kept.elt("st-find").listeners.input({target:{value:"blair"}});  // would hide lap 1 (Alex)
+  const cleared = page(payload,storage,{...own,location:{...own.location,search:"?laps=1,2"}});await cleared.settle();
+  assert.equal(cleared.elt("st-find").value,"");
+  assert.match(cleared.elt("st-inspector").innerHTML,/laps=1,2/);
+});
+test("a reload of the tab's own pair keeps the identity checks: a reused lap ID is not taken", async () => {
+  const PairBar = require(path.join(root,"app/static/js/pair-bar.js"));
+  const payload = {drivers,categories:[group([lap(1,"a",60,10),lap(2,"b",59,20),lap(3,"a",61,5)])]};
+  const at = {PairBar,location:{search:"?laps=2,3",pathname:"/rivalry-v2.html",hash:""},history:{replaceState(){}}};
+  const storage = new Map(), first = page(payload,storage,at);await first.settle();
+  first.elt("st-find").listeners.input({target:{value:"test"}});
+  const same = page(payload,storage,at);await same.settle();
+  assert.equal(same.elt("st-find").value,"test");
+  assert.match(same.elt("st-inspector").innerHTML,/laps=2,3/);
+  // lap 3 deleted and its ID reused by another run: the reload falls back to the defaults
+  const changed = structuredClone(payload);changed.categories[0].attempts[2].session_id=88;
+  const rebuilt = page(changed,storage,at);await rebuilt.settle();
+  assert.match(rebuilt.elt("st-inspector").innerHTML,/laps=2,1/);
+});
+test("#st-analysis opens the report for a restored pair too, once", async () => {
+  const PairBar = require(path.join(root,"app/static/js/pair-bar.js"));
+  const payload = {drivers,categories:[group([lap(1,"a",60,10),lap(2,"b",59,20),lap(3,"a",61,5)])]};
+  const at = hash => ({PairBar,location:{search:"?laps=2,3",pathname:"/rivalry-v2.html",hash},history:{replaceState(){}}});
+  const storage = new Map(), first = page(payload,storage,at(""));await first.settle();
+  const plain = page(payload,storage,at(""));await plain.settle();
+  assert.notEqual(plain.elt("st-race-report").open,true);  // a plain reload leaves it as it was
+  const back = page(payload,storage,at("#st-analysis"));await back.settle();
+  assert.equal(back.elt("st-race-report").open,true);
+  assert.match(back.elt("st-inspector").innerHTML,/laps=2,3/);
+  back.elt("st-race-report").open = false;
+  await back.elt("st-refresh").listeners.click();
+  assert.equal(back.elt("st-race-report").open,false);  // a later refresh does not reopen it
 });

@@ -14,13 +14,21 @@
   const raceReport = globalThis.RaceReport ? new globalThis.RaceReport($("st-race-report")) : null;
   const storageKey = `splittime-rivalry-v2:${globalThis.location?.pathname || ""}`;
   let saved = null;
-  // a link from another view of a pair (?laps=a,b) selects that pair once on arrival
+  // a link to a pair (?laps=a,b) selects that pair once on arrival; after that
+  // the address follows the selection, so it can be shared, bookmarked or refreshed
   let incoming = globalThis.PairBar?.parse(globalThis.location?.search || "") || null;
+  // #st-analysis asks for the report, whether the pair needs selecting or is restored
+  let opening = globalThis.location?.hash === "#st-analysis";
   try {saved = JSON.parse(globalThis.sessionStorage?.getItem(storageKey) || "null");} catch { /* storage may be blocked */ }
   if (saved && typeof saved === "object") {
     state.group = typeof saved.group === "string" ? saved.group : null;
     state.query = typeof saved.query === "string" ? saved.query : "";
     state.history = HISTORY.includes(saved.history) ? saved.history : "best";
+    // A reload or a return to this tab keeps the address, so it names the pair the
+    // tab already saved: that is a restore, not a link, and the saved state decides,
+    // including the identity checks that reject a lap whose ID was reused.
+    const id = text => {try {return JSON.parse(text)[0];} catch {return null;}};
+    if (incoming && id(saved.a) === incoming[0] && id(saved.b) === incoming[1]) incoming = null;
   }
   const outlines = new Map();
   let feed = [];
@@ -221,6 +229,7 @@
       pair.hidden = !(a && b);
       pair.innerHTML = a && b ? bar.html(state.data.categories, a.lap_id, b.lap_id, "report", {inPage:true}) : "";
     }
+    address(a,b);
     $("st-analysis-pair").textContent = a && b ? (bar ? "" : `${a.driver_name} (A, ${M.time(a.time_s)}) vs ${b.driver_name} (B, ${M.time(b.time_s)}) · `) +
       "The race report and engineer’s review explain where the time went; the session debrief reviews A's whole session." :
       a ? `${a.driver_name} (A) · choose a B lap for the race report.` : "Choose an A and a B lap above.";
@@ -229,18 +238,25 @@
     raceReport?.setContext(a,b,refreshDebrief);
     save();
   }
-  // Select the pair a link asked for, if both laps are on one route and class;
-  // then drop it from the address so later choices and refreshes are the user's.
+  // Select the pair a link asked for, if both laps are on one route and class.
   function arrive(data) {
     if (!incoming) return false;
     const [x,y] = incoming;
     incoming = null;
     const group = data.categories.find(g => [x,y].every(id => g.attempts.some(lap => lap.lap_id === id && M.usable(lap))));
-    try {globalThis.history?.replaceState?.(null, "", globalThis.location.pathname + globalThis.location.hash);} catch { /* keep the address */ }
     if (!group) return false;
-    state.group = M.key(group); state.query = ""; $("st-find").value = "";
+    state.group = M.key(group);
+    // a reload or a return keeps the address, so keep a restored search that still
+    // shows both laps; clear it only when it would hide the pair the link names
+    const shown = [x,y].every(id => M.matches(group, group.attempts.find(lap => lap.lap_id === id), state.query));
+    if (!shown) {state.query = ""; $("st-find").value = "";}
     [state.a,state.b] = [x,y];
     return true;
+  }
+  function address(a,b) {
+    const place = globalThis.location, search = a && b ? `?laps=${a.lap_id},${b.lap_id}` : "";
+    if (!place || place.search === search) return;
+    try {globalThis.history?.replaceState?.(null, "", place.pathname + search + place.hash);} catch { /* the address stays */ }
   }
   async function load() {
     $("st-refresh").disabled = true;
@@ -268,7 +284,8 @@
         choose(latest);
       }
       render(true);
-      if (linked) analyse();
+      if (linked || opening && state.a && state.b) analyse();
+      opening = false;
       $("st-message").textContent = `${data.categories.reduce((n,g) => n+g.attempts.length,0)} attempts · refreshed ${new Date().toLocaleTimeString()}`;
       // Fetch each unique outline once per refresh, without replacing focused controls.
       const ids = [...new Set(data.categories.map(g => g.route_id).filter(id => Number.isSafeInteger(id) && id > 0))];

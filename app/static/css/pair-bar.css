@@ -5,6 +5,7 @@
 .st-pair .st-quiet{color:var(--st-muted,#a9bed0);font-size:12px}
 .st-pair .st-time{font-variant-numeric:tabular-nums;font-weight:600}
 .st-pair a{color:var(--st-accent,#6ce0cb)}
+.st-pair-copy{margin-left:6px;background:transparent;color:var(--st-accent,#6ce0cb);border:1px solid var(--st-accent,#6ce0cb);border-radius:5px;padding:2px 8px;font:600 12px/1.45 inherit;cursor:pointer}
 .st-pair-swap{font-size:12px;margin-left:6px;white-space:nowrap}
 .st-pair-views{display:flex;flex-wrap:wrap;gap:6px}
 .st-pair-views a,.st-pair-views span{border:1px solid var(--st-accent,#6ce0cb);border-radius:5px;padding:4px 10px;font-weight:600;font-size:13px;text-decoration:none;white-space:nowrap}
