@@ -55,3 +55,25 @@ test("failed calls need explicit retry; pending/cached reports disable generatio
   assert.match(p.content.innerHTML,/One practice focus/);
   assert.match(p.content.innerHTML,/data-debrief="generate" disabled/);
 });
+test("the session review lives on Analysis, next to that session's laps, not on Rivalry",()=>{
+  const read=f=>fs.readFileSync(`app/static/${f}`,"utf8");
+  const analysis=read("analysis.html"),rivalry=read("rivalry-v2.html"),code=read("js/analysis.js");
+  assert.match(analysis,/<details id="st-debrief"/);assert.match(analysis,/js\/debrief\.js/);
+  assert.match(analysis,/js\/rivalry-v2-model\.js/);  // debrief.js formats times with it
+  assert.doesNotMatch(rivalry,/st-debrief"|js\/debrief\.js/);
+  assert.match(code,/new globalThis\.SessionDebrief\(\$\("#st-debrief"\)\)/);
+  assert.match(code,/sessionReview\.setContext\(lap\(a\), same \? lap\(b\) : null, refresh\)/);
+});
+test("Analysis gives the review a B only on A's known route, and refreshes it after an edit",()=>{
+  const code=fs.readFileSync("app/static/js/analysis.js","utf8");
+  const start=code.indexOf("function reviewContext("),body=code.slice(start,code.indexOf("\n}\n",start)+3);
+  const calls=[];
+  const run=(picks,refresh)=>{calls.length=0;vm.runInNewContext(body+";reviewContext(refresh)",
+    {sessionReview:{setContext:(...args)=>calls.push(args)},state:{picks},driverLabel:s=>s.driver_name,refresh});return calls[0];};
+  const pick=(id,route)=>({lapId:id,session:{id:id*10,route_id:route,driver_name:"D"}});
+  assert.equal(run([pick(1,4),pick(2,4)])[1].lap_id,2);
+  assert.equal(run([pick(1,4),pick(2,5)])[1],null);       // another route: A alone
+  assert.equal(run([pick(1,null),pick(2,null)])[1],null); // unknown routes: A alone
+  assert.equal(run([pick(1,4)],true)[2],true);
+  assert.match(code,/renderPicks\(\);\n  reviewContext\(true\);/);  // after reloadSession's edit refresh
+});

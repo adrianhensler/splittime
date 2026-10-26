@@ -10,7 +10,6 @@
   const EST = "The game stopped sending data at the finish line, so this time is SplitTime’s last clock reading. The run covered the whole route.";
   const est = lap => M.estimated(lap) ? ` <abbr class="st-est" title="${EST}">est.</abbr>` : "";
   const state = {data:{categories:[],drivers:[]}, group:null, a:null, b:null, query:"", history:"best"};
-  const debrief = globalThis.SessionDebrief ? new globalThis.SessionDebrief($("st-debrief")) : null;
   const raceReport = globalThis.RaceReport ? new globalThis.RaceReport($("st-race-report")) : null;
   const storageKey = `splittime-rivalry-v2:${globalThis.location?.pathname || ""}`;
   let saved = null;
@@ -71,11 +70,10 @@
       host.innerHTML = `<svg class="st-route" viewBox="${left-30} ${top-30} ${width+60} ${height+60}" aria-hidden="true"><path d="${path}"/></svg>`;
     }
   }
-  // Open the analysis for the selected pair and bring it into view: the race
-  // report when there are two laps, otherwise A's session debrief.
+  // Open the race report for the selected pair and bring it into view.
+  // (A whole-session review lives on Analysis, next to that session's laps.)
   function analyse() {
-    const target = state.a && state.b ? $("st-race-report") : $("st-debrief");
-    if (target) target.open = true;
+    if (state.a && state.b) $("st-race-report").open = true;
     $("st-analysis").scrollIntoView?.({behavior:"smooth", block:"start"});
   }
   const label = group => `${esc(group.route_name)} · ${esc(group.car_class_label)}`;
@@ -132,7 +130,7 @@
     state.group = M.key(group);
     [state.a,state.b] = M.defaults(group,M.drivers(state.data));
   }
-  function render(refreshDebrief = false) {
+  function render(refreshReport = false) {
     // Keep native restored form controls and the model in agreement on Back.
     $("st-find").value = state.query;
     $("st-history-filter").value = state.history;
@@ -172,7 +170,7 @@
         <td class="st-quiet">${gap}</td><td class="st-quiet">${progress}</td></tr>`;
     }).join("") || `<tr><td colspan="${drivers.length+3}" class="st-empty">${categories.length ? "No recordings match your search." : "No recordings yet. Captured events will appear here."}</td></tr>`;
     $("st-context").hidden = !shown.length;
-    if (!shown.length) {debrief?.setContext(null,null); raceReport?.setContext(null,null); save(); return;}
+    if (!shown.length) {raceReport?.setContext(null,null); save(); return;}
     const group = selected(), history = M.timeline(group,drivers);
     // "best": each driver's one best valid lap; everything else is a click away
     const top = new Set([...M.bests(group).values()].map(lap => lap.lap_id));
@@ -231,11 +229,10 @@
     }
     address(a,b);
     $("st-analysis-pair").textContent = a && b ? (bar ? "" : `${a.driver_name} (A, ${M.time(a.time_s)}) vs ${b.driver_name} (B, ${M.time(b.time_s)}) · `) +
-      "The race report and engineer’s review explain where the time went; the session debrief reviews A's whole session." :
+      "The race report and engineer’s review explain where the time went. To review a whole session, open it in Analysis." :
       a ? `${a.driver_name} (A) · choose a B lap for the race report.` : "Choose an A and a B lap above.";
     drawOutlines();
-    debrief?.setContext(a,b,refreshDebrief);
-    raceReport?.setContext(a,b,refreshDebrief);
+    raceReport?.setContext(a,b,refreshReport);
     save();
   }
   // Select the pair a link asked for, if both laps are on one route and class.

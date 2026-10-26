@@ -48,6 +48,7 @@ const state = {
 };
 
 const pickOf = (lapId) => state.picks.find((p) => p.lapId === lapId);
+let sessionReview = null;  // js/debrief.js, remade with each detail pane
 const refPick = () => (state.picks[0] && state.picks[0].data ? state.picks[0] : null);
 const pickLetter = (pick) => String.fromCharCode(65 + state.picks.indexOf(pick)); // A–F
 const nextColor = () => PICK_COLORS.find((c) => !state.picks.some((p) => p.color === c));
@@ -666,6 +667,9 @@ function mountDetail() {
   detail.classList.remove("busy");
   detail.innerHTML = "";
   detail.appendChild($("#detail-template").content.cloneNode(true));
+  sessionReview = globalThis.SessionDebrief && $("#st-debrief")
+    ? new globalThis.SessionDebrief($("#st-debrief")) : null;
+  reviewContext();
   $("#btn-map-png").onclick = exportMapPng;
   $("#color-mode").value = state.colorMode;
   $("#color-mode").onchange = (e) => {
@@ -1035,6 +1039,7 @@ async function reloadSession() {
   // on a pick from a session other than the displayed one
   await refetchPickData();
   renderPicks();
+  reviewContext(true);  // the same laps, measured again after the edit
   loadSessions();  // lap counts / best on the session cards may have moved
 }
 
@@ -1204,6 +1209,20 @@ function renderPicks() {
   drawCharts();
   renderRawSection();
   maybeWarnCrossRoute();
+  reviewContext();
+}
+
+/* The session review follows the tray: A's whole session, measured against
+   B when the tray's second lap is on the same known route (the server refuses
+   any other B, and A's own review must not go with it). `refresh` reloads it
+   for the same laps, after an edit changed what they measure. */
+function reviewContext(refresh = false) {
+  if (!sessionReview) return;
+  const [a, b] = state.picks;
+  const lap = (p) => p && { lap_id: p.lapId, session_id: p.session.id,
+    driver_name: driverLabel(p.session) || "Driver" };
+  const same = a && b && a.session.route_id != null && a.session.route_id === b.session.route_id;
+  sessionReview.setContext(lap(a), same ? lap(b) : null, refresh);
 }
 
 function renderTray() {
