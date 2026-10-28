@@ -109,7 +109,7 @@ def test_a_stop_keeps_its_samples_and_a_rewind_keeps_the_last_pass(monkeypatch):
 
 REPORT = {"facts": {
     "a_gain_s": -4.751, "route_m": 5965, "same_car": True,
-    "lap": {"a": {"time_s": 167.13, "flat_pct": 42, "max_g": 3.7},
+    "lap": {"a": {"time_s": 167.13, "first_250m_s": 6.412, "flat_pct": 42, "max_g": 3.7},
             "b": {"time_s": 162.379, "flat_pct": 74, "max_g": 4.1}},
     "sections": [{"n": 6, "from_m": 4261, "to_m": 5115, "corners": [19, 20], "a_gain_s": -2.252,
                   "a": {"flat_pct": 48, "min_kmh": 162}, "b": {"flat_pct": 83, "min_kmh": 216},
@@ -132,6 +132,7 @@ def test_narrative_numbers_must_be_measured_facts_in_the_right_unit():
     assert writer.validate(narrative(), REPORT)
     assert writer.validate(narrative(story="Section 6 runs from 4,261 m to 5,115 m."), REPORT)
     assert writer.validate(narrative(story="In S2, C19 in 3rd gear; section 6 cost 2.252 s."), REPORT)
+    assert writer.validate(narrative(story="{A} took 6.412 s over the first 250 m."), REPORT)  # in a fact's name
     for bad in ({"headline": "{B} wins by 3.9 s"},       # not a measured time
                 {"headline": "{B} wins by 4.1 s"},       # a g value is not seconds
                 {"story": "{A} was 37 km/h slower"},
@@ -142,6 +143,7 @@ def test_narrative_numbers_must_be_measured_facts_in_the_right_unit():
                 {"story": "The route is 9,000 m long."},  # a grouped number is checked whole
                 {"story": "{A} lost .999 s."},            # any digit left unread is rejected
                 {"story": "{A} lost 1 000 m."},
+                {"story": "{A} lost 6.412 s over the first 250 s."},  # a name's metres stay metres
                 {"story": "{A} lost 47.130 s"},           # lap-time seconds are not a gap
                 {"story": "{FishFighterNS} lost"},       # names never come from the model
                 {"story": "x" * 1200},
