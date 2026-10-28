@@ -16,6 +16,8 @@ wrong fix, so #56 instead makes the launch two values (`first_stretch_m`,
 Cached reviews are kept: the old-shape fingerprint finds them and `rekey`
 moves them, no call. Checked on a snapshot of live data: all 5 reviews the
 deployed code can reach match; 4 older rows were already unreachable.
+Codex (P2): a call in flight during a rekey finished against the old key and
+its paid answer was dropped; `finish` now finds the row by its call ID.
 Not user-visible.
 
 ## Session review moves to Analysis, 2026-10-26

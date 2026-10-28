@@ -105,8 +105,10 @@ class Ledger:
                            (cost, receipt_id, model, call_id))
             else:
                 db.execute("UPDATE calls SET status='uncertain' WHERE id=?", (call_id,))
-            db.execute("UPDATE reports SET state=?,result=? WHERE key=? AND call_id=?",
-                       (state, json.dumps(result) if result is not None else None, key, call_id))
+            # by call ID alone: each claim has its own, and it survives a rekey
+            # while the call is in flight, so a paid answer is never dropped
+            db.execute("UPDATE reports SET state=?,result=? WHERE call_id=?",
+                       (state, json.dumps(result) if result is not None else None, call_id))
 
     def rekey(self, old, new):
         """Move a cached report to a new key when its facts were renamed, never

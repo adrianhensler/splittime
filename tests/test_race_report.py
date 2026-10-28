@@ -289,6 +289,18 @@ def test_a_review_cached_under_the_old_fact_name_is_kept_without_a_call(circuit,
     assert "legacy_fingerprint" not in race_api.view(report, db)
 
 
+def test_a_call_in_flight_during_a_rekey_still_lands(tmp_path):
+    """An old writer awaiting the provider while a new one moves its row (Codex, #56)."""
+    db = Ledger(tmp_path / "debrief.db")
+    call = db.claim("old")
+    assert db.rekey("old", "new")
+    db.finish("old", call, result={"headline": "kept"}, cost=1100)
+    assert db.get("new")["state"] == "ready" and db.get("new")["result"] == {"headline": "kept"}
+    # a superseded claim (a retry replaced it) still cannot overwrite the newer one
+    db.finish("new", "an-older-call", result={"headline": "stale"}, cost=1100)
+    assert db.get("new")["result"] == {"headline": "kept"}
+
+
 def test_generate_without_a_key_keeps_measurements(circuit, monkeypatch):
     store, a, b = circuit
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
