@@ -78,9 +78,16 @@ _UNIT_WORDS = {"km/h": "kmh", "kmh": "kmh", "km": "km", "seconds": "s", "second"
                "metres": "m", "meters": "m", "m": "m"}
 
 
+_KEY_METRES = re.compile(r"(?<![a-z])(\d+)m(?![a-z])")
+
+
 def _numbers(value, out, key=""):
     """Every number a fact can be written as, by unit: None holds them all,
-    "km" holds metres as km, and "lap" holds whole lap times, written as m:ss."""
+    "km" holds metres as km, and "lap" holds whole lap times, written as m:ss.
+    A distance in a fact's own name ("first_250m_s") is measured too."""
+    for metres in _KEY_METRES.findall(key):
+        for name, number in (("m", int(metres)), ("km", int(metres) / 1000), (None, int(metres))):
+            out.setdefault(name, set()).add(number)
     if isinstance(value, bool):
         return
     if isinstance(value, (int, float)):
