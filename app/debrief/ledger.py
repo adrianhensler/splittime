@@ -108,6 +108,17 @@ class Ledger:
             db.execute("UPDATE reports SET state=?,result=? WHERE key=? AND call_id=?",
                        (state, json.dumps(result) if result is not None else None, key, call_id))
 
+    def rekey(self, old, new):
+        """Move a cached report to a new key when its facts were renamed, never
+        over one already there: no call is made and no charge is repeated."""
+        with self.connection() as db:
+            db.execute("BEGIN IMMEDIATE")
+            if db.execute("SELECT 1 FROM reports WHERE key=?", (new,)).fetchone():
+                return False
+            moved = db.execute("UPDATE reports SET key=? WHERE key=?", (new, old)).rowcount
+            db.execute("UPDATE calls SET report_key=? WHERE report_key=?", (new, old))
+        return bool(moved)
+
     def reject(self, key, call_id, reason, answer):
         """Keep a model answer that failed a check, with the reason; never shown."""
         with self.connection() as db:

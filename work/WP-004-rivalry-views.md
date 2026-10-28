@@ -10,7 +10,13 @@ untouched) reads metres in a key name; the two failed pairs (223 vs 174,
 fact plainly and requires the check to pass it (fails with the original error
 when #55 is undone), logs an automatic report that failed its check as failed
 instead of "written", and keeps the newest 50 rejected answers with their
-reason in the ledger. Suite 359 passed, Ruff clean. Not user-visible.
+reason in the ledger. Owner review: reading numbers out of key names is the
+wrong fix, so #56 instead makes the launch two values (`first_stretch_m`,
+`first_stretch_s`), drops the key parsing and asserts no digits in fact names.
+Cached reviews are kept: the old-shape fingerprint finds them and `rekey`
+moves them, no call. Checked on a snapshot of live data: all 5 reviews the
+deployed code can reach match; 4 older rows were already unreachable.
+Not user-visible.
 
 ## Session review moves to Analysis, 2026-10-26
 

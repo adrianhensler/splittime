@@ -600,10 +600,12 @@ implementer's; the owner has not confirmed them.
   whole numbers up to 10 (counts, ordinals) pass unchecked. A narrative that
   fails is not shown, and its charge is kept. This proves every number was
   measured, not that it is attached to the right claim.
-  2026-10-28: a distance in a fact's own name (`first_250m_s`) counts as
-  measured; the check had rejected every review mentioning "the first 250 m".
-  A test now states every fact plainly and requires the check to pass it, so
-  the facts and the check cannot drift apart again. The newest 50 rejected
+  2026-10-28: the check had rejected every review mentioning "the first
+  250 m", a number that lived only in the key `first_250m_s`. The launch is
+  now two values (`first_stretch_m`, `first_stretch_s`), numbers never appear
+  in fact names, and a test states every fact plainly and requires the check
+  to pass it. Reviews cached under the old key move to the new one when next
+  viewed or requested (`legacy_fingerprint`), with no new call. The newest 50 rejected
   answers are kept with their reason in the ledger (`rejected`, never shown),
   so a failure can be read instead of guessed at.
 - The configured gamertags are sent so the review names the drivers (owner,

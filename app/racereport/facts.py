@@ -28,6 +28,7 @@ G = 9.81
 SECTION_M = 900   # about one section per this many metres, clamped to 4..7
 LINE_WINDOW_M = 150.0
 LINE_STEP = 8     # compare one A position in this many with B's line
+FIRST_STRETCH_M = 250  # the launch: time over the first this-many metres
 
 
 def _frames(rows, start_distance):
@@ -216,7 +217,9 @@ def build(store, lap_a: int, lap_b: int, names: dict | None = None) -> dict:
         whole = _inputs(fr, whole=True)
         lap_facts[name] = {"time_s": round(lap["lap_time"], 3),
                            "finish": "estimated" if q["finish"] == "last_packet" else "game_timed",
-                           "first_250m_s": round(trace.clock_at(min(lo + 250 / mpu, hi)) - trace.clock_at(lo), 3),
+                           "first_stretch_m": round(min(FIRST_STRETCH_M, (hi - lo) * mpu)),
+                           "first_stretch_s": round(trace.clock_at(min(lo + FIRST_STRETCH_M / mpu, hi))
+                                                    - trace.clock_at(lo), 3),
                            **{k: whole[k] for k in ("flat_pct", "coast_pct", "max_kmh", "max_g",
                                                     "spin_pct", "kerb_pct")},
                            **_style(fr)}
@@ -247,9 +250,22 @@ def build(store, lap_a: int, lap_b: int, names: dict | None = None) -> dict:
               "drivers": {"a": tags[0], "b": tags[1]}, "facts": facts, "warnings": warnings}
     # Edits, reprocessing, frame content and detector version all invalidate a cached narrative.
     source = {"report": report, "laps": laps, "frames": digest_rows, "detector": DETECTOR_VERSION}
-    report["fingerprint"] = hashlib.sha256(json.dumps(source, sort_keys=True,
-                                                     allow_nan=False).encode()).hexdigest()
+    legacy = _digest({**source, "report": _legacy(report)})  # before either is added to it
+    report["fingerprint"], report["legacy_fingerprint"] = _digest(source), legacy
     return report
+
+
+def _digest(source):
+    return hashlib.sha256(json.dumps(source, sort_keys=True, allow_nan=False).encode()).hexdigest()
+
+
+def _legacy(report):
+    """The report as built before 2026-10-28, when the launch time was the key
+    `first_250m_s`: its fingerprint finds reviews cached under the old shape."""
+    lap = {side: {("first_250m_s" if k == "first_stretch_s" else k): v
+                  for k, v in fields.items() if k != "first_stretch_m"}
+           for side, fields in report["facts"]["lap"].items()}
+    return {**report, "facts": {**report["facts"], "lap": lap}}
 
 
 def _round(value):

@@ -35,12 +35,20 @@ def report_for(request, lap_a, lap_b):
     return build(request.app.state.store, lap_a, lap_b, names)
 
 
-def cache_key(report):
+def cache_key(report, fingerprint=None):
     return hashlib.sha256(
-        f"race:{report['fingerprint']}:{MODEL}:{writer.PROMPT_VERSION}".encode()).hexdigest()
+        f"race:{fingerprint or report['fingerprint']}:{MODEL}:{writer.PROMPT_VERSION}".encode()).hexdigest()
+
+
+def adopt(report, db):
+    """A review cached before the launch fact was renamed moves to its new key."""
+    if report.get("legacy_fingerprint"):
+        db.rekey(cache_key(report, report["legacy_fingerprint"]), cache_key(report))
 
 
 def view(report, db):
+    adopt(report, db)
+    report = {k: v for k, v in report.items() if k != "legacy_fingerprint"}
     cached = db.get(cache_key(report))
     result = cached.pop("result", None)
     if cached["state"] == "ready":
@@ -65,6 +73,7 @@ def write(store, db, names, lap_a, lap_b, key, retry=False):
     When a call was sent it returns its outcome, "ready" or "failed"."""
     report = build(store, lap_a, lap_b, names)
     encoded = writer.encode_request(report)  # prove the cap before reserving or sending
+    adopt(report, db)  # never pay again for a review cached under the old fact name
     fingerprint = cache_key(report)
     call_id = db.claim(fingerprint, retry)
     if call_id is None:
