@@ -2,6 +2,7 @@
 narrative contract and the shared, bounded spend path (ADR 33)."""
 import copy
 import json
+import re
 
 import pytest
 from fastapi import HTTPException
@@ -9,6 +10,7 @@ from fastapi.testclient import TestClient
 
 import harness
 from app.debrief import openrouter
+from app.debrief.api import ledger
 from app.debrief.contracts import MODEL
 from app.main import create_app
 from app.racereport import facts, writer
@@ -117,6 +119,9 @@ REPORT = {"facts": {
     "corners": [{"c": 19, "a_gain_s": -0.42, "a": {"gear": 3}, "b": {"gear": 5}}]}}
 
 
+QUIET = {"strengths": [], "costs": [], "practice": "Repeat it."}
+
+
 def narrative(**changes):
     side = {"strengths": ["Quicker early."], "costs": ["C19 in 3rd where {B} held 5th."],
             "practice": "Keep it flat through C20."}
@@ -126,6 +131,54 @@ def narrative(**changes):
            "a": dict(side), "b": dict(side)}
     out.update(changes)
     return out
+
+
+def _facts(value, key=""):
+    """(key, value) for every number in the facts, at any depth."""
+    if isinstance(value, dict):
+        for name, item in value.items():
+            yield from _facts(item, name)
+    elif isinstance(value, list):
+        for item in value:
+            yield from _facts(item, key)
+    elif isinstance(value, (int, float)) and not isinstance(value, bool):
+        yield key, value
+
+
+def _keys(value):
+    if isinstance(value, dict):
+        for name, item in value.items():
+            yield name
+            yield from _keys(item)
+    elif isinstance(value, list):
+        for item in value:
+            yield from _keys(item)
+
+
+def test_every_measured_fact_passes_the_check_written_plainly(circuit):
+    """The facts and the check are one contract: whatever the model is given, it
+    may state. A fact the check cannot read (a number hidden in a key name,
+    a unit it does not know) fails here, not in front of a driver."""
+    store, a, b = circuit
+    report = facts.build(store, a, b)
+    words = {"_s": "s", "_kmh": "km/h", "_pct": "%", "_g": "g", "_m": "m"}
+    stated = 0
+    for key, value in _facts(report["facts"]):
+        unit = next((w for suffix, w in words.items() if key.endswith(suffix)), None)
+        if unit is None:
+            continue  # counts, gears and corner numbers carry no unit
+        story = f"{{A}} measured {abs(value):g} {unit}."
+        assert writer.validate(narrative(headline="{A} against {B}", story=story,
+                                         a=QUIET, b=QUIET), report), (key, story)
+        stated += 1
+    assert stated > 20
+    for key in set(_keys(report["facts"])):
+        for number in re.findall(r"\d+", key):
+            # only "<n>m" in a name is read by the check; any other digit needs teaching it first
+            assert re.search(rf"(?<![a-z]){number}m(?![a-z])", key), key
+            story = f"{{A}} over the first {number} m."
+            assert writer.validate(narrative(headline="{A} against {B}", story=story,
+                                             a=QUIET, b=QUIET), report), key
 
 
 def test_narrative_numbers_must_be_measured_facts_in_the_right_unit():
@@ -230,6 +283,10 @@ def test_generate_caches_a_checked_narrative_and_never_shows_a_failed_one(circui
     assert "(check): Race report states 99.9 s, which is not a measured fact" in caplog.text
     assert body["ai"]["state"] == "failed" and "narrative" not in body["ai"]
     assert body["ai"]["cost_or_reserved_usd"] == pytest.approx(.0011)
+    # the rejected answer is kept with its reason, so a failure can be read later
+    rejected = ledger(type("Request", (), {"app": app})()).rejected()
+    assert [r["reason"] for r in rejected] == ["Race report states 99.9 s, which is not a measured fact"]
+    assert rejected[0]["answer"]["headline"] == "Won by 99.9 s"
 
 
 def test_generate_without_a_key_keeps_measurements(circuit, monkeypatch):

@@ -12,6 +12,7 @@ from pathlib import Path
 MONTH_LIMIT = 1_000_000  # micro USD: $1 per UTC calendar month
 CALL_LIMIT = 10_000     # reserve at most $0.01 before every network call
 LEASE_S = 120
+REJECTED_KEPT = 50  # newest answers that failed a fact check, for tuning it
 
 
 class BudgetError(Exception):
@@ -31,6 +32,9 @@ class Ledger:
                 CREATE TABLE IF NOT EXISTS reports (
                     key TEXT PRIMARY KEY, call_id TEXT NOT NULL, state TEXT NOT NULL,
                     result TEXT, created REAL NOT NULL);
+                CREATE TABLE IF NOT EXISTS rejected (
+                    call_id TEXT PRIMARY KEY, report_key TEXT NOT NULL, created REAL NOT NULL,
+                    reason TEXT NOT NULL, answer TEXT NOT NULL);
             """)
 
     @contextmanager
@@ -103,3 +107,16 @@ class Ledger:
                 db.execute("UPDATE calls SET status='uncertain' WHERE id=?", (call_id,))
             db.execute("UPDATE reports SET state=?,result=? WHERE key=? AND call_id=?",
                        (state, json.dumps(result) if result is not None else None, key, call_id))
+
+    def reject(self, key, call_id, reason, answer):
+        """Keep a model answer that failed a check, with the reason; never shown."""
+        with self.connection() as db:
+            db.execute("INSERT OR REPLACE INTO rejected VALUES (?,?,?,?,?)",
+                       (call_id, key, self.now(), reason, json.dumps(answer)))
+            db.execute("DELETE FROM rejected WHERE call_id NOT IN (SELECT call_id FROM rejected "
+                       "ORDER BY created DESC LIMIT ?)", (REJECTED_KEPT,))
+
+    def rejected(self):
+        with self.connection() as db:
+            rows = db.execute("SELECT * FROM rejected ORDER BY created DESC").fetchall()
+        return [{**dict(row), "answer": json.loads(row["answer"])} for row in rows]

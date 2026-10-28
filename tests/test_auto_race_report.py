@@ -51,7 +51,7 @@ class Driver:
         self.id, self.name = ident, name
 
 
-def test_a_pass_sends_each_takeover_once_within_the_monthly_cap(tmp_path, monkeypatch):
+def test_a_pass_sends_each_takeover_once_within_the_monthly_cap(tmp_path, monkeypatch, caplog):
     db = Ledger(tmp_path / "debrief.db", now=lambda: 1_800_000_000)
     pairs = [(10 + n, 100 + n, 1_800_000_000 - n, f"run{n}") for n in range(5)]
     monkeypatch.setattr(auto, "rivalry_summary", lambda store, drivers: None)
@@ -60,7 +60,7 @@ def test_a_pass_sends_each_takeover_once_within_the_monthly_cap(tmp_path, monkey
 
     def write(store, ledger, names, lap_a, lap_b, key, retry=False):
         calls.append((lap_a, lap_b, retry, names))
-        result = outcome.get(lap_a, True)
+        result = outcome.get(lap_a, "ready")
         if isinstance(result, Exception):
             raise result
         return result
@@ -68,9 +68,15 @@ def test_a_pass_sends_each_takeover_once_within_the_monthly_cap(tmp_path, monkey
     outcome[11] = HTTPException(409, "A selected session is still recording.")
     outcome[12] = HTTPException(409, "Race reports compare eligible bests only.")
     outcome[13] = False                                     # already cached: nothing sent
+    outcome[14] = "failed"                                  # sent, but its check failed
     done = set()
     drivers = [Driver("a", "FishFighterNS")]
-    assert auto.run_once(None, drivers, db, "key", done, now=1_800_000_000) == 2
+    with caplog.at_level("INFO", logger="app.racereport.auto"):
+        assert auto.run_once(None, drivers, db, "key", done, now=1_800_000_000) == 2
+    # the log says what happened: a failed check is never logged as written
+    assert "report written for takeover 10 vs 100" in caplog.text
+    assert "takeover 14 vs 104 failed; not shown" in caplog.text
+    assert "written for takeover 14" not in caplog.text
     assert all(retry is False for _, _, retry, _ in calls)   # never an automatic retry
     assert calls[0][3] == {"a": "FishFighterNS"}
     assert done == {"run0", "run2", "run3", "run4"}           # run1 waits for its session

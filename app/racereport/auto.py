@@ -138,10 +138,13 @@ def run_once(store, drivers, db: Ledger, key, done: set, now=None):
         done.add(pair)
         with db.connection() as conn:
             conn.execute("INSERT OR IGNORE INTO auto_reports VALUES (?,?,?,?,?,?)",
-                         (pair, lap_a, lap_b, db.month(), now, int(called)))
+                         (pair, lap_a, lap_b, db.month(), now, int(bool(called))))
         if called:
             sent += 1
+        if called == "ready":
             log.info("Automatic race report written for takeover %d vs %d", lap_a, lap_b)
+        elif called:
+            log.info("Automatic race report for takeover %d vs %d failed; not shown", lap_a, lap_b)
     return sent
 
 

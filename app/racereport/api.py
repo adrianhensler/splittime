@@ -61,14 +61,15 @@ def write(store, db, names, lap_a, lap_b, key, retry=False):
     """One bounded, cached call for a pair: the button and the automatic writer
     (ADR 34) share it. Returns False when nothing was sent (cached, in flight,
     or a failure that needs an explicit retry). Raises ValueError when the
-    request cannot fit the reservation and BudgetError when the month is spent."""
+    request cannot fit the reservation and BudgetError when the month is spent.
+    When a call was sent it returns its outcome, "ready" or "failed"."""
     report = build(store, lap_a, lap_b, names)
     encoded = writer.encode_request(report)  # prove the cap before reserving or sending
     fingerprint = cache_key(report)
     call_id = db.claim(fingerprint, retry)
     if call_id is None:
         return False
-    cost, receipt_id, model, result, stage = None, None, None, None, "provider"
+    cost, receipt_id, model, result, stage, answer = None, None, None, None, "provider", None
     try:
         provider = openrouter.request(encoded, key)
         cost = openrouter.receipt(provider)
@@ -76,7 +77,8 @@ def write(store, db, names, lap_a, lap_b, key, retry=False):
         if cost > CALL_LIMIT:
             raise ValueError("Provider exceeded the reserved cost")
         stage = "check"
-        result = writer.decode(provider, report)
+        answer = openrouter.content(provider)
+        result = writer.validate(answer, report)
         if cache_key(build(store, lap_a, lap_b, names)) != fingerprint:
             result = None  # recordings changed while the provider was working
             log.info("Race report %d vs %d not shown: recordings changed during the call", lap_a, lap_b)
@@ -86,11 +88,13 @@ def write(store, db, names, lap_a, lap_b, key, retry=False):
         # to tune; anything from the provider or network is logged by type only.
         reason = str(exc) if stage == "check" and isinstance(exc, ValueError) else type(exc).__name__
         log.info("Race report %d vs %d not shown (%s): %s", lap_a, lap_b, stage, reason)
+        if answer is not None:  # kept so a rejection can be read and the check tuned
+            db.reject(fingerprint, call_id, reason, answer)
         result = None
     finally:
         db.finish(fingerprint, call_id, result=result, cost=cost,
                   receipt_id=receipt_id, model=model)
-    return True
+    return "ready" if result is not None else "failed"
 
 
 @router.post("/race-report/generate")

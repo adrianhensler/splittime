@@ -191,7 +191,3 @@ def validate(result, report):
         out[side] = {key: [check(item, "item") for item in notes[key]] for key in ("strengths", "costs")}
         out[side]["practice"] = check(notes["practice"], "practice")
     return out
-
-
-def decode(response, report):
-    return validate(openrouter.content(response), report)
