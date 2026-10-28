@@ -1,5 +1,17 @@
 # WP-004: Rivalry views (M3)
 
+## Race report fact check: the "250 m" rejections, 2026-10-28
+
+Live logs showed every recent review rejected with "states 250 m, which is not
+a measured fact": the number lived only in the key `first_250m_s`, which the
+check never read. PR #55 (merged `88737b2`, website rebuilt, collector
+untouched) reads metres in a key name; the two failed pairs (223 vs 174,
+210 vs 186) were retried and now pass. PR #56 adds a test that states every
+fact plainly and requires the check to pass it (fails with the original error
+when #55 is undone), logs an automatic report that failed its check as failed
+instead of "written", and keeps the newest 50 rejected answers with their
+reason in the ledger. Suite 359 passed, Ruff clean. Not user-visible.
+
 ## Session review moves to Analysis, 2026-10-26
 
 The owner found two AI reviews under "A vs B analysis" confusing (race report
