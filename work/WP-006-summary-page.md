@@ -9,6 +9,11 @@
 | Verifier | Opus reviewed comparison at `f68d70a`; Codex independently reviewed and browser-tested Live at `c39ea19` |
 | Acceptor | owner |
 
+## Menu link to the weekly recap, 2026-10-29
+
+ADR 35 adds a Recap page; every page's menu, including `compare.html`, now
+links to it after Stats. No change to the comparison itself.
+
 ## Intent
 
 Give both drivers one page per route that answers "how do we compare here?"

@@ -20,6 +20,13 @@ Captn Compass taking Ito Sprint S2 by 4.751 s and 10.330 s off their own best;
 Chromium screenshots of Recap and Rivalry render as intended. Suite 368
 passed, UI 111 passed, Ruff clean. AI columns themselves are untried against
 the real model; the first ones are written after deploy, through the ledger.
+Codex on #57: (P1) recap facts dropped time provenance; bests and record
+changes now carry `estimated_finish` / `previous_estimated_finish`, the page
+marks them "est." and the prompt says to call them estimated. (P2) the bests
+sort had ties, so hash order could change a finished week's fingerprint; it
+is now a total order (and the busiest route breaks ties by name), tested by
+building a week from reversed categories. (P1) DESIGN.md scope now lists
+then vs now and the weekly recap.
 
 ## Race report fact check: the "250 m" rejections, 2026-10-28
 

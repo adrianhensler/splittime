@@ -17,10 +17,11 @@ START = datetime(2026, 10, 19, 3, tzinfo=timezone.utc).timestamp()    # Monday 0
 DAY = 86400
 
 
-def lap(lap_id, driver, time_s, at, clean=True):
+def lap(lap_id, driver, time_s, at, clean=True, finish="confirmed"):
     stamp = datetime.fromtimestamp(at, timezone.utc).isoformat().replace("+00:00", "Z")
     return {"lap_id": lap_id, "session_id": lap_id * 10, "started_at_utc": stamp, "finished_at_utc": stamp,
-            "driver_id": driver, "driver_name": NAMES[driver], "time_s": time_s, "candidate_clean": clean}
+            "driver_id": driver, "driver_name": NAMES[driver], "time_s": time_s, "candidate_clean": clean,
+            "finish": finish}
 
 
 def group(route_id, name, label, *attempts):
@@ -33,7 +34,8 @@ def season():
     return {"categories": [
         group(1, "Ito Sprint", "S2",
               lap(1, "b", 167.13, before), lap(2, "a", 172.709, before),     # b holds it
-              lap(3, "a", 162.379, during), lap(4, "a", 170.0, during, clean=False)),  # a takes it
+              lap(3, "a", 162.379, during, finish="last_packet"),                   # a takes it, timed
+              lap(4, "a", 170.0, during, clean=False)),                             # from the last packet
         group(2, "Daikoku Circuit", "S1",
               lap(5, "a", 62.252, during), lap(6, "a", 63.0, during + 60),   # a's first time here
               lap(7, "b", 61.0, after)),                                     # next week: not this one
@@ -49,13 +51,18 @@ def test_a_week_is_measured_from_the_laps_that_finished_in_it():
     assert (a["driver"], a["laps"], a["clean_laps"], a["new_routes"], a["personal_bests"]) == ("Captn Compass", 4, 3, 1, 2)
     assert (a["records_held_before"], a["records_held"], b["records_held_before"], b["records_held"]) == (0, 1, 1, 0)
     assert f["contested_routes"] == 1  # Daikoku is contested only from next week
+    # time provenance (AGENTS.md): an estimated finish says so wherever it is used
     assert f["personal_bests"][0] == {"driver": "Captn Compass", "route": "Ito Sprint", "class": "S2",
-                                      "time_s": 162.379, "previous_time_s": 172.709, "improved_s": 10.33}
+                                      "time_s": 162.379, "estimated_finish": True, "previous_time_s": 172.709,
+                                      "previous_estimated_finish": False, "improved_s": 10.33}
     assert f["personal_bests"][1] == {"driver": "Captn Compass", "route": "Daikoku Circuit", "class": "S1",
-                                      "time_s": 62.252}  # a first time has no "before"
+                                      "time_s": 62.252, "estimated_finish": False}  # a first time has no "before"
     assert f["records_changed"] == [{"route": "Ito Sprint", "class": "S2", "new_holder": "Captn Compass",
-                                     "previous_holder": "FishFighterNS", "time_s": 162.379, "margin_s": 4.751}]
-    assert f["busiest_route"] == {"route": "Ito Sprint", "class": "S2", "laps": 2}
+                                     "previous_holder": "FishFighterNS", "time_s": 162.379,
+                                     "estimated_finish": True, "previous_estimated_finish": False,
+                                     "margin_s": 4.751}]
+    assert "call it estimated" in writer.SYSTEM
+    assert f["busiest_route"] == {"route": "Daikoku Circuit", "class": "S1", "laps": 2}  # a tie: by name
     assert report["tags"] == {"D1": "Captn Compass", "D2": "FishFighterNS",
                               "R1": "Daikoku Circuit", "R2": "Ito Sprint"}
 
@@ -70,6 +77,19 @@ def test_weeks_run_monday_to_monday_in_local_time_and_later_driving_never_change
     s["categories"].append(group(3, "Brand New Route", "A", lap(8, "b", 90, START + 20 * DAY)))
     assert facts.build(s, MONDAY, START + 30 * DAY)["fingerprint"] == before["fingerprint"]
     assert not facts.build(s, MONDAY, START + DAY)["complete"]
+
+
+def test_the_facts_never_depend_on_the_order_things_are_found_in():
+    """Codex, #57: two first times on one route in two classes tied in the sort,
+    so hash order could reorder them and orphan a paid recap after a restart."""
+    during = START + DAY
+    two = {"categories": [group(1, "Ito Sprint", "S2", lap(1, "a", 160, during)),
+                          {**group(1, "Ito Sprint", "A", lap(2, "a", 170, during)), "car_class": 4},
+                          group(2, "Oka CCC", "A", lap(3, "b", 90, during), lap(4, "b", 91, during))]}
+    flipped = {"categories": list(reversed(two["categories"]))}
+    one, other = facts.build(two, MONDAY, START + 30 * DAY), facts.build(flipped, MONDAY, START + 30 * DAY)
+    assert [(b["route"], b["class"]) for b in one["facts"]["personal_bests"]][:2] == [("Ito Sprint", "A"), ("Ito Sprint", "S2")]
+    assert one["fingerprint"] == other["fingerprint"]
 
 
 def _numbers(value, key=""):

@@ -13,6 +13,8 @@
   // dates arrive as plain ISO days; never shift them through a time zone
   const day = (iso, options) => new Date(`${iso}T12:00:00Z`).toLocaleDateString(undefined,
     {timeZone:"UTC", ...options});
+  const EST = "The game stopped sending data at the finish line, so this time is SplitTime’s last clock reading. The run covered the whole route.";
+  const est = flag => flag ? ` <abbr class="st-est" title="${EST}">est.</abbr>` : "";
   const named = (text, tags) => esc(text).replace(/\{([A-Z][A-Z0-9]*)\}/g, (mark, key) =>
     key in tags ? `<strong>${esc(tags[key])}</strong>` : mark);
 
@@ -45,11 +47,12 @@
       <td class="st-num">${d.records_held_before === d.records_held ? d.records_held : `${d.records_held_before} → ${d.records_held}`}</td></tr>`).join("")}
       </tbody></table></div>`;
     const bests = f.personal_bests.length ? `<h3>Personal bests</h3><ul>${f.personal_bests.map(b =>
-      `<li><strong>${esc(b.driver)}</strong> · ${esc(b.route)} (${esc(b.class)}) · <span class="st-time">${time(b.time_s)}</span>${
-        b.improved_s === undefined ? " · first time" : ` · ${b.improved_s.toFixed(3)} s quicker than ${time(b.previous_time_s)}`}</li>`).join("")}</ul>` : "";
+      `<li><strong>${esc(b.driver)}</strong> · ${esc(b.route)} (${esc(b.class)}) · <span class="st-time">${time(b.time_s)}</span>${est(b.estimated_finish)}${
+        b.improved_s === undefined ? " · first time" : ` · ${b.improved_s.toFixed(3)} s quicker than ${time(b.previous_time_s)}${est(b.previous_estimated_finish)}`}</li>`).join("")}</ul>` : "";
     const records = f.records_changed.length ? `<h3>Records that changed hands</h3><ul>${f.records_changed.map(r =>
       `<li>${esc(r.route)} (${esc(r.class)}) · <strong>${esc(r.new_holder)}</strong> takes it from ${esc(r.previous_holder)} with
-        <span class="st-time">${time(r.time_s)}</span>, by ${r.margin_s.toFixed(3)} s</li>`).join("")}</ul>` : "";
+        <span class="st-time">${time(r.time_s)}</span>${est(r.estimated_finish)}, by ${r.margin_s.toFixed(3)} s${
+          r.estimated_finish || r.previous_estimated_finish ? " (from an estimated time)" : ""}</li>`).join("")}</ul>` : "";
     const busiest = f.busiest_route ? `<p class="st-quiet">Busiest route: ${esc(f.busiest_route.route)} (${esc(f.busiest_route.class)}),
       ${f.busiest_route.laps} laps · ${f.contested_routes} routes have times from two or more drivers.</p>` : "";
     return drivers + bests + records + busiest;

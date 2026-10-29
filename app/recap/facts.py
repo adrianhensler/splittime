@@ -62,6 +62,12 @@ def weeks(summary, now: float) -> list[date]:
     return sorted({monday_of(t) for t, *_ in _laps(summary) if t <= now}, reverse=True)[:MAX_WEEKS]
 
 
+def _estimated(lap):
+    """Time provenance (AGENTS.md): the game stopped sending at the line, so
+    the time is SplitTime's last clock reading, not the game's own."""
+    return lap.get("finish") == "last_packet"
+
+
 def _holders(laps, cutoff):
     """Outright record holders among drivers, on routes two or more have a clean time on."""
     best: dict = {}
@@ -93,20 +99,23 @@ def build(summary, monday: date, now: float) -> dict:
     bests, per_route = [], Counter()
     for key in {key for _, key, _, _ in week}:
         for driver in {lap["driver_id"] for _, k, _, lap in week if k == key}:
-            clean = [(t, lap["time_s"]) for t, k, _, lap in laps
+            clean = [(t, lap) for t, k, _, lap in laps
                      if k == key and lap["driver_id"] == driver and lap.get("candidate_clean") and t < end]
-            before = [s for t, s in clean if t < start]
-            during = [s for t, s in clean if t >= start]
-            if during and (not before or min(during) < min(before)):
+            before = min((lap for t, lap in clean if t < start), key=lambda lap: lap["time_s"], default=None)
+            during = min((lap for t, lap in clean if t >= start), key=lambda lap: lap["time_s"], default=None)
+            if during and (not before or during["time_s"] < before["time_s"]):
                 entry = {"driver": names[driver], "route": route[key][0], "class": route[key][1],
-                         "time_s": min(during)}
+                         "time_s": during["time_s"], "estimated_finish": _estimated(during)}
                 if before:
-                    entry["previous_time_s"] = min(before)
-                    entry["improved_s"] = round(min(before) - min(during), 3)
+                    entry["previous_time_s"] = before["time_s"]
+                    entry["previous_estimated_finish"] = _estimated(before)
+                    entry["improved_s"] = round(before["time_s"] - during["time_s"], 3)
                 bests.append(entry)
     for _, key, _, _ in week:
         per_route[key] += 1
-    bests.sort(key=lambda b: (-b.get("improved_s", -1), b["route"], b["driver"]))
+    # a total order: the facts, and so the fingerprint, never depend on set or hash order
+    bests.sort(key=lambda b: (-b.get("improved_s", -1), b["route"].casefold(), b["route"],
+                              str(b["class"]), b["driver"].casefold(), b["time_s"]))
 
     # only what existed by the week's end, so a later route or driver never
     # changes a finished week (its fingerprint, and so its cached recap)
@@ -136,9 +145,13 @@ def build(summary, monday: date, now: float) -> dict:
             (key, lap), (_, beaten) = by_lap[new], by_lap[old]
             changed.append({"route": route[key][0], "class": route[key][1],
                             "new_holder": names[lap["driver_id"]], "previous_holder": names[beaten["driver_id"]],
-                            "time_s": lap["time_s"], "margin_s": round(beaten["time_s"] - lap["time_s"], 3)})
+                            "time_s": lap["time_s"], "estimated_finish": _estimated(lap),
+                            "previous_estimated_finish": _estimated(beaten),
+                            "margin_s": round(beaten["time_s"] - lap["time_s"], 3)})
 
-    busiest = max(per_route.items(), key=lambda item: item[1], default=None)
+    # most laps; a tie goes to the route first by name, then class
+    busiest = min(per_route.items(), key=lambda item: (-item[1], route[item[0]][0].casefold(),
+                                                       str(route[item[0]][1]), str(item[0])), default=None)
     facts = {
         "laps": len(week),
         "clean_laps": sum(1 for *_, lap in week if lap.get("candidate_clean")),
