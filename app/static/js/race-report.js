@@ -6,9 +6,13 @@
   const km = m => `${(Math.max(0, m) / 1000).toFixed(1)} km`;
   const secs = value => `${Math.abs(value).toFixed(3)} s`;
   class RaceReport {
-    constructor(host) {
+    // mode "progress" (ADR 35): one driver's current best (A, now) against
+    // their first clean run (B, then), with a progress review instead
+    constructor(host, options = {}) {
       this.host = host; this.context = null; this.sequence = 0; this.busy = false;
-      host.innerHTML = '<summary>Race report &amp; engineer’s review · choose A and B</summary><div class="st-race-content" aria-live="polite"></div>';
+      this.progress = options.mode === "progress";
+      host.innerHTML = `<summary>${this.progress ? "Then vs now · choose a driver" :
+        "Race report &amp; engineer’s review · choose A and B"}</summary><div class="st-race-content" aria-live="polite"></div>`;
       this.content = host.querySelector("div");
       host.addEventListener("toggle", () => {if (host.open) this.load();});
       host.addEventListener("click", event => {
@@ -17,10 +21,13 @@
       });
     }
     setContext(a, b, refresh = false) {
-      const next = a && b ? {lap_a:a.lap_id, lap_b:b.lap_id, a:a.driver_name, b:b.driver_name} : null;
+      const next = a && b ? (this.progress ?
+        {lap_a:a.lap_id, lap_b:b.lap_id, a:`${a.driver_name} (now)`, b:`${b.driver_name} (then)`, driver:a.driver_name} :
+        {lap_a:a.lap_id, lap_b:b.lap_id, a:a.driver_name, b:b.driver_name}) : null;
       if (!refresh && JSON.stringify(next) === JSON.stringify(this.context)) return;
       this.context = next; ++this.sequence; this.controller?.abort(); this.busy = false;
-      this.host.querySelector("summary").textContent = next ?
+      this.host.querySelector("summary").textContent = this.progress ?
+        (next ? `Then vs now · ${next.driver}` : "Then vs now · choose a driver") : next ?
         `Race report & engineer’s review · ${next.a} (A) vs ${next.b} (B)` : "Race report & engineer’s review · choose A and B";
       this.content.textContent = next ? "Expand to see where the time went." : "Choose an A and a B lap.";
       if (this.host.open) this.load();
@@ -40,10 +47,11 @@
         status.textContent = "Writing the race report from the measured facts…";
       } else this.content.textContent = "Measuring both runs section by section…";
       try {
+        const mode = this.progress ? {mode:"progress"} : {};
         const response = await fetch(generate ? "api/race-report/generate" :
-          `api/race-report?lap_a=${lap_a}&lap_b=${lap_b}`, {cache:"no-store", signal:this.controller.signal,
+          `api/race-report?lap_a=${lap_a}&lap_b=${lap_b}${this.progress ? "&mode=progress" : ""}`, {cache:"no-store", signal:this.controller.signal,
           ...(generate ? {method:"POST", headers:{"Content-Type":"application/json"},
-            body:JSON.stringify({lap_a,lap_b,retry:this.retry === true})} : {})});
+            body:JSON.stringify({lap_a,lap_b,retry:this.retry === true,...mode})} : {})});
         if (sequence !== this.sequence) return;
         if (response.status === 401 || response.status === 403 || response.redirected) {
           throw new Error("This needs a signed-in account with SplitTime access to write an AI race report. If you are signed in, an admin can add you to SplitTime. Measurements remain public.");
@@ -68,22 +76,32 @@
         ${notes.strengths.length ? `<p class="st-quiet">Strengths</p><ul>${notes.strengths.map(t => `<li>${this.named(t)}</li>`).join("")}</ul>` : ""}
         ${notes.costs.length ? `<p class="st-quiet">Cost time</p><ul>${notes.costs.map(t => `<li>${this.named(t)}</li>`).join("")}</ul>` : ""}
         <p><span class="st-quiet">Practice ·</span> ${this.named(notes.practice)}</p></div>`;
+      const list = (title, items) => items.length ?
+        `<p class="st-quiet">${title}</p><ul>${items.map(t => `<li>${this.named(t)}</li>`).join("")}</ul>` : "";
+      const review = !story ? "" : this.progress ?
+        `<p class="st-race-ai-headline">${this.named(story.headline)}</p><p>${this.named(story.story)}</p>
+          <div class="st-debrief-grid"><div>${list("Improved", story.improved)}</div><div>${list("Still to find", story.still_to_find)}</div></div>
+          <p><span class="st-quiet">Practice ·</span> ${this.named(story.practice)}</p>` :
+        `<p class="st-race-ai-headline">${this.named(story.headline)}</p><p>${this.named(story.story)}</p>
+          <div class="st-debrief-grid">${side(a, story.a)}${side(b, story.b)}</div>`;
       const style = lap => `${lap.flat_pct}% full throttle · top ${lap.max_kmh} km/h · peak ${lap.max_g} g · ` +
         `${lap.pedals === "on_off" ? "on/off pedals" : "progressive pedals"}${lap.steering === "on_off" ? ", on/off steering" : ""}`;
       const state = !ai.enabled ? "AI is not configured; the measurements above are complete." :
         ai.state === "ready" ? `Written by Gemini 3.8 Flash from these measurements · $${ai.cost_or_reserved_usd.toFixed(5)}` :
         ai.state === "pending" ? "Being written. Reload to check; no second call will be made." :
         this.retry ? "The last attempt did not pass the fact check. Unknown charges stay reserved; retry is a new call." :
+        this.progress ? "Optional: an AI race engineer reviews your progress from these measurements. Every number it uses must be one of them. Your gamertag is sent so it can name you." :
         "Optional: an AI race engineer writes the review from these measurements. Every number it uses must be one of them. Gamertags are sent so it can name you.";
       const disabled = !ai.enabled || ["ready","pending"].includes(ai.state) || ai.budget.remaining_usd < 0.01;
       this.content.innerHTML = `
-        <p class="st-race-headline"><strong>${esc(leader)}</strong> faster by <span class="st-time">${secs(f.a_gain_s)}</span>
+        <p class="st-race-headline">${this.progress ?
+          `<strong>${esc(this.context.driver)}</strong>’s best is <span class="st-time">${secs(f.a_gain_s)}</span> ${f.a_gain_s >= 0 ? "faster" : "slower"} than their first clean run` :
+          `<strong>${esc(leader)}</strong> faster by <span class="st-time">${secs(f.a_gain_s)}</span>`}
           over ${km(f.route_m)}${f.same_car ? " · same car and PI" : " · different cars or PI"}</p>
-        <div class="st-race-story"><h3>Race engineer’s review</h3>
-          ${story ? `<p class="st-race-ai-headline">${this.named(story.headline)}</p><p>${this.named(story.story)}</p>
-          <div class="st-debrief-grid">${side(a, story.a)}${side(b, story.b)}</div>` : ""}
+        <div class="st-race-story"><h3>${this.progress ? "Engineer’s progress review" : "Race engineer’s review"}</h3>
+          ${review}
           <p class="st-quiet st-race-status">${esc(state)}</p>
-          ${ai.state === "ready" ? "" : `<div class="st-debrief-actions"><button type="button" data-race="generate" ${disabled ? "disabled" : ""}>${this.retry ? "Retry AI race report" : "Write AI race report"}</button></div>
+          ${ai.state === "ready" ? "" : `<div class="st-debrief-actions"><button type="button" data-race="generate" ${disabled ? "disabled" : ""}>${this.retry ? `Retry AI ${this.progress ? "progress review" : "race report"}` : `Write AI ${this.progress ? "progress review" : "race report"}`}</button></div>
           <p class="st-quiet">Writing one needs a signed-in SplitTime account · shared AI budget $1 / UTC month · $${ai.budget.remaining_usd.toFixed(3)} left.</p>`}</div>
         <h3>Where the time went</h3>
         <ol class="st-race-sections">${f.sections.map(s => {

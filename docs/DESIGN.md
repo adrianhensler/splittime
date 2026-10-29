@@ -35,6 +35,15 @@ requires the gateway's login and service grant (ADR 23).
   the two configured gamertags go to the provider, under the same cap (ADR 33).
 - A race report is written by itself when a route record changes hands, at
   most 20 a month within the same cap (ADR 34).
+- Then vs now: one driver's current best against their first clean run on a
+  route and class, section by section, with an optional progress review on
+  request under the same check and cap (ADR 35).
+- A weekly recap of each Monday-to-Sunday week in the drivers' time zone:
+  activity, personal bests and time improved, records that changed hands and
+  records held, with estimated finishes marked. An optional AI column is
+  written once a week ends (or on request for an older one), under the same
+  check and cap; driver and route names are the only identifying text sent
+  (ADR 35).
 - Manual correction of lap flags by either driver.
 
 **Out (v1)** — tracked in [BUILD_PLAN.md](BUILD_PLAN.md#deferred)

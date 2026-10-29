@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en"><head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SplitTime · Recap</title>
+  <link rel="stylesheet" href="css/rivalry-v2.css">
+  <link rel="stylesheet" href="css/stats.css">
+</head>
+<body id="st-rivalry-workspace"><div class="st-window">
+  <header><a class="st-brand" href="index.html">Split<span>//</span>Time</a>
+    <nav aria-label="Site"><a href="index.html">Live</a><a href="analysis.html">Analysis</a>
+      <a href="rivalry-v2.html">Rivalry</a><a href="replay.html">Replay</a><a href="stats.html">Stats</a><a href="recap.html" aria-current="page">Recap</a><a href="how-it-works.html">How it works</a><a href="whats-new.html">What’s new</a></nav>
+  </header>
+  <main>
+    <div class="st-top"><div><h1>Weekly recap</h1><div class="st-sub" id="st-recap-label">Loading…</div>
+      <div class="st-sub">Recorded times · comparisons between drivers are exploratory</div></div>
+      <div class="st-search"><button id="st-refresh" type="button">Refresh</button></div>
+    </div>
+    <p id="st-message" class="st-quiet" role="status" aria-live="polite">Loading the weeks…</p>
+    <div id="st-weeks"></div>
+    <details><summary>About the recap</summary><p>Each week is measured from the same recorded laps as Rivalry and
+      Stats: a lap counts as valid when it has no rewind and no contact and is not excluded. A personal best is a
+      driver’s fastest valid time on a route and class that week, when it beat everything they had recorded there
+      before. Records are counted on routes where two or more drivers have a valid time.</p>
+      <p>The written column is optional. An AI writes it from that week’s measurements only, and every number it
+      uses is checked against them; a column that fails the check is not shown. It is written automatically about
+      an hour after a week ends, once, and can be written by hand for any finished week.</p></details>
+  </main>
+</div><script src="js/recap.js"></script></body>
+</html>

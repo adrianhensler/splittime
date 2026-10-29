@@ -118,7 +118,9 @@ def _sections(segments, lo, hi, metres_per_unit):
     return out
 
 
-def build(store, lap_a: int, lap_b: int, names: dict | None = None) -> dict:
+def build(store, lap_a: int, lap_b: int, names: dict | None = None, progress: bool = False) -> dict:
+    """`progress` (ADR 35): one driver's current best (A) against their first
+    clean run (B), labelled now and then."""
     if lap_a == lap_b:
         raise HTTPException(409, "Choose two different laps.")
     laps, sessions, quality = [], [], []
@@ -137,6 +139,8 @@ def build(store, lap_a: int, lap_b: int, names: dict | None = None) -> dict:
     if not all(q["candidate_clean"] for q in quality):
         raise HTTPException(409, "Race reports compare eligible bests only: both runs must be clean "
                                  "and cover the whole route.")
+    if progress and len({s.get("driver_id") or "legacy" for s in sessions}) != 1:
+        raise HTTPException(409, "Then vs now compares one driver's own runs.")
 
     digest_rows, frames, traces = [], [], []
     for lap in laps:
@@ -243,7 +247,9 @@ def build(store, lap_a: int, lap_b: int, names: dict | None = None) -> dict:
     # Gamertags go to the writer (ADR 33); a rename is a new report.
     ids = [s.get("driver_id") or "legacy" for s in sessions]
     tags = [str((names or {}).get(i, i))[:40] for i in ids]
-    if tags[0].casefold() == tags[1].casefold():  # one driver's two runs
+    if progress:
+        tags = [f"{tags[0]} (now)", f"{tags[1]} (then)"]
+    elif tags[0].casefold() == tags[1].casefold():  # one driver's two runs
         tags = [f"{tags[0]} (A)", f"{tags[1]} (B)"]
     report = {"version": REPORT_VERSION, "lap_a": lap_a, "lap_b": lap_b,
               "route_id": sessions[0]["route_id"], "reference_lap_id": detector_lap["id"],

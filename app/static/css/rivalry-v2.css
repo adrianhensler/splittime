@@ -97,6 +97,9 @@
     #st-rivalry-workspace .st-debrief button{font:inherit;padding:8px;border:1px solid var(--st-line);border-radius:4px;background:var(--st-panel);color:var(--st-fg)}
     #st-rivalry-workspace .st-debrief button:disabled{opacity:.55;cursor:default}
     #st-rivalry-workspace .st-race{border-color:var(--st-accent)}
+    #st-rivalry-workspace .st-progress-pick{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+    #st-rivalry-workspace .st-progress-pick button{font:inherit;padding:6px 10px;border:1px solid var(--st-line);border-radius:5px;background:var(--st-panel);color:var(--st-fg);cursor:pointer}
+    #st-rivalry-workspace .st-progress-pick button[aria-pressed=true]{border-color:var(--st-accent);color:var(--st-accent);font-weight:600}
     #st-rivalry-workspace .st-analysis{margin-top:16px;scroll-margin-top:12px}
     #st-rivalry-workspace .st-analysis h3{margin:0 0 2px;font-size:16px}
     #st-rivalry-workspace .st-analysis details{font-size:14px;color:var(--st-fg)}

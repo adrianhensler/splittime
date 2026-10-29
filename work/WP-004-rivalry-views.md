@@ -1,5 +1,41 @@
 # WP-004: Rivalry views (M3)
 
+## Then vs now and the weekly recap (ADR 35), 2026-10-29
+
+Owner asked for historical reporting for engagement and insight. Then vs now
+is a `progress` mode of the race report (same facts and check; one driver's
+first clean run as B, best as A; own prompt, schema and cache key), shown in
+a new Rivalry section with a driver picker (`RivalryModel.progress`). The
+weekly recap (`app/recap/`) measures Halifax weeks from the rivalry
+projection, writes a fact-checked column with names as {D1}/{R1}
+placeholders, and a 30-minute pass writes last week's once, an hour after it
+ends. The race report checker now takes a placeholder set and a label, and
+reads any `*time_s` as a lap time. New Recap page, linked from every page's
+menu; What's new entry added.
+
+Checked locally on a snapshot of live data (no API key, nothing spent):
+three weeks measured (48, 32 and 18 laps so far), e.g. the 19 Oct week shows
+Captn Compass taking Ito Sprint S2 by 4.751 s and 10.330 s off their own best;
+14 real then-vs-now pairs; a two-driver pair is refused (409); headless
+Chromium screenshots of Recap and Rivalry render as intended. Suite 368
+passed, UI 111 passed, Ruff clean. AI columns themselves are untried against
+the real model; the first ones are written after deploy, through the ledger.
+Codex on #57: (P1) recap facts dropped time provenance; bests and record
+changes now carry `estimated_finish` / `previous_estimated_finish`, the page
+marks them "est." and the prompt says to call them estimated. (P2) the bests
+sort had ties, so hash order could change a finished week's fingerprint; it
+is now a total order (and the busiest route breaks ties by name), tested by
+building a week from reversed categories. (P1) DESIGN.md scope now lists
+then vs now and the weekly recap.
+Second Codex pass: (P1) the then-vs-now summary line now says "(estimated)"
+after a last-packet time. (P2) the check's free pass for whole numbers up to
+10 suits race reports (gears, ordinals) but not a recap made of counts; it is
+now a parameter, off for recaps, so "drove 9 laps" fails unless 9 is measured.
+Third pass (both P2): routes and new routes are counted per route, not per
+route and class, as on Stats; and a lap still recording (no finish time) is
+in no week until it finishes, so it cannot move a finished week's facts. All
+237 live laps have a finish time, so nothing recorded is left out.
+
 ## Race report fact check: the "250 m" rejections, 2026-10-28
 
 Live logs showed every recent review rejected with "states 250 m, which is not

@@ -10,7 +10,7 @@ const sample = () => ({lap_a:98,lap_b:174,reference_lap_id:174,warnings:["<scrip
               {n:2,from_m:932,to_m:5965,corners:[19],a_gain_s:-5.108,a_ahead_after_s:-4.751,a:side(),b:side()}],
     corners:[{c:19,a_gain_s:-.42,a:{gear:3,min_kmh:162,exit_kmh:180},b:{gear:5,min_kmh:216,exit_kmh:225}}]},
   ai:{state:"missing",enabled:true,budget:{remaining_usd:1}}});
-function panel(fetcher) {
+function panel(fetcher, options) {
   const summary = {}, status = {}, content = {innerHTML:"",textContent:"",
     querySelector(){return status;},querySelectorAll(){return [];}};
   const host = {open:false,innerHTML:"",addEventListener(){},
@@ -18,7 +18,7 @@ function panel(fetcher) {
   const requests = [], context = {AbortController,
     fetch:async(url,options)=>{requests.push({url,options});return fetcher(url,options);}};
   vm.createContext(context);vm.runInContext(source,context);
-  return {controller:new context.RaceReport(host),host,content,summary,status,requests};
+  return {controller:new context.RaceReport(host,options),host,content,summary,status,requests};
 }
 const a = {lap_id:98,driver_name:"<img src=x>"}, b = {lap_id:174,driver_name:"Captn Compass"};
 const response = data => ({ok:true,status:200,json:async()=>data});
@@ -69,4 +69,24 @@ test("a late answer cannot land on a newer selection",async()=>{
   p.controller.setContext(a,b);p.host.open=true;const old=p.controller.load();
   p.controller.setContext({...a,lap_id:99},b);waits[0](response(sample()));await old;
   assert.doesNotMatch(p.content.innerHTML,/faster by/);
+});
+test("then vs now: one driver's best against their first run, asked for in progress mode",async()=>{
+  const now={lap_id:98,driver_name:"Captn Compass"},then={lap_id:21,driver_name:"Captn Compass"};
+  const p=panel(async()=>response({...sample(),facts:{...sample().facts,a_gain_s:4.751}}),{mode:"progress"});
+  assert.match(p.host.innerHTML,/Then vs now · choose a driver/);
+  p.controller.setContext(now,then);assert.equal(p.summary.textContent,"Then vs now · Captn Compass");
+  await p.controller.load();
+  assert.equal(p.requests[0].url,"api/race-report?lap_a=98&lap_b=21&mode=progress");
+  let html=p.content.innerHTML;
+  assert.match(html,/<strong>Captn Compass<\/strong>’s best is <span class="st-time">4.751 s<\/span> faster than their first clean run/);
+  assert.match(html,/Captn Compass \(then\) \+/);assert.match(html,/Write AI progress review/);
+  await p.controller.load(true);
+  assert.deepEqual(JSON.parse(p.requests[1].options.body),{lap_a:98,lap_b:21,retry:false,mode:"progress"});
+  p.controller.render({...sample(),ai:{...sample().ai,state:"ready",cost_or_reserved_usd:.0011,narrative:{
+    headline:"{A} finds 4.751 s",story:"Later braking than {B}.",improved:["Braking <i>later</i>."],
+    still_to_find:["Section 2."],practice:"Carry speed."}}});
+  html=p.content.innerHTML;
+  assert.match(html,/<strong>Captn Compass \(now\)<\/strong> finds 4.751 s/);
+  assert.match(html,/Improved<\/p><ul><li>Braking &lt;i&gt;later&lt;\/i&gt;.<\/li>/);
+  assert.match(html,/Still to find<\/p><ul><li>Section 2./);assert.match(html,/Engineer’s progress review/);
 });

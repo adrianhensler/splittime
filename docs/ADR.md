@@ -653,3 +653,44 @@ confirmed them.
   triggered by viewing, only by a recorded change of record holder.
 
 *Rests on:* 32, 33. *Work:* WP-004.
+
+## 35. History: then vs now, and a weekly recap
+
+**Proposed, 2026-10-29** (owner asked for "historical" reporting to keep the
+drivers interested and give them insight, and approved four pieces in order:
+then vs now and a weekly recap together, then "within reach", then
+milestones). Defaults below are the implementer's; the owner has not
+confirmed them.
+
+- **Then vs now** is a mode of the race report (ADR 33): the same measured
+  section facts and the same check, for one driver's current best (A, "now")
+  against their first clean run on that route and class (B, "then"). A pair
+  of two drivers is refused. It has its own prompt (what improved, what is
+  still to find, one practice focus), its own output shape and its own cache
+  entry, so a race report for the same two laps is unaffected. It is shown
+  under the Rivalry workspace for every driver whose best is a later, faster
+  run than their first; undated runs have no "first" and are left out. It is
+  written on request only.
+- **The weekly recap** measures one Monday-to-Sunday week in the drivers'
+  time zone (`RECAP_TZ`, default America/Halifax; a week is 167 or 169 hours
+  across a DST change) from the rivalry projection, so a lap counts exactly as
+  on Rivalry and Stats and nothing reads frames. Per driver: laps, valid
+  laps, sessions, routes, new routes, personal bests, and records held at the
+  start and end of the week; plus the week's personal bests (with the time
+  improved), records that changed hands (ADR 34's takeovers) and the busiest
+  route. Only drivers and routes that existed by the week's end are included,
+  so later driving never changes a finished week or its cached column.
+- The recap column is written by the same model under the same check: every
+  number must be a measured fact (no dates are sent), no corners exist, and
+  driver and route names are stored as placeholders ({D1}, {R1}) the page
+  fills in after escaping. Same provider policy, ledger, $0.01 reservation and
+  $1 UTC-month budget as ADRs 32–34; a rejected column is kept with its reason.
+- A finished week is written once, about an hour after it ends, by a pass
+  every 30 minutes (`auto_recaps` table; `SPLITTIME_AUTO_RECAPS=0` turns it
+  off). Only the last week is written automatically; older finished weeks can
+  be written with the button. The current week is shown measured, without a
+  column. A week with nothing recorded is skipped at no cost. At most about
+  five automatic calls a month.
+- A new Recap page lists up to 12 weeks, newest first.
+
+*Rests on:* 27, 28, 33, 34. *Work:* WP-004.
