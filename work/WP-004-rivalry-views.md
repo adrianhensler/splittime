@@ -1,5 +1,25 @@
 # WP-004: Rivalry views (M3)
 
+## Race report fact check: the "250 m" rejections, 2026-10-28
+
+Live logs showed every recent review rejected with "states 250 m, which is not
+a measured fact": the number lived only in the key `first_250m_s`, which the
+check never read. PR #55 (merged `88737b2`, website rebuilt, collector
+untouched) reads metres in a key name; the two failed pairs (223 vs 174,
+210 vs 186) were retried and now pass. PR #56 adds a test that states every
+fact plainly and requires the check to pass it (fails with the original error
+when #55 is undone), logs an automatic report that failed its check as failed
+instead of "written", and keeps the newest 50 rejected answers with their
+reason in the ledger. Owner review: reading numbers out of key names is the
+wrong fix, so #56 instead makes the launch two values (`first_stretch_m`,
+`first_stretch_s`), drops the key parsing and asserts no digits in fact names.
+Cached reviews are kept: the old-shape fingerprint finds them and `rekey`
+moves them, no call. Checked on a snapshot of live data: all 5 reviews the
+deployed code can reach match; 4 older rows were already unreachable.
+Codex (P2): a call in flight during a rekey finished against the old key and
+its paid answer was dropped; `finish` now finds the row by its call ID.
+Not user-visible.
+
 ## Session review moves to Analysis, 2026-10-26
 
 The owner found two AI reviews under "A vs B analysis" confusing (race report

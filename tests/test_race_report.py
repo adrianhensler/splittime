@@ -2,6 +2,7 @@
 narrative contract and the shared, bounded spend path (ADR 33)."""
 import copy
 import json
+import re
 
 import pytest
 from fastapi import HTTPException
@@ -9,9 +10,11 @@ from fastapi.testclient import TestClient
 
 import harness
 from app.debrief import openrouter
+from app.debrief.api import ledger
+from app.debrief.ledger import Ledger
 from app.debrief.contracts import MODEL
 from app.main import create_app
-from app.racereport import facts, writer
+from app.racereport import api as race_api, facts, writer
 
 
 @pytest.fixture(scope="module")
@@ -78,7 +81,7 @@ def test_distances_are_metres_not_route_units(circuit, monkeypatch):
     assert all(s["to_m"] == pytest.approx(2 * t["to_m"], abs=2)
                for s, t in zip(twice["sections"], base["sections"])) or \
         len(twice["sections"]) != len(base["sections"])
-    assert twice["lap"]["a"]["first_250m_s"] < base["lap"]["a"]["first_250m_s"]
+    assert twice["lap"]["a"]["first_stretch_s"] < base["lap"]["a"]["first_stretch_s"]
 
 
 def test_only_comparable_eligible_pairs_are_measured(circuit, monkeypatch):
@@ -109,12 +112,15 @@ def test_a_stop_keeps_its_samples_and_a_rewind_keeps_the_last_pass(monkeypatch):
 
 REPORT = {"facts": {
     "a_gain_s": -4.751, "route_m": 5965, "same_car": True,
-    "lap": {"a": {"time_s": 167.13, "first_250m_s": 6.412, "flat_pct": 42, "max_g": 3.7},
+    "lap": {"a": {"time_s": 167.13, "first_stretch_m": 250, "first_stretch_s": 6.412, "flat_pct": 42, "max_g": 3.7},
             "b": {"time_s": 162.379, "flat_pct": 74, "max_g": 4.1}},
     "sections": [{"n": 6, "from_m": 4261, "to_m": 5115, "corners": [19, 20], "a_gain_s": -2.252,
                   "a": {"flat_pct": 48, "min_kmh": 162}, "b": {"flat_pct": 83, "min_kmh": 216},
                   "d_min_kmh": -54}],
     "corners": [{"c": 19, "a_gain_s": -0.42, "a": {"gear": 3}, "b": {"gear": 5}}]}}
+
+
+QUIET = {"strengths": [], "costs": [], "practice": "Repeat it."}
 
 
 def narrative(**changes):
@@ -128,11 +134,38 @@ def narrative(**changes):
     return out
 
 
+def _facts(value, key=""):
+    """(key, value) for every number in the facts, at any depth."""
+    if isinstance(value, dict):
+        for name, item in value.items():
+            assert not re.search(r"\d", name), f"{name}: numbers belong in values, the check never reads names"
+            yield from _facts(item, name)
+    elif isinstance(value, list):
+        for item in value:
+            yield from _facts(item, key)
+    elif isinstance(value, (int, float)) and not isinstance(value, bool):
+        yield key, value
+
+
+def test_every_measured_fact_passes_the_check_written_plainly(circuit):
+    """Whatever the model is given, it may state: a fact the check cannot
+    read fails here rather than as a rejected review in front of a driver."""
+    store, a, b = circuit
+    report = facts.build(store, a, b)
+    units = {"_s": "s", "_kmh": "km/h", "_pct": "%", "_g": "g", "_m": "m"}
+    for key, value in _facts(report["facts"]):
+        unit = next((w for suffix, w in units.items() if key.endswith(suffix)), None)
+        if unit:  # counts, gears and corner numbers carry no unit
+            story = f"{{A}} measured {abs(value):g} {unit}."
+            assert writer.validate(narrative(headline="{A} against {B}", story=story,
+                                             a=QUIET, b=QUIET), report), (key, story)
+
+
 def test_narrative_numbers_must_be_measured_facts_in_the_right_unit():
     assert writer.validate(narrative(), REPORT)
     assert writer.validate(narrative(story="Section 6 runs from 4,261 m to 5,115 m."), REPORT)
     assert writer.validate(narrative(story="In S2, C19 in 3rd gear; section 6 cost 2.252 s."), REPORT)
-    assert writer.validate(narrative(story="{A} took 6.412 s over the first 250 m."), REPORT)  # in a fact's name
+    assert writer.validate(narrative(story="{A} took 6.412 s over the first 250 m."), REPORT)
     for bad in ({"headline": "{B} wins by 3.9 s"},       # not a measured time
                 {"headline": "{B} wins by 4.1 s"},       # a g value is not seconds
                 {"story": "{A} was 37 km/h slower"},
@@ -143,7 +176,7 @@ def test_narrative_numbers_must_be_measured_facts_in_the_right_unit():
                 {"story": "The route is 9,000 m long."},  # a grouped number is checked whole
                 {"story": "{A} lost .999 s."},            # any digit left unread is rejected
                 {"story": "{A} lost 1 000 m."},
-                {"story": "{A} lost 6.412 s over the first 250 s."},  # a name's metres stay metres
+                {"story": "{A} lost 6.412 s over the first 250 s."},  # metres stay metres
                 {"story": "{A} lost 47.130 s"},           # lap-time seconds are not a gap
                 {"story": "{FishFighterNS} lost"},       # names never come from the model
                 {"story": "x" * 1200},
@@ -230,6 +263,42 @@ def test_generate_caches_a_checked_narrative_and_never_shows_a_failed_one(circui
     assert "(check): Race report states 99.9 s, which is not a measured fact" in caplog.text
     assert body["ai"]["state"] == "failed" and "narrative" not in body["ai"]
     assert body["ai"]["cost_or_reserved_usd"] == pytest.approx(.0011)
+    # the rejected answer is kept with its reason, so a failure can be read later
+    rejected = ledger(type("Request", (), {"app": app})()).rejected()
+    assert [r["reason"] for r in rejected] == ["Race report states 99.9 s, which is not a measured fact"]
+    assert rejected[0]["answer"]["headline"] == "Won by 99.9 s"
+
+
+def test_a_review_cached_under_the_old_fact_name_is_kept_without_a_call(circuit, monkeypatch, tmp_path):
+    """The launch time was the key `first_250m_s` until 2026-10-28. A review
+    cached under that report's fingerprint moves to the new key on sight."""
+    store, a, b = circuit
+    monkeypatch.setenv("OPENROUTER_API_KEY", "private-test-key")
+    report = facts.build(store, a, b)
+    db = Ledger(tmp_path / "debrief.db")
+    old = race_api.cache_key(report, report["legacy_fingerprint"])
+    gain = report["facts"]["sections"][0]["a_gain_s"]
+    saved = narrative(headline=f"Section 1: {{A}} {abs(gain):.3f} s", story="{A} against {B}.",
+                      a=QUIET, b=QUIET)
+    db.finish(old, db.claim(old), result=saved, cost=1100)
+    monkeypatch.setattr(openrouter, "request", lambda body, key: pytest.fail("no call for a cached review"))
+    assert race_api.write(store, db, {}, a, b, "private-test-key") is False
+    ai = race_api.view(report, db)["ai"]
+    assert ai["state"] == "ready" and ai["narrative"]["story"] == "{A} against {B}."
+    assert db.get(old)["state"] == "missing" and db.budget()["used_or_reserved_usd"] == pytest.approx(.0011)
+    assert "legacy_fingerprint" not in race_api.view(report, db)
+
+
+def test_a_call_in_flight_during_a_rekey_still_lands(tmp_path):
+    """An old writer awaiting the provider while a new one moves its row (Codex, #56)."""
+    db = Ledger(tmp_path / "debrief.db")
+    call = db.claim("old")
+    assert db.rekey("old", "new")
+    db.finish("old", call, result={"headline": "kept"}, cost=1100)
+    assert db.get("new")["state"] == "ready" and db.get("new")["result"] == {"headline": "kept"}
+    # a superseded claim (a retry replaced it) still cannot overwrite the newer one
+    db.finish("new", "an-older-call", result={"headline": "stale"}, cost=1100)
+    assert db.get("new")["result"] == {"headline": "kept"}
 
 
 def test_generate_without_a_key_keeps_measurements(circuit, monkeypatch):

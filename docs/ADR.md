@@ -600,6 +600,14 @@ implementer's; the owner has not confirmed them.
   whole numbers up to 10 (counts, ordinals) pass unchecked. A narrative that
   fails is not shown, and its charge is kept. This proves every number was
   measured, not that it is attached to the right claim.
+  2026-10-28: the check had rejected every review mentioning "the first
+  250 m", a number that lived only in the key `first_250m_s`. The launch is
+  now two values (`first_stretch_m`, `first_stretch_s`), numbers never appear
+  in fact names, and a test states every fact plainly and requires the check
+  to pass it. Reviews cached under the old key move to the new one when next
+  viewed or requested (`legacy_fingerprint`), with no new call. The newest 50 rejected
+  answers are kept with their reason in the ledger (`rejected`, never shown),
+  so a failure can be read instead of guessed at.
 - The configured gamertags are sent so the review names the drivers (owner,
   2026-10-25: "I want to know who I am racing"). The output stores them as {A}
   and {B}, so a digit in a gamertag is never checked as a number and the page
