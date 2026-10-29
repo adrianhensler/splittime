@@ -27,6 +27,10 @@ sort had ties, so hash order could change a finished week's fingerprint; it
 is now a total order (and the busiest route breaks ties by name), tested by
 building a week from reversed categories. (P1) DESIGN.md scope now lists
 then vs now and the weekly recap.
+Second Codex pass: (P1) the then-vs-now summary line now says "(estimated)"
+after a last-packet time. (P2) the check's free pass for whole numbers up to
+10 suits race reports (gears, ordinals) but not a recap made of counts; it is
+now a parameter, off for recaps, so "drove 9 laps" fails unless 9 is measured.
 
 ## Race report fact check: the "250 m" rejections, 2026-10-28
 

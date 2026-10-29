@@ -30,7 +30,8 @@ SYSTEM = (
     "the game stopped sending at the finish line, not timed by the game: whenever you state "
     "such a time, call it estimated (previous_estimated_finish is the same for previous_time_s "
     "and the beaten record). Use only numbers that appear in the facts, exactly as given or rounded; "
-    "never compute new ones (no totals, differences or averages of your own). Do not invent "
+    "never compute new ones (no totals, differences or averages of your own). Every digit is "
+    "checked, so write rankings and other non-facts in words (first, twice). Do not invent "
     "events, cars, weather, tuning or anything not in the facts. If little happened, keep it "
     "short. highlights are up to four one-line facts worth knowing. next_week is one line "
     "suggesting something concrete to chase, grounded in the facts. Return only the "
@@ -66,7 +67,8 @@ def validate(result, report):
 
     def check(text, limit):
         # no corners in a recap: any "C<n>" it writes is unmeasured
-        return _check_text(text, LIMITS[limit], allowed, set(), names, marks, LABEL)
+        # a recap is counts: every number in it is checked, small ones too (Codex, #57)
+        return _check_text(text, LIMITS[limit], allowed, set(), names, marks, LABEL, small=False)
     if not isinstance(result, dict) or set(result) != set(SCHEMA["required"]):
         raise ValueError("Invalid weekly recap structure")
     if not isinstance(result["highlights"], list) or len(result["highlights"]) > 4:

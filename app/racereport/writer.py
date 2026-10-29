@@ -168,10 +168,11 @@ def _placeholders(text, drivers):
                    for i, part in enumerate(parts))
 
 
-def _check_text(text, limit, allowed, corners, drivers, marks=None, label="Race report"):
+def _check_text(text, limit, allowed, corners, drivers, marks=None, label="Race report", small=True):
     """One piece of model text, with names turned into placeholders, checked
     against the measured numbers. `marks` are the placeholders it may use:
-    {A} and {B} unless given."""
+    {A} and {B} unless given. `small` lets unitless whole numbers up to 10
+    pass as ordinals and gears; a text made of counts turns it off."""
     if not isinstance(text, str):
         raise ValueError(f"{label} text is missing or too long")
     text = _placeholders(text, drivers)  # limits apply to what is stored and read back
@@ -194,7 +195,7 @@ def _check_text(text, limit, allowed, corners, drivers, marks=None, label="Race 
               for token, word in _NUMBER.findall(_LAP_TIME.sub(" ", checked))]
     for token, value, places, unit in found:
         # small unitless whole numbers are counts and ordinals ("three corners", "5th gear")
-        if unit is None and not places and value <= 10:
+        if small and unit is None and not places and value <= 10:
             continue
         if not any(abs(round(v, places) - value) < 1e-9 for v in allowed.get(unit, ())):
             raise ValueError(f"{label} states {token}{' ' + unit if unit else ''}, "

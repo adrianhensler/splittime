@@ -121,10 +121,13 @@ def test_every_fact_passes_the_check_and_names_come_back_as_placeholders():
     assert out["headline"] == "{D1} takes {R2}"
     assert out["story"] == "{D2} lost {R2} by 4.751 s; 2:42.379 is the time."
     assert writer.validate(out, report) == out  # a cached column re-checks unchanged
+    assert writer.validate(column(story="Captn Compass drove 4 laps and set 2 personal bests."), report)
     for bad in (column(story="{D2} lost by 3.9 s"),          # not measured
                 column(story="{A} won"),                    # race report placeholders mean nothing here
                 column(story="Their 14 laps"),              # 14 is no fact
                 column(story="Fast through C4"),            # no corners in a recap
+                column(story="{D1} drove 9 laps"),          # small counts are checked too
+                column(story="{D1} was 7th"),             # 7 is no fact, even as an ordinal
                 column(highlights=["x"] * 5)):
         with pytest.raises(ValueError):
             writer.validate(bad, report)

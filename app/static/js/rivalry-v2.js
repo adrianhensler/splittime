@@ -248,8 +248,10 @@
     $("st-progress-section").hidden = !row;
     $("st-progress-pick").innerHTML = rows.length > 1 ? rows.map(r =>
       `<button type="button" data-progress="${esc(r.driver_id)}" aria-pressed="${r === row}">${esc(r.driver_name)}</button>`).join("") : "";
+    // time provenance: a time from the last packet says so, as in the rows above
+    const timed = lap => `${M.time(lap.time_s)}${M.estimated(lap) ? " (estimated)" : ""}`;
     $("st-progress-note").textContent = row ?
-      `${row.driver_name}: first clean run ${M.time(row.then.time_s)} (${M.date(row.then.finished_at_utc)}) against current best ${M.time(row.now.time_s)} (${M.date(row.now.finished_at_utc)}).` : "";
+      `${row.driver_name}: first clean run ${timed(row.then)} (${M.date(row.then.finished_at_utc)}) against current best ${timed(row.now)} (${M.date(row.now.finished_at_utc)}).` : "";
     progressReport.setContext(row?.now ?? null, row?.then ?? null, refresh);
   }
   // Select the pair a link asked for, if both laps are on one route and class.
