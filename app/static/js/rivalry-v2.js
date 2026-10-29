@@ -11,6 +11,10 @@
   const est = lap => M.estimated(lap) ? ` <abbr class="st-est" title="${EST}">est.</abbr>` : "";
   const state = {data:{categories:[],drivers:[]}, group:null, a:null, b:null, query:"", history:"best"};
   const raceReport = globalThis.RaceReport ? new globalThis.RaceReport($("st-race-report")) : null;
+  // then vs now (ADR 35): the same panel, for one driver's first clean run and best
+  const progressReport = globalThis.RaceReport && $("st-progress") ?
+    new globalThis.RaceReport($("st-progress"), {mode:"progress"}) : null;
+  let progressDriver = null;
   const storageKey = `splittime-rivalry-v2:${globalThis.location?.pathname || ""}`;
   let saved = null;
   // a link to a pair (?laps=a,b) selects that pair once on arrival; after that
@@ -170,7 +174,7 @@
         <td class="st-quiet">${gap}</td><td class="st-quiet">${progress}</td></tr>`;
     }).join("") || `<tr><td colspan="${drivers.length+3}" class="st-empty">${categories.length ? "No recordings match your search." : "No recordings yet. Captured events will appear here."}</td></tr>`;
     $("st-context").hidden = !shown.length;
-    if (!shown.length) {raceReport?.setContext(null,null); save(); return;}
+    if (!shown.length) {raceReport?.setContext(null,null); progressReport?.setContext(null,null); save(); return;}
     const group = selected(), history = M.timeline(group,drivers);
     // "best": each driver's one best valid lap; everything else is a click away
     const top = new Set([...M.bests(group).values()].map(lap => lap.lap_id));
@@ -233,7 +237,20 @@
       a ? `${a.driver_name} (A) · choose a B lap for the race report.` : "Choose an A and a B lap above.";
     drawOutlines();
     raceReport?.setContext(a,b,refreshReport);
+    showProgress(selected(), refreshReport);
     save();
+  }
+  function showProgress(group, refresh) {
+    if (!progressReport) return;
+    const rows = group ? M.progress(group) : [];
+    const row = rows.find(r => r.driver_id === progressDriver) || rows[0] || null;
+    progressDriver = row?.driver_id ?? null;
+    $("st-progress-section").hidden = !row;
+    $("st-progress-pick").innerHTML = rows.length > 1 ? rows.map(r =>
+      `<button type="button" data-progress="${esc(r.driver_id)}" aria-pressed="${r === row}">${esc(r.driver_name)}</button>`).join("") : "";
+    $("st-progress-note").textContent = row ?
+      `${row.driver_name}: first clean run ${M.time(row.then.time_s)} (${M.date(row.then.finished_at_utc)}) against current best ${M.time(row.now.time_s)} (${M.date(row.now.finished_at_utc)}).` : "";
+    progressReport.setContext(row?.now ?? null, row?.then ?? null, refresh);
   }
   // Select the pair a link asked for, if both laps are on one route and class.
   function arrive(data) {
@@ -298,6 +315,11 @@
     } finally {$("st-refresh").disabled = false;}
   }
   $("st-refresh").addEventListener("click",load);
+  $("st-progress-pick")?.addEventListener("click",event => {
+    const button = event.target.closest("[data-progress]");
+    if (!button) return;
+    progressDriver = button.dataset.progress; showProgress(selected(), false);
+  });
   $("st-find").addEventListener("input",event => {state.query = event.target.value; render();});
   $("st-history-filter").addEventListener("change",event => {state.history = event.target.value; render();});
   $("st-inspector").addEventListener("click",event => {

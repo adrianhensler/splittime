@@ -310,3 +310,12 @@ test("#st-analysis opens the report for a restored pair too, once", async () => 
   await back.elt("st-refresh").listeners.click();
   assert.equal(back.elt("st-race-report").open,false);  // a later refresh does not reopen it
 });
+test("then vs now pairs each driver's first clean run with a later, faster best", () => {
+  const no = {candidate_clean:false};
+  const g = group([lap(1,"a",60,10,no),lap(2,"a",55,20),lap(3,"a",50,30),lap(4,"a",52,40),
+    lap(5,"b",45,10),lap(6,"b",47,20)]);
+  const rows = M.progress(g);
+  assert.deepEqual(rows.map(r => [r.driver_id, r.then.lap_id, r.now.lap_id]), [["a",2,3]]);
+  // the first lap was not clean, so lap 2 is "then"; Blair's first run is still their best
+  assert.deepEqual(M.progress(group([lap(1,"a",50,10),lap(2,"a",45,null)])), []);  // undated: no order
+});

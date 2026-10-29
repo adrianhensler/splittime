@@ -19,6 +19,7 @@ from .api.routes import router, status
 from .corners.api import router as corners_router
 from .debrief.api import router as debrief_router
 from .racereport.api import router as race_report_router
+from .recap.api import router as recap_router
 from .recorder.laps import SessionTracker
 from .recorder.store import Store
 from .telemetry.hub import Hub
@@ -109,6 +110,9 @@ async def lifespan(app: FastAPI):
             # race reports written when a record changes hands (ADR 34); a no-op without a key
             from .racereport.auto import loop as auto_race_reports
             watchdogs.append(asyncio.create_task(auto_race_reports(app)))
+            # last week's recap, written once it is over (ADR 35); a no-op without a key
+            from .recap.auto import loop as auto_recaps
+            watchdogs.append(asyncio.create_task(auto_recaps(app)))
         yield
     finally:
         for watchdog in watchdogs:
@@ -261,6 +265,7 @@ def create_app(role: str = roles.ALL) -> FastAPI:
         app.include_router(corners_router, prefix="/api")
         app.include_router(debrief_router, prefix="/api")
         app.include_router(race_report_router, prefix="/api")
+        app.include_router(recap_router, prefix="/api")
     app.middleware("http")(revalidate_static)
     # registered last, so it wraps everything above: a request for a host this
     # server has no business answering is refused before any handler sees it

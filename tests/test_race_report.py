@@ -320,10 +320,10 @@ def test_a_flood_of_report_requests_through_the_real_app_builds_once(circuit, mo
     store, a, b = circuit
     real, builds = race_api.report_for, []
 
-    def slow(request, lap_a, lap_b):
+    def slow(request, lap_a, lap_b, mode="race"):
         builds.append((lap_a, lap_b))
         time.sleep(0.3)
-        return real(request, lap_a, lap_b)
+        return real(request, lap_a, lap_b, mode)
     monkeypatch.setattr(race_api, "report_for", slow)
     # one event loop for every request, as in production: run the app's lifespan
     monkeypatch.setenv("SPLITTIME_COLLECTOR_URL", "http://127.0.0.1:9")
@@ -343,3 +343,53 @@ def test_a_flood_of_report_requests_through_the_real_app_builds_once(circuit, mo
             thread.join()
     assert codes == [200] * 12
     assert builds == [(a, b)]
+
+
+def test_then_vs_now_is_one_drivers_progress_with_its_own_review(circuit, monkeypatch):
+    """ADR 35: the same measured facts, labelled now and then, a progress prompt
+    and its own cache entry; a pair of two drivers is refused."""
+    store, a, b = circuit
+    monkeypatch.setenv("OPENROUTER_API_KEY", "private-test-key")
+    app = create_app("web")
+    app.state.store = store
+    client = TestClient(app, base_url="http://localhost")
+    report = facts.build(store, a, b, progress=True)
+    assert report["drivers"] == {"a": "legacy (now)", "b": "legacy (then)"}
+    assert facts.build(store, a, b)["drivers"] == {"a": "legacy (A)", "b": "legacy (B)"}
+    body = json.loads(writer.encode_request(report, "progress"))
+    assert body["response_format"]["json_schema"]["name"] == "progress_report"
+    assert "progress" in body["messages"][0]["content"]
+    assert race_api.cache_key(report, mode="progress") != race_api.cache_key(report)
+
+    gain = report["facts"]["sections"][0]["a_gain_s"]
+    good = {"headline": f"{{A}} finds {abs(gain):.3f} s in section 1", "story": "Later braking than {B}.",
+            "improved": ["Braking later."], "still_to_find": [], "practice": "Repeat section 1."}
+    calls = []
+    race_before = client.get(f"/api/race-report?lap_a={a}&lap_b={b}").json()["ai"]  # the module shares a ledger
+    monkeypatch.setattr(openrouter, "request", lambda body, key: calls.append(json.loads(body)) or provider(good))
+    out = client.post("/api/race-report/generate", json={"lap_a": a, "lap_b": b, "mode": "progress"}).json()
+    assert out["mode"] == "progress" and out["ai"]["state"] == "ready"
+    assert out["ai"]["narrative"]["improved"] == ["Braking later."]
+    assert calls[0]["messages"][0]["content"].startswith("You are a race engineer reviewing one driver's progress")
+    # the race report for the same pair is a separate report, untouched by this one
+    race_after = client.get(f"/api/race-report?lap_a={a}&lap_b={b}").json()["ai"]
+    assert race_after["state"] == race_before["state"] and race_after.get("narrative") == race_before.get("narrative")
+    assert client.get(f"/api/race-report?lap_a={a}&lap_b={b}&mode=progress").json()["ai"]["state"] == "ready"
+    for bad in ({**good, "a": {}}, {**good, "improved": ["x"] * 4}, {**good, "story": "Found 99.9 s."}):
+        with pytest.raises(ValueError):
+            writer.validate(bad, report, "progress")
+
+
+def test_then_vs_now_refuses_two_drivers(circuit, monkeypatch):
+    store, a, b = circuit
+    real, seen = store.get_session, []
+
+    def other_driver(session_id):  # both fixture laps share a session: change B's lookup only
+        session = dict(real(session_id))
+        seen.append(session_id)
+        if len(seen) == 2:
+            session["driver_id"] = "someone-else"
+        return session
+    monkeypatch.setattr(store, "get_session", other_driver)
+    with pytest.raises(HTTPException, match="one driver's own runs"):
+        facts.build(store, a, b, progress=True)

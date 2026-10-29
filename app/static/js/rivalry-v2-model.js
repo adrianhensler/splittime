@@ -43,6 +43,19 @@
     }
     return result;
   }
+  // Then vs now (ADR 35): per driver, the first clean run and the current best,
+  // when the best is a later, faster run. Undated runs have no "first".
+  function progress(group) {
+    const out = [];
+    for (const [driver, best] of bests(group)) {
+      const runs = group.attempts.filter(lap => clean(lap) && lap.driver_id === driver);
+      if (runs.some(lap => stamp(lap) === null)) continue;
+      const first = runs.reduce((a, b) => stamp(b) < stamp(a) ? b : a);
+      if (first.lap_id !== best.lap_id && best.time_s < first.time_s)
+        out.push({driver_id:driver, driver_name:best.driver_name || driver, now:best, then:first});
+    }
+    return out.sort((a, b) => a.driver_name.localeCompare(b.driver_name));
+  }
   function timeline(group, pair) {
     const laps = group.attempts.map(lap => ({...lap, pb:false, delta:null, lead:false}));
     // An undated clean attempt could precede any dated record. Do not invent its order.
@@ -192,7 +205,7 @@
       `compare.html?laps=${a.lap_id},${b.lap_id}` : null;
   }
   const model = {timed, usable, clean, estimated, stamp, identity, key, time, date, drivers,
-    bests, timeline, defaults, matches, visible, compare, routeBests, standings, activity,
+    bests, progress, timeline, defaults, matches, visible, compare, routeBests, standings, activity,
     scoreboard, ago};
   if (typeof module !== "undefined" && module.exports) module.exports = model;
   else root.RivalryModel = model;
