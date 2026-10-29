@@ -4,7 +4,8 @@ Everything is read from the rivalry projection (app/rivalry.py), so a lap
 counts here exactly as it does on Rivalry and Stats, and nothing reads frames.
 A week runs from Monday 00:00 to the next Monday 00:00 in the drivers' time
 zone (RECAP_TZ, default America/Halifax); a lap belongs to the week it
-finished in.
+finished in, and a lap still being recorded (no finish yet) is in no week
+until it finishes, so it can never move a finished week's facts.
 
 Driver and route names go to the writer as written, and its output stores them
 as placeholders ({D1}, {R1}, ...), as the race report does with gamertags. No
@@ -44,17 +45,20 @@ def bounds(monday: date) -> tuple[float, float]:
 
 
 def _laps(summary):
-    """(finish time, category key, category, lap) for every lap with a timestamp."""
+    """(finish time, category key, category, lap) for every finished lap."""
     out = []
     for group in summary["categories"]:
         key = (group["route_id"], group["car_class"], group["route_name"])
         for lap in group["attempts"]:
             moment = _stamp(lap.get("finished_at_utc"))
-            if moment is None:
-                moment = _stamp(lap.get("started_at_utc"))
             if moment is not None:
                 out.append((moment, key, group, lap))
     return out
+
+
+def _route(key):
+    """A route whatever the class, as Stats counts routes; unidentified ones by name."""
+    return key[0] if key[0] is not None else key[2]
 
 
 def weeks(summary, now: float) -> list[date]:
@@ -122,16 +126,16 @@ def build(summary, monday: date, now: float) -> dict:
     drivers = []
     for driver in sorted({lap["driver_id"] for t, *_, lap in laps if t < end}, key=lambda d: names[d].casefold()):
         mine = [item for item in week if item[3]["driver_id"] == driver]
-        first_seen = {}
+        first_seen = {}  # by route, not class: another class on a known route is not new
         for t, key, _, lap in laps:
             if lap["driver_id"] == driver:
-                first_seen[key] = min(t, first_seen.get(key, t))
+                first_seen[_route(key)] = min(t, first_seen.get(_route(key), t))
         drivers.append({
             "driver": names[driver],
             "laps": len(mine),
             "clean_laps": sum(1 for *_, lap in mine if lap.get("candidate_clean")),
             "sessions": len({lap["session_id"] for *_, lap in mine}),
-            "routes": len({key for _, key, _, _ in mine}),
+            "routes": len({_route(key) for _, key, _, _ in mine}),
             "new_routes": sum(1 for t in first_seen.values() if start <= t < end),
             "personal_bests": sum(1 for b in bests if b["driver"] == names[driver]),
             "records_held_before": held_before[driver],
@@ -156,7 +160,7 @@ def build(summary, monday: date, now: float) -> dict:
         "laps": len(week),
         "clean_laps": sum(1 for *_, lap in week if lap.get("candidate_clean")),
         "sessions": len({lap["session_id"] for *_, lap in week}),
-        "routes": len(per_route),
+        "routes": len({_route(key) for key in per_route}),
         "contested_routes": contested,
         "drivers": drivers,
         "personal_bests": bests[:MAX_BESTS],

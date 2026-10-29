@@ -31,6 +31,10 @@ Second Codex pass: (P1) the then-vs-now summary line now says "(estimated)"
 after a last-packet time. (P2) the check's free pass for whole numbers up to
 10 suits race reports (gears, ordinals) but not a recap made of counts; it is
 now a parameter, off for recaps, so "drove 9 laps" fails unless 9 is measured.
+Third pass (both P2): routes and new routes are counted per route, not per
+route and class, as on Stats; and a lap still recording (no finish time) is
+in no week until it finishes, so it cannot move a finished week's facts. All
+237 live laps have a finish time, so nothing recorded is left out.
 
 ## Race report fact check: the "250 m" rejections, 2026-10-28
 

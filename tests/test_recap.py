@@ -67,6 +67,24 @@ def test_a_week_is_measured_from_the_laps_that_finished_in_it():
                               "R1": "Daikoku Circuit", "R2": "Ito Sprint"}
 
 
+def test_routes_are_counted_whatever_the_class_and_an_open_lap_is_in_no_week():
+    """Codex, #57: a second class on a route is not a second (or new) route, and
+    a lap still recording across midnight must not land in the finished week."""
+    during = START + DAY
+    s = {"categories": [group(1, "Ito Sprint", "S2", lap(1, "a", 160, START - DAY)),
+                        {**group(1, "Ito Sprint", "A", lap(2, "a", 170, during)), "car_class": 4}]}
+    open_lap = {**lap(3, "a", 150, START - 60), "finished_at_utc": None}  # started Sunday 23:59
+    s["categories"][0]["attempts"].append(open_lap)
+    f = facts.build(s, MONDAY, START + 30 * DAY)["facts"]
+    a = f["drivers"][0]
+    assert (f["routes"], a["routes"], a["new_routes"]) == (1, 1, 0)
+    assert len(f["personal_bests"]) == 1  # bests stay per route and class
+    before = facts.build(s, MONDAY - timedelta(days=7), START + 30 * DAY)
+    assert before["facts"]["laps"] == 1  # the open lap is not counted
+    open_lap["finished_at_utc"] = lap(3, "a", 150, START + 600)["finished_at_utc"]  # it finishes Monday
+    assert facts.build(s, MONDAY - timedelta(days=7), START + 30 * DAY)["fingerprint"] == before["fingerprint"]
+
+
 def test_weeks_run_monday_to_monday_in_local_time_and_later_driving_never_changes_one():
     # Sunday 23:30 Halifax is Monday 02:30 UTC: still the old week
     late = {"categories": [group(1, "Ito Sprint", "S2", lap(1, "a", 60, START - 1800))]}
