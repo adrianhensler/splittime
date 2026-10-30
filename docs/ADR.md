@@ -694,3 +694,30 @@ confirmed them.
 - A new Recap page lists up to 12 weeks, newest first.
 
 *Rests on:* 27, 28, 33, 34. *Work:* WP-004.
+
+## 36. Open pages offer a refresh when results change
+
+**Proposed, 2026-10-30** (owner: pages do not update after a race, and a
+driver waited a long time to see a result; "no need to overload the server,
+there are only 2 of us racing - and sporadically").
+
+- `GET /api/changes` returns a short token: a hash of what the result pages
+  read (finished sessions and laps, attempts, edits, route, group and car
+  names, and how many AI reports are finished). Frames, and a session or lap
+  still recording, are left out, so a recording changes it only when a lap
+  finishes. It reads the ledger read-only and never creates it. About 4 ms on
+  the live data.
+- Rivalry, Rivalry_legacy, Stats, Recap, Replay, Compare and Analysis load
+  `js/updates.js`. It reads the token on load, then once a minute while the
+  tab is visible and on coming back to it (at most every 15 s). When it
+  differs, a bar says results have changed, with Refresh (reloads the page)
+  and Later (keeps watching from the new token). It stops asking while the
+  bar is up. Nothing reloads by itself, so nothing being read or edited is
+  lost; Live already updates over its socket and is left out.
+- A driver's own edit also changes the token, so the bar can appear after
+  it; the text says results changed, not who changed them.
+- Two drivers with one tab each make about two small requests a minute,
+  none from hidden tabs. Rejected: a socket or server push (more moving parts
+  for two people), and reloading by itself (loses what is open).
+
+*Rests on:* 24. *Work:* WP-004, WP-006.

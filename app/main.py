@@ -15,6 +15,7 @@ from fastapi import FastAPI, Response, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 
 from . import cars, roles, tracks
+from .changes import router as changes_router
 from .api.routes import router, status
 from .corners.api import router as corners_router
 from .debrief.api import router as debrief_router
@@ -266,6 +267,7 @@ def create_app(role: str = roles.ALL) -> FastAPI:
         app.include_router(debrief_router, prefix="/api")
         app.include_router(race_report_router, prefix="/api")
         app.include_router(recap_router, prefix="/api")
+        app.include_router(changes_router, prefix="/api")
     app.middleware("http")(revalidate_static)
     # registered last, so it wraps everything above: a request for a host this
     # server has no business answering is refused before any handler sees it

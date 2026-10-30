@@ -1,5 +1,17 @@
 # WP-004: Rivalry views (M3)
 
+## Refresh offer when results change (ADR 36), 2026-10-30
+
+Owner: pages do not update after a race, without loading the server. New
+`GET /api/changes` (`app/changes.py`) hashes what the result pages read,
+leaving out frames and anything still recording; `js/updates.js` on the
+seven result pages reads it on load, then once a minute while visible, and
+shows a Refresh / Later bar when it differs. Tests: `tests/test_changes.py`
+(recording frames and an open lap do not move the token, a finished lap,
+edit, rename or finished report does; a poll never creates the ledger) and
+`tests/ui/updates.test.cjs` (baseline, hidden tabs, throttle, Later).
+About 4 ms per request on a copy of the live data.
+
 ## Then vs now and the weekly recap (ADR 35), 2026-10-29
 
 Owner asked for historical reporting for engagement and insight. Then vs now

@@ -9,6 +9,12 @@
 | Verifier | Opus reviewed comparison at `f68d70a`; Codex independently reviewed and browser-tested Live at `c39ea19` |
 | Acceptor | owner |
 
+## Refresh offer on the comparison page, 2026-10-30
+
+ADR 36: `compare.html` loads `js/updates.js`, which offers a refresh when
+results change after the page loaded. No change to the comparison itself.
+Checked with `node --test tests/ui/updates.test.cjs`.
+
 ## Menu link to the weekly recap, 2026-10-29
 
 ADR 35 adds a Recap page; every page's menu, including `compare.html`, now
