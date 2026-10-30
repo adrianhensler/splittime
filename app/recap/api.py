@@ -19,7 +19,7 @@ from ..debrief.api import ledger
 from ..debrief.contracts import MODEL
 from ..debrief.ledger import CALL_LIMIT, BudgetError
 from ..rivalry import rivalry_summary
-from . import facts, writer
+from . import facts, milestones, writer
 
 router = APIRouter()
 log = logging.getLogger(__name__)
@@ -67,8 +67,12 @@ async def recaps(request: Request, response: Response):
 
     def work():
         summary, now, db = _summary(store, drivers), time.time(), ledger(request)
+        found = milestones.find(summary)
+        # milestones sit beside the report, outside its fingerprint and the AI's facts
         return {"time_zone": str(facts.zone()),
-                "weeks": [view(facts.build(summary, monday, now), db) for monday in facts.weeks(summary, now)]}
+                "weeks": [{**view(facts.build(summary, monday, now), db),
+                           "milestones": milestones.for_week(found, *facts.bounds(monday))}
+                          for monday in facts.weeks(summary, now)]}
     return await heavy.run(request, ("recap",), work)
 
 

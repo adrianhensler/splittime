@@ -41,7 +41,9 @@ requires the gateway's login and service grant (ADR 23).
 - A weekly recap of each Monday-to-Sunday week in the drivers' time zone:
   activity, personal bests and time improved, records that changed hands and
   records held, and the closest records each driver could take back (each
-  linked to its race report), with estimated finishes marked (ADR 37). An
+  linked to its race report), with estimated finishes marked (ADR 37), and
+  the week's milestones: new routes, lap counts, personal bests in sessions
+  running and first times ahead, measured only (ADR 38). An
   optional AI column is written once a week ends (or on request for an older one), under the same
   check and cap; driver and route names are the only identifying text sent
   (ADR 35).

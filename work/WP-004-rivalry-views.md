@@ -1,5 +1,21 @@
 # WP-004: Rivalry views (M3)
 
+## Milestones and streaks in the weekly recap (ADR 38), 2026-10-30
+
+New `app/recap/milestones.py` replays the finished laps (`facts._laps`) in
+order and dates each milestone by the lap that reached it: first lap on a
+route, 50th/100th/250th/500th/1000th lap then every 1000th, personal bests in
+three or more sessions running, first time outright ahead on a contested
+route and class by one's own valid lap. `/api/recap` attaches each week's
+list as `milestones` beside the report, outside its fingerprint and the AI's
+facts, so written columns keep their keys. The page groups a driver's new
+routes into one line and shows a run that grows within a week once, at its
+longest. On a copy of the live data: 21, 6 and 9 milestones for the weeks of
+12, 19 and 26 Oct; e.g. Captn Compass first ahead on Ito Sprint S2 (19 Oct,
+the record change that week) and FishFighterNS's 50th lap (26 Oct); a
+headless Chromium screenshot of Recap showed them. Tests:
+`tests/test_recap.py` (2 new), `tests/ui/recap.test.cjs` (1 new).
+
 ## Within reach in the weekly recap (ADR 37), 2026-10-30
 
 Recap facts gain `within_reach` (up to three per driver: records someone else

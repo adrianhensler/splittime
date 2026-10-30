@@ -36,6 +36,28 @@
       <p class="st-quiet">Writing one needs a signed-in SplitTime account · shared AI budget $1 / UTC month · $${ai.budget.remaining_usd.toFixed(3)} left.</p>` : ""}`;
   }
 
+  const ordinal = n => n + (n % 100 >= 11 && n % 100 <= 13 ? "th" : ({1:"st", 2:"nd", 3:"rd"}[n % 10] || "th"));
+  // ADR 38: measured, dated by the lap that reached it; new routes are grouped per driver
+  function milestones(week) {
+    const items = week.milestones || [], firsts = new Map(), out = [];
+    for (const m of items) {
+      if (m.kind === "new_route") {
+        if (!firsts.has(m.driver)) {firsts.set(m.driver, []); out.push({kind:"new_route", driver:m.driver});}
+        firsts.get(m.driver).push(m.route);
+      } else if (m.kind === "pb_streak") {
+        // a run that grows within the week is one line, at its longest
+        const earlier = out.findIndex(o => o.kind === "pb_streak" && o.driver === m.driver);
+        if (earlier < 0) out.push(m); else out[earlier] = m;
+      } else if (["laps", "first_ahead"].includes(m.kind)) out.push(m);
+    }
+    const line = m => `<li><strong>${esc(m.driver)}</strong> · ${
+      m.kind === "new_route" ? `first ${firsts.get(m.driver).length > 1 ? "laps" : "lap"} on ${firsts.get(m.driver).map(esc).join(", ")}` :
+      m.kind === "laps" ? `${ordinal(m.count)} lap` :
+      m.kind === "pb_streak" ? `a personal best in ${m.sessions} sessions running` :
+      m.kind === "first_ahead" ? `ahead on ${esc(m.route)} (${esc(m.class)}) for the first time, <span class="st-time">${time(m.time_s)}</span>${est(m.estimated_finish)} to ${esc(m.over)}’s <span class="st-time">${time(m.over_time_s)}</span>${est(m.over_estimated_finish)}` : ""}</li>`;  // kinds are filtered above
+    return out.length ? `<h3>Milestones</h3><ul>${out.map(line).join("")}</ul>` : "";
+  }
+
   function measured(week) {
     const f = week.facts, rows = f.drivers;
     const drivers = `<div class="st-scroll"><table><thead><tr><th scope="col">Driver</th>
@@ -62,7 +84,7 @@
     }).join("")}</ul>` : "";
     const busiest = f.busiest_route ? `<p class="st-quiet">Busiest route: ${esc(f.busiest_route.route)} (${esc(f.busiest_route.class)}),
       ${f.busiest_route.laps} laps · ${f.contested_routes} routes have times from two or more drivers.</p>` : "";
-    return drivers + bests + records + reach + busiest;
+    return drivers + milestones(week) + bests + records + reach + busiest;
   }
 
   function html(data) {
