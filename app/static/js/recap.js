@@ -45,9 +45,9 @@
         if (!firsts.has(m.driver)) {firsts.set(m.driver, []); out.push({kind:"new_route", driver:m.driver});}
         firsts.get(m.driver).push(m.route);
       } else if (m.kind === "pb_streak") {
-        // a run that grows within the week is one line, at its longest
+        // one line per driver: the week's longest run, even if a shorter one follows it
         const earlier = out.findIndex(o => o.kind === "pb_streak" && o.driver === m.driver);
-        if (earlier < 0) out.push(m); else out[earlier] = m;
+        if (earlier < 0) out.push(m); else if (m.sessions > out[earlier].sessions) out[earlier] = m;
       } else if (["laps", "first_ahead"].includes(m.kind)) out.push(m);
     }
     const line = m => `<li><strong>${esc(m.driver)}</strong> · ${
