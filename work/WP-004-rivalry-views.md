@@ -15,6 +15,11 @@ Compass 0.296 s off FishFighterNS on Narai-Juku S2, and its link opened that
 race report in headless Chromium. Tests: `tests/test_recap.py` (3 new),
 `tests/ui/recap.test.cjs` (1 new). The real model has not yet written a
 column under prompt v2; the next one is this week's, on 2 November.
+Codex on #59 (P2): the record time was `record_s`, and the check reads only
+`*time_s` fields as m:ss.sss lap times, so a column following the prompt
+("2:42.379") would fail and be hidden after being paid for. Renamed to
+`record_time_s`; a test writes a pre-week record that appears only in within
+reach as m:ss.sss, and fails with the old name.
 
 ## Refresh offer when results change (ADR 36), 2026-10-30
 

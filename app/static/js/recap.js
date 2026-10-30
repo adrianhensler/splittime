@@ -57,7 +57,7 @@
     const reach = (f.within_reach || []).length ? `<h3>Within reach</h3><ul>${f.within_reach.map((r, i) => {
       const pair = (week.reach_laps || [])[i]?.map(Number).filter(Number.isInteger);
       return `<li><strong>${esc(r.driver)}</strong> · ${esc(r.route)} (${esc(r.class)}) · <span class="st-time">${time(r.time_s)}</span>${est(r.estimated_finish)},
-        ${r.gap_s.toFixed(3)} s off ${esc(r.holder)}’s <span class="st-time">${time(r.record_s)}</span>${est(r.record_estimated_finish)}${
+        ${r.gap_s.toFixed(3)} s off ${esc(r.holder)}’s <span class="st-time">${time(r.record_time_s)}</span>${est(r.record_estimated_finish)}${
         pair?.length === 2 ? ` · <a href="rivalry-v2.html?laps=${pair[0]},${pair[1]}#st-analysis">Where the gap is</a> · <a href="replay.html?laps=${pair[0]},${pair[1]}">Replay</a>` : ""}</li>`;
     }).join("")}</ul>` : "";
     const busiest = f.busiest_route ? `<p class="st-quiet">Busiest route: ${esc(f.busiest_route.route)} (${esc(f.busiest_route.class)}),

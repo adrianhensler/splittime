@@ -37,7 +37,7 @@ test("the column fills placeholders after escaping; the current week has no butt
 });
 test("within reach: gap, estimated record, and links to where the gap is",()=>{
   const reach={driver:"FishFighterNS",route:"<b>Ito</b> Sprint",class:"S2",holder:"<img src=x>",time_s:167.13,
-    estimated_finish:false,record_s:162.379,record_estimated_finish:true,gap_s:4.751};
+    estimated_finish:false,record_time_s:162.379,record_estimated_finish:true,gap_s:4.751};
   const w=week();w.facts.within_reach=[reach,{...reach,route:"Oka CCC"}];w.reach_laps=[[98,174],["1\"><script>",2]];
   const html=R.html({weeks:[w]});
   assert.match(html,/<h3>Within reach<\/h3>/);

@@ -111,7 +111,7 @@ def _reach(laps, end, names, route):
             entries.append(({"driver": names[lap["driver_id"]], "route": route[key][0],
                              "class": route[key][1], "holder": names[record["driver_id"]],
                              "time_s": lap["time_s"], "estimated_finish": _estimated(lap),
-                             "record_s": record["time_s"], "record_estimated_finish": _estimated(record),
+                             "record_time_s": record["time_s"], "record_estimated_finish": _estimated(record),
                              "gap_s": round(lap["time_s"] - record["time_s"], 3)},
                             [lap["lap_id"], record["lap_id"]]))
     entries.sort(key=lambda e: (e[0]["gap_s"], e[0]["route"].casefold(), e[0]["route"],

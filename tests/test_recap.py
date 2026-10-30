@@ -212,7 +212,7 @@ def test_within_reach_lists_the_closest_records_someone_else_holds():
     # Daikoku is contested only from next week; Ito Sprint is Captn Compass's at the week's end
     assert report["facts"]["within_reach"] == [{
         "driver": "FishFighterNS", "route": "Ito Sprint", "class": "S2", "holder": "Captn Compass",
-        "time_s": 167.13, "estimated_finish": False, "record_s": 162.379,
+        "time_s": 167.13, "estimated_finish": False, "record_time_s": 162.379,
         "record_estimated_finish": True, "gap_s": 4.751}]
     assert report["reach_laps"] == [[1, 3]]  # the driver's best, then the record: its race report
     assert "lap" not in json.dumps(report["facts"]["within_reach"])  # lap ids are not sent as facts
@@ -254,3 +254,7 @@ def test_a_route_only_within_reach_is_tagged_after_the_rest():
     assert report["facts"]["within_reach"][0]["route"] == "Aaa Quiet Route"
     out = writer.validate(column(next_week="Captn Compass is 0.5 s off Aaa Quiet Route."), report)
     assert out["next_week"] == "{D1} is 0.5 s off {R3}."
+    # Codex, #59: a record set before the week appears only here, and the prompt
+    # asks for lap times as m:ss.sss, so the check must read it as a lap time
+    assert 60.5 not in [value for key, value in _numbers(report["facts"]) if key != "record_time_s"]
+    assert writer.validate(column(next_week="Chase the 1:00.500 on Aaa Quiet Route, from 1:01.000."), report)
