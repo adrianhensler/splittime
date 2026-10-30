@@ -22,7 +22,7 @@ no other runtime dependencies, no build step. About 6,000 lines of backend and a
 | Storage, migrations, manual edits | `app/recorder/store.py` | Add driver columns |
 | Reprocess from raw frames | `app/recorder/reprocess.py` | As is |
 | Route fingerprint and official route catalogue | `app/tracks.py`, `store.py` | As is; routes shared across drivers |
-| Car names | `app/cars.py` | As is |
+| Car names | `app/cars.py`, `app/car_ordinals.json` | As is; the list was refreshed from LapScope `a1e5235` on 2026-10-30 (43 more cars), since the deployment runs offline and never downloads it |
 | REST API | `app/api/routes.py` | Add driver filters and rivalry endpoints |
 | Analysis page with multi-lap overlay (up to 6 laps, cross-session) | `app/static/analysis.*` | Add driver labels |
 | Scenario tests and packet simulator | `tests/`, `tools/simulator.py` | Keep green; extend to two ports |
