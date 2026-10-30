@@ -5,6 +5,13 @@ times. Each driver's game streams Data Out UDP to the server. The site records
 every event automatically, and both drivers compare laps afterwards, as if
 they had raced each other.
 
+[![SplitTime: watch the 80-second tour](docs/media/reel-poster.jpg)](https://test.hensler.work/splittime-reel/)
+
+*[Watch the tour](https://test.hensler.work/splittime-reel/), or
+[download it](https://github.com/adrianhensler/splittime/releases/download/reel-2026-10-30/splittime-reel.mp4)
+(MP4, 16 MB). Recorded from the two drivers' real data; the Live scene is a
+simulated drive.*
+
 SplitTime is built on [LapScope](https://github.com/darcane/LapScope) by
 Erdem Darcan, which supplies the recorder, lap and event detection, storage
 and the original analysis page. Its corner detection thresholds are adapted
