@@ -53,9 +53,16 @@
       `<li>${esc(r.route)} (${esc(r.class)}) · <strong>${esc(r.new_holder)}</strong> takes it from ${esc(r.previous_holder)} with
         <span class="st-time">${time(r.time_s)}</span>${est(r.estimated_finish)}, by ${r.margin_s.toFixed(3)} s${
           r.estimated_finish || r.previous_estimated_finish ? " (from an estimated time)" : ""}</li>`).join("")}</ul>` : "";
+    // where each gap is: the pair's race report measures it section by section
+    const reach = (f.within_reach || []).length ? `<h3>Within reach</h3><ul>${f.within_reach.map((r, i) => {
+      const pair = (week.reach_laps || [])[i]?.map(Number).filter(Number.isInteger);
+      return `<li><strong>${esc(r.driver)}</strong> · ${esc(r.route)} (${esc(r.class)}) · <span class="st-time">${time(r.time_s)}</span>${est(r.estimated_finish)},
+        ${r.gap_s.toFixed(3)} s off ${esc(r.holder)}’s <span class="st-time">${time(r.record_s)}</span>${est(r.record_estimated_finish)}${
+        pair?.length === 2 ? ` · <a href="rivalry-v2.html?laps=${pair[0]},${pair[1]}#st-analysis">Where the gap is</a> · <a href="replay.html?laps=${pair[0]},${pair[1]}">Replay</a>` : ""}</li>`;
+    }).join("")}</ul>` : "";
     const busiest = f.busiest_route ? `<p class="st-quiet">Busiest route: ${esc(f.busiest_route.route)} (${esc(f.busiest_route.class)}),
       ${f.busiest_route.laps} laps · ${f.contested_routes} routes have times from two or more drivers.</p>` : "";
-    return drivers + bests + records + busiest;
+    return drivers + bests + records + reach + busiest;
   }
 
   function html(data) {

@@ -1,5 +1,21 @@
 # WP-004: Rivalry views (M3)
 
+## Within reach in the weekly recap (ADR 37), 2026-10-30
+
+Recap facts gain `within_reach` (up to three per driver: records someone else
+holds at the week's end, closest first, with provenance) and `reach_laps`
+outside the facts; the page lists them with "Where the gap is" (that pair's
+race report) and Replay links. Prompt v2 asks for m:ss.sss lap times and
+aims `next_week` at the closest record. Cached v1 columns are adopted: the
+report carries the v1 fingerprint (pinned in a test to the value the #57
+code gives) and `api.adopt` rekeys; new route tags are numbered after the
+old ones. On a copy of the live data: both written columns (12 and 19 Oct)
+moved, budget unchanged at $0.062843; e.g. the 19 Oct week lists Captn
+Compass 0.296 s off FishFighterNS on Narai-Juku S2, and its link opened that
+race report in headless Chromium. Tests: `tests/test_recap.py` (3 new),
+`tests/ui/recap.test.cjs` (1 new). The real model has not yet written a
+column under prompt v2; the next one is this week's, on 2 November.
+
 ## Refresh offer when results change (ADR 36), 2026-10-30
 
 Owner: pages do not update after a race, without loading the server. New

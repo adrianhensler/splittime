@@ -31,12 +31,22 @@ class Generate(BaseModel):
     retry: bool = False
 
 
-def cache_key(report):
+def cache_key(report, fingerprint=None, version=None):
     return hashlib.sha256(
-        f"recap:{report['fingerprint']}:{MODEL}:{writer.PROMPT_VERSION}".encode()).hexdigest()
+        f"recap:{fingerprint or report['fingerprint']}:{MODEL}:{version or writer.PROMPT_VERSION}"
+        .encode()).hexdigest()
+
+
+def adopt(report, db):
+    """A column written before within reach (facts v1, prompt v1) moves to the
+    week's new key: its numbers and names are all still facts, and it is not
+    paid for again. It keeps its own wording, seconds and all."""
+    db.rekey(cache_key(report, report["legacy_fingerprint"], 1), cache_key(report))
 
 
 def view(report, db):
+    adopt(report, db)
+    report = {k: v for k, v in report.items() if k != "legacy_fingerprint"}
     cached = db.get(cache_key(report))
     result = cached.pop("result", None)
     if cached["state"] == "ready":
@@ -77,6 +87,7 @@ def write(store, drivers, db, monday, key, retry=False, now=None):
     if not report["facts"]["laps"]:
         raise ValueError("Nothing was recorded that week.")
     encoded = writer.encode_request(report)  # prove the cap before reserving or sending
+    adopt(report, db)
     fingerprint = cache_key(report)
     call_id = db.claim(fingerprint, retry)
     if call_id is None:

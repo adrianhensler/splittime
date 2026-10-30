@@ -40,8 +40,9 @@ requires the gateway's login and service grant (ADR 23).
   request under the same check and cap (ADR 35).
 - A weekly recap of each Monday-to-Sunday week in the drivers' time zone:
   activity, personal bests and time improved, records that changed hands and
-  records held, with estimated finishes marked. An optional AI column is
-  written once a week ends (or on request for an older one), under the same
+  records held, and the closest records each driver could take back (each
+  linked to its race report), with estimated finishes marked (ADR 37). An
+  optional AI column is written once a week ends (or on request for an older one), under the same
   check and cap; driver and route names are the only identifying text sent
   (ADR 35).
 - Open result pages offer a refresh when results change after they loaded,
