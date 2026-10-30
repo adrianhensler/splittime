@@ -708,7 +708,10 @@ there are only 2 of us racing - and sporadically").
   finishes. It reads the ledger read-only and never creates it. About 4 ms on
   the live data.
 - Rivalry, Rivalry_legacy, Stats, Recap, Replay, Compare and Analysis load
-  `js/updates.js`. It reads the token on load, then once a minute while the
+  `js/updates.js` in `<head>`. It reads the token on load, and the page's own
+  `api/` requests wait for it (at most 2 s, after which the first token
+  offers a refresh), so the starting token is never newer than the results
+  on screen. Then it reads it once a minute while the
   tab is visible and on coming back to it (at most every 15 s). When it
   differs, a bar says results have changed, with Refresh (reloads the page)
   and Later (keeps watching from the new token). It stops asking while the

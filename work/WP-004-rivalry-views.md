@@ -14,6 +14,13 @@ About 4 ms per request on a copy of the live data.
 Codex on #58 (P2): if the first check failed, a later token was taken as the
 baseline, so a race finishing in between was never offered. Now the first
 token after a failed start offers a refresh ("Results may have changed").
+Second pass (P2): a race finishing between the page's results read and its
+first token read was adopted silently. `updates.js` now loads in <head> and
+holds the page's own `api/` requests until the first token is in (at most
+2 s; past that the first token offers a refresh instead). Tested with a fake
+page (results wait; slow baseline lets them through and shows "may have"),
+and in headless Chromium: the server log shows `api/changes` before
+`api/rivalry`, and the bar appears after a rename.
 
 ## Then vs now and the weekly recap (ADR 35), 2026-10-29
 

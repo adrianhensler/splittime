@@ -1,9 +1,11 @@
 "use strict";
 /* Offers a refresh when results change after the page loaded (ADR 36). It asks
    api/changes about once a minute, only while the tab is visible, and again on
-   coming back to the tab. Nothing reloads by itself: the bar says so and waits. */
+   coming back to the tab. Nothing reloads by itself: the bar says so and waits.
+   Load it in <head>: the page's own api/ requests wait for the first token, so
+   the baseline is never newer than the results on screen (Codex, #58). */
 (function () {
-  const PERIOD = 60000, RETURN = 15000;
+  const PERIOD = 60000, RETURN = 15000, WAIT = 2000;
 
   // fetchToken resolves to a token or null (unknown: try again next time)
   function watch({fetchToken, visible, now, onChange}) {
@@ -25,7 +27,9 @@
     }
     // "Later": count from what is showing now, and keep watching
     const later = token => {base = token; waiting = false;};
-    return {check, later};
+    // results were requested before any token arrived: the first one is unsure
+    const unsure = () => {if (base === null) missed = true;};
+    return {check, later, unsure};
   }
 
   globalThis.Updates = {watch, PERIOD};
@@ -52,10 +56,11 @@
     });
     document.body.append(bar);
   }
+  const send = globalThis.fetch.bind(globalThis);
   const watcher = watch({
     fetchToken: async () => {
       try {
-        const response = await fetch("api/changes", {cache: "no-store"});
+        const response = await send("api/changes", {cache: "no-store"});
         return response.ok ? (await response.json()).token ?? null : null;
       } catch {return null;}
     },
@@ -63,7 +68,13 @@
     now: () => Date.now(),
     onChange: show,
   });
-  watcher.check(true);
+  // the page's results wait for the baseline (at most WAIT ms; past that the
+  // first token cannot vouch for them and offers a refresh instead)
+  const first = watcher.check(true);
+  const ready = Promise.race([first, new Promise(done => setTimeout(() => {watcher.unsure(); done();}, WAIT))]);
+  globalThis.fetch = (input, init) =>
+    /^api\/(?!changes\b)/.test(typeof input === "string" ? input : "")
+      ? ready.then(() => send(input, init)) : send(input, init);
   setInterval(() => watcher.check(true), PERIOD);
   document.addEventListener("visibilitychange", () => watcher.check());
 })();

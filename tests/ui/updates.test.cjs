@@ -54,3 +54,41 @@ test("a failed first check offers a refresh once a token arrives",async()=>{
   await env.watcher.check(true);
   assert.deepEqual(env.changes,["after-race?"]);
 });
+function page(answer) {
+  const log = [], listeners = {}, bars = [];
+  const ctx = {log, bars, setInterval(){}, setTimeout, Promise, Date,
+    document:{visibilityState:"visible", addEventListener:(name, fn) => {listeners[name]=fn;},
+      createElement: () => ({style:{}, setAttribute(){}, addEventListener(){}, remove(){}}),
+      body:{append: bar => bars.push(bar.innerHTML)}},
+    fetch: async url => {
+      log.push(`start ${url}`);
+      const token = url === "api/changes" ? await answer() : null;
+      log.push(`end ${url}`);
+      return {ok:true, json: async () => ({token})};
+    }};
+  vm.createContext(ctx);
+  vm.runInContext(fs.readFileSync("app/static/js/updates.js","utf8"), ctx);
+  return ctx;
+}
+test("the page's own results wait for the baseline token",async()=>{
+  let release; const gate = new Promise(done => {release = done;});
+  const ctx = page(async () => {await gate; return "t1";});
+  const results = ctx.fetch("api/stats");
+  await new Promise(done => setTimeout(done, 20));
+  assert.deepEqual(ctx.log, ["start api/changes"]);   // api/stats not sent yet
+  release();
+  await results;
+  assert.deepEqual(ctx.log, ["start api/changes","end api/changes","start api/stats","end api/stats"]);
+  await ctx.fetch("css/x.css");                       // anything else is never held
+  assert.equal(ctx.bars.length, 0);                   // a prompt baseline is no change
+});
+test("a baseline slower than the wait lets results through and marks the first token unsure",async()=>{
+  const ctx = page(() => new Promise(done => setTimeout(() => done("t1"), 2300)));
+  const started = Date.now();
+  await ctx.fetch("api/stats");
+  assert.ok(Date.now() - started < 2250);
+  assert.equal(ctx.bars.length, 0);
+  await new Promise(done => setTimeout(done, 400));   // the late token arrives
+  assert.equal(ctx.bars.length, 1);
+  assert.match(ctx.bars[0], /Results may have changed since this page loaded/);
+});
