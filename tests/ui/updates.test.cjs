@@ -9,7 +9,7 @@ function setup(tokens) {
   const env = {tokens:[...tokens], visible:true, clock:0, asked:0, changes:[]};
   env.watcher = U.watch({
     fetchToken: async () => {env.asked++; return env.tokens.length ? env.tokens.shift() : null;},
-    visible: () => env.visible, now: () => env.clock, onChange: token => env.changes.push(token)});
+    visible: () => env.visible, now: () => env.clock, onChange: (token, unsure) => env.changes.push(unsure ? `${token}?` : token)});
   return env;
 }
 
@@ -43,4 +43,14 @@ test("Later keeps watching from what is showing; failures change nothing",async(
   assert.deepEqual(env.changes,["b"]);
   await env.watcher.check(true);
   assert.deepEqual(env.changes,["b","c"]);
+});
+test("a failed first check offers a refresh once a token arrives",async()=>{
+  const env=setup([null,"after-race","after-race"]);
+  await env.watcher.check(true);
+  assert.deepEqual(env.changes,[]);
+  await env.watcher.check(true);
+  assert.deepEqual(env.changes,["after-race?"]);
+  env.watcher.later("after-race");
+  await env.watcher.check(true);
+  assert.deepEqual(env.changes,["after-race?"]);
 });

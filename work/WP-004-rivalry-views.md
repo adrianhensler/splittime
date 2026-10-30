@@ -11,6 +11,9 @@ shows a Refresh / Later bar when it differs. Tests: `tests/test_changes.py`
 edit, rename or finished report does; a poll never creates the ledger) and
 `tests/ui/updates.test.cjs` (baseline, hidden tabs, throttle, Later).
 About 4 ms per request on a copy of the live data.
+Codex on #58 (P2): if the first check failed, a later token was taken as the
+baseline, so a race finishing in between was never offered. Now the first
+token after a failed start offers a refresh ("Results may have changed").
 
 ## Then vs now and the weekly recap (ADR 35), 2026-10-29
 

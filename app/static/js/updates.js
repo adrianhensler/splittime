@@ -7,16 +7,20 @@
 
   // fetchToken resolves to a token or null (unknown: try again next time)
   function watch({fetchToken, visible, now, onChange}) {
-    let base = null, waiting = false, busy = false, last = -Infinity;
+    let base = null, missed = false, waiting = false, busy = false, last = -Infinity;
     async function check(force = false) {
       // the first token is what the page loaded with, so it is read even in a background tab
       if (waiting || busy || (base !== null && !visible()) || (!force && now() - last < RETURN)) return;
       busy = true; last = now();
       try {
         const token = await fetchToken();
-        if (token === null) return;
-        if (base === null) base = token;
-        else if (token !== base) {waiting = true; onChange(token);}
+        if (token === null) {if (base === null) missed = true; return;}
+        if (base === null) {
+          base = token;
+          // the page loaded without a token, so this one may already be newer
+          // than what it shows: offer a refresh rather than assume (Codex, #58)
+          if (missed) {waiting = true; onChange(token, true);}
+        } else if (token !== base) {waiting = true; onChange(token, false);}
       } finally {busy = false;}
     }
     // "Later": count from what is showing now, and keep watching
@@ -33,12 +37,12 @@
     "box-shadow:0 6px 20px rgba(0,0,0,.35);font:14px/1.4 system-ui,-apple-system,'Segoe UI',sans-serif";
   const BUTTON = "font:inherit;border-radius:5px;padding:5px 12px;cursor:pointer;";
   let bar = null;
-  function show(token) {
+  function show(token, unsure) {
     bar?.remove();
     bar = document.createElement("div");
     bar.setAttribute("role", "status");
     bar.style.cssText = STYLE;
-    bar.innerHTML = '<span>Results have changed since this page loaded.</span>' +
+    bar.innerHTML = `<span>Results ${unsure ? "may have" : "have"} changed since this page loaded.</span>` +
       `<button type="button" data-act="refresh" style="${BUTTON}background:#6ce0cb;color:#0a1420;border:0">Refresh</button>` +
       `<button type="button" data-act="later" style="${BUTTON}background:transparent;color:#eaf2f7;border:1px solid #344b60">Later</button>`;
     bar.addEventListener("click", event => {

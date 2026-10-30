@@ -712,7 +712,8 @@ there are only 2 of us racing - and sporadically").
   tab is visible and on coming back to it (at most every 15 s). When it
   differs, a bar says results have changed, with Refresh (reloads the page)
   and Later (keeps watching from the new token). It stops asking while the
-  bar is up. Nothing reloads by itself, so nothing being read or edited is
+  bar is up. If the first read fails, the first one that works offers a
+  refresh, since the page cannot know what it is showing. Nothing reloads by itself, so nothing being read or edited is
   lost; Live already updates over its socket and is left out.
 - A driver's own edit also changes the token, so the bar can appear after
   it; the text says results changed, not who changed them.
