@@ -53,6 +53,7 @@ test("milestones: new routes grouped, the longest run, first time ahead; unknown
     {kind:"laps",driver:"FishFighterNS",count:52},
     {kind:"new_route",driver:"<img src=x>",route:"<b>Oka</b> CCC"},
     {kind:"pb_streak",driver:"FishFighterNS",sessions:4},
+    {kind:"pb_streak",driver:"FishFighterNS",sessions:3},  // Codex, #60: a later, shorter run
     {kind:"first_ahead",driver:"FishFighterNS",route:"Ito Sprint",class:"S2",time_s:162.379,estimated_finish:true,
       over:"<img src=x>",over_time_s:167.13,over_estimated_finish:false,margin_s:4.751},
     {kind:"from_the_future",driver:"Nobody"}]});

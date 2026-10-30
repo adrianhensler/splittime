@@ -15,6 +15,9 @@ longest. On a copy of the live data: 21, 6 and 9 milestones for the weeks of
 the record change that week) and FishFighterNS's 50th lap (26 Oct); a
 headless Chromium screenshot of Recap showed them. Tests:
 `tests/test_recap.py` (2 new), `tests/ui/recap.test.cjs` (1 new).
+Codex on #60 (P2): a run of 5 that broke and was followed by a run of 3 in
+the same week showed 3, since the later line replaced the earlier. The page
+now keeps each driver's longest run of the week; the UI test adds that case.
 
 ## Within reach in the weekly recap (ADR 37), 2026-10-30
 
