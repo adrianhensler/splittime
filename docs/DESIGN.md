@@ -44,6 +44,9 @@ requires the gateway's login and service grant (ADR 23).
   written once a week ends (or on request for an older one), under the same
   check and cap; driver and route names are the only identifying text sent
   (ADR 35).
+- Open result pages offer a refresh when results change after they loaded,
+  checked about once a minute while visible; nothing reloads by itself
+  (ADR 36).
 - Manual correction of lap flags by either driver.
 
 **Out (v1)** — tracked in [BUILD_PLAN.md](BUILD_PLAN.md#deferred)
