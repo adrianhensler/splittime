@@ -751,3 +751,24 @@ gap is).
   route. A moved column keeps its own wording.
 
 *Rests on:* 33, 35. *Work:* WP-004.
+
+## 38. Milestones and streaks, in the weekly recap
+
+**Proposed, 2026-10-30** (owner approved milestones and streaks as the fourth
+history piece: measured only, no AI).
+
+- Each week on Recap lists the milestones reached in it, each dated by the
+  lap that reached it: a driver's first lap on a route (whatever the class);
+  their 50th, 100th, 250th, 500th and 1000th finished lap, then every 1000th;
+  a personal best in three or more of their sessions running (a first time
+  beats nothing, and a session without one ends the run); and the first time
+  their own valid lap puts them outright fastest on a route and class someone
+  else also has a valid time on (a tie is nobody's, as for records).
+- Read from the same finished laps as the week's facts (ADR 35), so nothing
+  reads frames, and computed once per request for all weeks.
+- Milestones sit beside a week's report, not in its facts: they never reach
+  the AI column, never change a week's fingerprint, and so never cost a call
+  or orphan a written column. Stats keeps its achievements (thresholds
+  reached, undated); these are the dated moments.
+
+*Rests on:* 35. *Work:* WP-004.

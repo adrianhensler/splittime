@@ -1,15 +1,17 @@
 """Weekly recap: measured weeks from the rivalry projection, the fact-checked
 column, the shared spend path and the Monday writer (ADR 35)."""
+import asyncio
 import json
 import re
 from datetime import date, datetime, timedelta, timezone
+from types import SimpleNamespace
 
 import pytest
 
 from app.debrief import openrouter
 from app.debrief.contracts import MODEL
 from app.debrief.ledger import Ledger
-from app.recap import api, auto, facts, writer
+from app.recap import api, auto, facts, milestones, writer
 
 NAMES = {"a": "Captn Compass", "b": "FishFighterNS"}
 MONDAY = date(2026, 10, 19)                                            # Halifax is UTC-3 that week
@@ -258,3 +260,38 @@ def test_a_route_only_within_reach_is_tagged_after_the_rest():
     # asks for lap times as m:ss.sss, so the check must read it as a lap time
     assert 60.5 not in [value for key, value in _numbers(report["facts"]) if key != "record_time_s"]
     assert writer.validate(column(next_week="Chase the 1:00.500 on Aaa Quiet Route, from 1:01.000."), report)
+
+
+def test_milestones_are_dated_by_the_lap_that_reached_them():
+    found = milestones.find(season())
+    week = milestones.for_week(found, *facts.bounds(MONDAY))
+    assert week == [
+        # lap 3 finishes with lap 5: the order of their laps decides
+        {"kind": "first_ahead", "driver": "Captn Compass", "route": "Ito Sprint", "class": "S2",
+         "time_s": 162.379, "estimated_finish": True, "over": "FishFighterNS", "over_time_s": 167.13,
+         "over_estimated_finish": False, "margin_s": 4.751},
+        {"kind": "new_route", "driver": "Captn Compass", "route": "Daikoku Circuit"}]
+    # FishFighterNS was ahead on Ito Sprint only because the other time was slower: not a milestone,
+    # and it counts as having been ahead
+    assert [m["route"] for m in milestones.for_week(found, *facts.bounds(MONDAY - timedelta(days=7)))
+            if m["kind"] == "first_ahead"] == []
+    assert milestones.for_week(found, *facts.bounds(MONDAY + timedelta(days=7)))[1]["kind"] == "first_ahead"
+
+    at = START + DAY
+    times = [100, 99, 98, 97, None, 96, 95]  # None: a session with only a lap that is not valid
+    laps = [lap(200 + n, "a", t or 90, at + n * 60, clean=t is not None) for n, t in enumerate(times)]
+    laps += [lap(300 + n, "a", 50, at + 3600 + n, clean=False) for n in range(43)]  # the 50th lap
+    found = milestones.find({"categories": [group(7, "Oka CCC", "A", *laps)]})
+    assert [(m["kind"], m.get("sessions") or m.get("count")) for _, m in found if m["kind"] != "new_route"] == [
+        ("pb_streak", 3), ("laps", 50)]  # the second run stops at two
+    assert found[1][0] == at + 3 * 60  # the session that made it three
+
+
+def test_milestones_sit_beside_the_report_and_never_change_its_fingerprint(recorded, tmp_path):
+    store = SimpleNamespace(db_path=str(tmp_path / "telemetry.db"))
+    request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(store=store, drivers=())))
+    out = asyncio.run(api.recaps(request, SimpleNamespace(headers={})))
+    week = next(w for w in out["weeks"] if w["week"] == MONDAY.isoformat())
+    assert [m["kind"] for m in week["milestones"]] == ["first_ahead", "new_route"]
+    report = facts.build(season(), MONDAY, START + 30 * DAY)
+    assert week["fingerprint"] == report["fingerprint"] and "milestones" not in report

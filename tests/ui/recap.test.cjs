@@ -46,3 +46,22 @@ test("within reach: gap, estimated record, and links to where the gap is",()=>{
   assert.doesNotMatch(html,/<script>|laps=1/);  // only whole lap ids make a link
   assert.doesNotMatch(R.html({weeks:[week()]}),/Within reach/);  // older weeks have none
 });
+test("milestones: new routes grouped, the longest run, first time ahead; unknown kinds skipped",()=>{
+  const w=week({milestones:[
+    {kind:"new_route",driver:"<img src=x>",route:"Ito Sprint"},
+    {kind:"pb_streak",driver:"FishFighterNS",sessions:3},
+    {kind:"laps",driver:"FishFighterNS",count:52},
+    {kind:"new_route",driver:"<img src=x>",route:"<b>Oka</b> CCC"},
+    {kind:"pb_streak",driver:"FishFighterNS",sessions:4},
+    {kind:"first_ahead",driver:"FishFighterNS",route:"Ito Sprint",class:"S2",time_s:162.379,estimated_finish:true,
+      over:"<img src=x>",over_time_s:167.13,over_estimated_finish:false,margin_s:4.751},
+    {kind:"from_the_future",driver:"Nobody"}]});
+  const html=R.html({weeks:[w]});
+  assert.match(html,/<h3>Milestones<\/h3>/);
+  assert.match(html,/&lt;img src=x&gt;<\/strong> · first laps on Ito Sprint, &lt;b&gt;Oka&lt;\/b&gt; CCC<\/li>/);
+  assert.match(html,/FishFighterNS<\/strong> · a personal best in 4 sessions running/);
+  assert.doesNotMatch(html,/in 3 sessions running|Nobody/);
+  assert.match(html,/FishFighterNS<\/strong> · 52nd lap/);
+  assert.match(html,/ahead on Ito Sprint \(S2\) for the first time, <span class="st-time">2:42.379<\/span> <abbr class="st-est"[^>]*>est.<\/abbr> to &lt;img src=x&gt;’s <span class="st-time">2:47.130<\/span><\/li>/);
+  assert.doesNotMatch(R.html({weeks:[week()]}),/Milestones/);
+});
