@@ -12,6 +12,15 @@ they had raced each other.
 (MP4, 16 MB). Recorded from the two drivers' real data; the Live scene is a
 simulated drive.*
 
+| | |
+|---|---|
+| [![Race replay in follow mode](docs/media/replay.jpg)](docs/media/replay.jpg) | [![The AI race engineer's review](docs/media/race-engineer.jpg)](docs/media/race-engineer.jpg) |
+| **Replay**: two recorded laps raced head to head, following one car | **Race report**: the AI race engineer's review, every number checked against the telemetry |
+| [![Rivalry](docs/media/rivalry.jpg)](docs/media/rivalry.jpg) | [![Traces and corners](docs/media/traces.jpg)](docs/media/traces.jpg) |
+| **Rivalry**: records per route and class, and the latest lead changes | **Traces & corners**: speed, throttle, brake and steering by distance |
+| [![Stats](docs/media/stats.jpg)](docs/media/stats.jpg) | [![Weekly recap](docs/media/recap.jpg)](docs/media/recap.jpg) |
+| **Stats**: leaderboards, head to head and more | **Weekly recap**: milestones, personal bests and records within reach |
+
 SplitTime is built on [LapScope](https://github.com/darcane/LapScope) by
 Erdem Darcan, which supplies the recorder, lap and event detection, storage
 and the original analysis page. Its corner detection thresholds are adapted
