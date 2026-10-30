@@ -725,3 +725,29 @@ there are only 2 of us racing - and sporadically").
   for two people), and reloading by itself (loses what is open).
 
 *Rests on:* 24. *Work:* WP-004, WP-006.
+
+## 37. Within reach, in the weekly recap
+
+**Proposed, 2026-10-30** (owner approved "within reach" as the third history
+piece, folded into the recap: the closest records to take back and where the
+gap is).
+
+- Each week's facts gain `within_reach`: for every driver, up to three
+  records someone else holds at the week's end that their own clean best is
+  closest to (route, class, holder, both times with their provenance, and the
+  gap). Records are the rivalry projection's, as for records held (ADR 35); a
+  tie is held by nobody and so is no one's to take. Nothing reads frames.
+- Where the gap is: each entry links to the race report for that pair
+  (ADR 33), which already measures it section by section, and to Replay. The
+  recap itself does not build race reports: twelve weeks of them would be far
+  heavier than the page. The pair's lap ids go with the report, not in the
+  facts, so they are never numbers the column may state.
+- The column's prompt (version 2) mentions within reach, points `next_week`
+  at the closest one, and asks for lap times as m:ss.sss. Columns already
+  written keep their key: the report carries the version 1 fingerprint, and a
+  column cached under it moves to the new key (as in ADR 33's rename), so
+  nothing is paid for twice. Route placeholders new to the facts are numbered
+  after the existing ones, so a moved column's {R2} still names the same
+  route. A moved column keeps its own wording.
+
+*Rests on:* 33, 35. *Work:* WP-004.

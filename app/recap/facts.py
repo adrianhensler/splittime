@@ -23,8 +23,9 @@ from zoneinfo import ZoneInfo
 
 from ..racereport.auto import _stamp, takeovers
 
-REPORT_VERSION = 1
+REPORT_VERSION = 2  # 2: within reach
 MAX_BESTS = 8
+MAX_REACH = 3  # per driver
 MAX_WEEKS = 12
 
 
@@ -72,23 +73,55 @@ def _estimated(lap):
     return lap.get("finish") == "last_packet"
 
 
-def _holders(laps, cutoff):
-    """Outright record holders among drivers, on routes two or more have a clean time on."""
+def _records(laps, cutoff):
+    """Each contested category's record lap and every other driver's best, at
+    `cutoff`: categories two or more drivers have a clean time on, with one
+    outright fastest (a tie is held by nobody)."""
     best: dict = {}
     for t, key, _, lap in laps:
         if t < cutoff and lap.get("candidate_clean"):
             mine = best.setdefault(key, {})
-            if lap["driver_id"] not in mine or lap["time_s"] < mine[lap["driver_id"]]:
-                mine[lap["driver_id"]] = lap["time_s"]
-    held, contested = Counter(), 0
-    for times in best.values():
+            if lap["driver_id"] not in mine or lap["time_s"] < mine[lap["driver_id"]]["time_s"]:
+                mine[lap["driver_id"]] = lap
+    out = {}
+    for key, times in best.items():
         if len(times) < 2:
             continue
-        contested += 1
-        ranked = sorted(times.items(), key=lambda item: item[1])
-        if ranked[0][1] < ranked[1][1]:
-            held[ranked[0][0]] += 1
-    return held, contested
+        ranked = sorted(times.values(), key=lambda lap: lap["time_s"])
+        out[key] = (ranked[0] if ranked[0]["time_s"] < ranked[1]["time_s"] else None, ranked)
+    return out
+
+
+def _holders(laps, cutoff):
+    """Outright record holders among drivers, on routes two or more have a clean time on."""
+    records = _records(laps, cutoff)
+    held = Counter(record["driver_id"] for record, _ in records.values() if record)
+    return held, len(records)
+
+
+def _reach(laps, end, names, route):
+    """Within reach: for each driver, the records someone else holds at the
+    week's end that their own best is closest to. The pair goes with each, so
+    the page can open its race report: where the gap is, section by section."""
+    entries = []
+    for key, (record, ranked) in _records(laps, end).items():
+        if record is None:
+            continue
+        for lap in ranked[1:]:
+            entries.append(({"driver": names[lap["driver_id"]], "route": route[key][0],
+                             "class": route[key][1], "holder": names[record["driver_id"]],
+                             "time_s": lap["time_s"], "estimated_finish": _estimated(lap),
+                             "record_time_s": record["time_s"], "record_estimated_finish": _estimated(record),
+                             "gap_s": round(lap["time_s"] - record["time_s"], 3)},
+                            [lap["lap_id"], record["lap_id"]]))
+    entries.sort(key=lambda e: (e[0]["gap_s"], e[0]["route"].casefold(), e[0]["route"],
+                                str(e[0]["class"]), e[0]["driver"].casefold(), e[1]))
+    kept, count = [], Counter()
+    for entry in entries:
+        if count[entry[0]["driver"]] < MAX_REACH:
+            count[entry[0]["driver"]] += 1
+            kept.append(entry)
+    return [e for e, _ in kept], [pair for _, pair in kept]
 
 
 def build(summary, monday: date, now: float) -> dict:
@@ -174,8 +207,23 @@ def build(summary, monday: date, now: float) -> dict:
     mentioned |= {facts["busiest_route"]["route"]} if busiest else set()
     tags.update({f"R{n}": name for n, name in enumerate(sorted(mentioned, key=str.casefold), 1)})
     sunday = monday + timedelta(days=6)
-    report = {"version": REPORT_VERSION, "week": monday.isoformat(), "last_day": sunday.isoformat(),
+    report = {"version": 1, "week": monday.isoformat(), "last_day": sunday.isoformat(),
               "complete": now >= end, "tags": tags, "facts": facts}
-    report["fingerprint"] = hashlib.sha256(json.dumps(report, sort_keys=True, allow_nan=False)
-                                           .encode()).hexdigest()
+    # a column written before within reach existed is moved to this week's new
+    # key rather than paid for again (api.adopt), as race reports were (ADR 33)
+    legacy = _digest(report)
+
+    reach, pairs = _reach(laps, end, names, route)
+    facts["within_reach"] = reach
+    # new routes are numbered after the ones above, so an adopted column's {R1}
+    # still names the same route
+    extra = sorted({item["route"] for item in reach} - mentioned, key=str.casefold)
+    tags.update({f"R{n}": name for n, name in enumerate(extra, len(mentioned) + 1)})
+    report["version"] = REPORT_VERSION
+    report["reach_laps"] = pairs
+    report["fingerprint"], report["legacy_fingerprint"] = _digest(report), legacy
     return report
+
+
+def _digest(report):
+    return hashlib.sha256(json.dumps(report, sort_keys=True, allow_nan=False).encode()).hexdigest()

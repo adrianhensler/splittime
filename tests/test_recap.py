@@ -205,3 +205,56 @@ def test_the_monday_writer_sends_last_week_once_an_hour_after_it_ends(recorded, 
     assert auto.run_once(None, (), db, "key", now=after(second, 3700)) == "ready"
     assert auto.run_once(None, (), db, "key", now=after(third, 3700)) is None
     assert auto.handled(db, third.isoformat()) and len(calls) == 2
+
+
+def test_within_reach_lists_the_closest_records_someone_else_holds():
+    report = facts.build(season(), MONDAY, START + 30 * DAY)
+    # Daikoku is contested only from next week; Ito Sprint is Captn Compass's at the week's end
+    assert report["facts"]["within_reach"] == [{
+        "driver": "FishFighterNS", "route": "Ito Sprint", "class": "S2", "holder": "Captn Compass",
+        "time_s": 167.13, "estimated_finish": False, "record_time_s": 162.379,
+        "record_estimated_finish": True, "gap_s": 4.751}]
+    assert report["reach_laps"] == [[1, 3]]  # the driver's best, then the record: its race report
+    assert "lap" not in json.dumps(report["facts"]["within_reach"])  # lap ids are not sent as facts
+
+    during = START + DAY
+    many = {"categories": [
+        group(n, f"Route {chr(64 + n)}", "A", lap(10 * n, "a", 60 + n, during), lap(10 * n + 1, "b", 60, during))
+        for n in range(1, 6)] + [group(9, "Tied", "A", lap(90, "a", 70, during), lap(91, "b", 70, during))]}
+    reach = facts.build(many, MONDAY, START + 30 * DAY)["facts"]["within_reach"]
+    assert [(r["route"], r["gap_s"]) for r in reach] == [("Route A", 1), ("Route B", 2), ("Route C", 3)]
+    assert {r["driver"] for r in reach} == {"Captn Compass"}  # at most three each; a tie is nobody's
+
+
+def test_columns_written_before_within_reach_move_to_the_new_key_unpaid(tmp_path):
+    report = facts.build(season(), MONDAY, START + 30 * DAY)
+    # the fingerprint the previous code (#57) gave this week: the key its column is cached under
+    assert report["legacy_fingerprint"] == "cd3701f922580cbd50c302f3b2aeb23b1658a59899dfd97fe0920e1258f6c6e2"
+    db = Ledger(tmp_path / "debrief.db")
+    old = api.cache_key(report, report["legacy_fingerprint"], 1)
+    db.finish(old, db.claim(old, False), result=column(headline="Captn Compass takes Ito Sprint"),
+              cost=.0012, receipt_id="r", model=MODEL)
+    spent = db.budget()["used_or_reserved_usd"]
+    shown = api.view(report, db)
+    assert shown["ai"]["state"] == "ready" and shown["ai"]["narrative"]["headline"] == "{D1} takes {R2}"
+    assert "legacy_fingerprint" not in shown and db.get(old)["state"] == "missing"
+    assert db.budget()["used_or_reserved_usd"] == spent
+    # routes new to the facts are numbered after the old ones, so {R2} still means Ito Sprint
+    assert report["tags"]["R2"] == "Ito Sprint"
+    assert "m:ss.sss" in writer.SYSTEM and "within_reach" in writer.SYSTEM
+
+
+def test_a_route_only_within_reach_is_tagged_after_the_rest():
+    s = season()
+    s["categories"].append(group(5, "Aaa Quiet Route", "A",           # first by name, but not driven this week
+                                 lap(50, "a", 61.0, START - DAY), lap(51, "b", 60.5, START - DAY)))
+    report = facts.build(s, MONDAY, START + 30 * DAY)
+    assert report["tags"] == {"D1": "Captn Compass", "D2": "FishFighterNS", "R1": "Daikoku Circuit",
+                              "R2": "Ito Sprint", "R3": "Aaa Quiet Route"}
+    assert report["facts"]["within_reach"][0]["route"] == "Aaa Quiet Route"
+    out = writer.validate(column(next_week="Captn Compass is 0.5 s off Aaa Quiet Route."), report)
+    assert out["next_week"] == "{D1} is 0.5 s off {R3}."
+    # Codex, #59: a record set before the week appears only here, and the prompt
+    # asks for lap times as m:ss.sss, so the check must read it as a lap time
+    assert 60.5 not in [value for key, value in _numbers(report["facts"]) if key != "record_time_s"]
+    assert writer.validate(column(next_week="Chase the 1:00.500 on Aaa Quiet Route, from 1:01.000."), report)

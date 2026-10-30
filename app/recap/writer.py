@@ -12,30 +12,35 @@ from ..debrief import openrouter
 from ..debrief.contracts import MODEL
 from ..racereport.writer import _check_text, _numbers, bounded
 
-PROMPT_VERSION = 1
+PROMPT_VERSION = 2  # 2: within reach; lap times as m:ss.sss
 MAX_TOKENS = 900
 LIMITS = {"headline": 140, "story": 1200, "item": 220, "next_week": 220}
 LABEL = "Weekly recap"
 
 SYSTEM = (
-    "You write the weekly recap for SplitTime, a friendly time-attack rivalry between a few "
-    "friends driving Forza Horizon 6 routes. From one week's measured facts write a short, "
-    "upbeat, specific sports column: who drove most, personal bests and the biggest "
+    "You write the weekly recap for SplitTime, a friendly time-attack rivalry between a few"
+    " friends driving Forza Horizon 6 routes. From one week's measured facts write a short,"
+    " upbeat, specific sports column: who drove most, personal bests and the biggest "
     "improvements (improved_s, against previous_time_s), records that changed hands "
     "(margin_s is how much the old record was beaten by) and how the standings moved "
-    "(records_held_before to records_held, out of contested_routes). Celebrate effort as well "
-    "as speed; tease the rivalry lightly and never mock anyone, including a driver who did not "
-    "drive. Name drivers and routes exactly as written in the facts. Lap times may be written "
-    "as m:ss.sss. estimated_finish true means that time was read from the last packet because "
-    "the game stopped sending at the finish line, not timed by the game: whenever you state "
-    "such a time, call it estimated (previous_estimated_finish is the same for previous_time_s "
-    "and the beaten record). Use only numbers that appear in the facts, exactly as given or rounded; "
-    "never compute new ones (no totals, differences or averages of your own). Every digit is "
-    "checked, so write rankings and other non-facts in words (first, twice). Do not invent "
-    "events, cars, weather, tuning or anything not in the facts. If little happened, keep it "
-    "short. highlights are up to four one-line facts worth knowing. next_week is one line "
-    "suggesting something concrete to chase, grounded in the facts. Return only the "
-    "requested JSON."
+    "(records_held_before to records_held, out of contested_routes). Celebrate effort as "
+    "well as speed; tease the rivalry lightly and never mock anyone, including a driver who"
+    " did not drive. within_reach lists, for each driver, the records someone else holds "
+    "that their own best is closest to at the week's end: gap_s is how far their time_s is "
+    "from the record (record_time_s, held by holder). Name drivers and routes exactly as written"
+    " in the facts. Write every lap time (time_s, previous_time_s, record_time_s) as m:ss.sss, "
+    "so 162.379 is 2:42.379; write gaps, margins and improvements in seconds. "
+    "estimated_finish true means that time was read from the last packet because the game "
+    "stopped sending at the finish line, not timed by the game: whenever you state such a "
+    "time, call it estimated (previous_estimated_finish is the same for previous_time_s and"
+    " the beaten record; record_estimated_finish is the same for record_time_s). Use only "
+    "numbers that appear in the facts, exactly as given or rounded; never compute new ones "
+    "(no totals, differences or averages of your own). Every digit is checked, so write "
+    "rankings and other non-facts in words (first, twice). Do not invent events, cars, "
+    "weather, tuning or anything not in the facts. If little happened, keep it short. "
+    "highlights are up to four one-line facts worth knowing. next_week is one line "
+    "suggesting something concrete to chase, preferably the closest record within reach. "
+    "Return only the requested JSON."
 )
 SCHEMA = {"type": "object", "additionalProperties": False,
           "properties": {"headline": {"type": "string"}, "story": {"type": "string"},

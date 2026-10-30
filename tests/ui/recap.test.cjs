@@ -35,3 +35,14 @@ test("the column fills placeholders after escaping; the current week has no butt
   const broke=R.html({weeks:[week({ai:{state:"missing",enabled:true,budget:{remaining_usd:.005}}})]});
   assert.match(broke,/data-retry="false" disabled>Write AI recap/);
 });
+test("within reach: gap, estimated record, and links to where the gap is",()=>{
+  const reach={driver:"FishFighterNS",route:"<b>Ito</b> Sprint",class:"S2",holder:"<img src=x>",time_s:167.13,
+    estimated_finish:false,record_time_s:162.379,record_estimated_finish:true,gap_s:4.751};
+  const w=week();w.facts.within_reach=[reach,{...reach,route:"Oka CCC"}];w.reach_laps=[[98,174],["1\"><script>",2]];
+  const html=R.html({weeks:[w]});
+  assert.match(html,/<h3>Within reach<\/h3>/);
+  assert.match(html,/&lt;b&gt;Ito&lt;\/b&gt; Sprint \(S2\) · <span class="st-time">2:47.130<\/span>,\s+4.751 s off &lt;img src=x&gt;’s <span class="st-time">2:42.379<\/span> <abbr class="st-est"/);
+  assert.match(html,/href="rivalry-v2.html\?laps=98,174#st-analysis">Where the gap is<\/a> · <a href="replay.html\?laps=98,174">Replay/);
+  assert.doesNotMatch(html,/<script>|laps=1/);  // only whole lap ids make a link
+  assert.doesNotMatch(R.html({weeks:[week()]}),/Within reach/);  // older weeks have none
+});
