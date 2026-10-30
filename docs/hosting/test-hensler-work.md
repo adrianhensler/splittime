@@ -59,8 +59,8 @@ Enable **Data Out** in the game and enter:
 
 | Driver | Permanent ID | Destination IP | UDP port |
 |---|---|---|---|
-| Captn Compass | `captn-compass` | `167.88.46.12` | **10000** |
-| FishFighterNS | `fishfighterns` | `167.88.46.12` | **9999** |
+| Captn Compass | `captn-compass` | the server's IP (given privately) | **10000** |
+| FishFighterNS | `fishfighterns` | the server's IP (given privately) | **9999** |
 
 The hostname resolves through Cloudflare. Game UDP goes directly to the VPS
 IP; it does not travel through the HTTP tunnel. The assigned destination port

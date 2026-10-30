@@ -1,5 +1,21 @@
 # Build plan
 
+## Where things stand, 2026-10-30
+
+Both drivers have used the deployed site unattended since mid-October: the
+collector records their events, and the site has grown well past the v1
+pages below. Rivalry with race reports and an AI race engineer (ADR 26, 33, 34),
+Replay (29), Stats (28), the session debrief (32), then vs now and the weekly
+recap with within reach and milestones (35, 37, 38), and the refresh offer
+(36) are all deployed. The README lists what the site does; What's new in the app
+dates each change; the decision record and the packets in `work/` hold the
+evidence. Comparisons between drivers stay exploratory (ADR 10): ranked
+results still need the equivalence evidence described below.
+
+The checkpoints and the completion table that follow are dated snapshots
+from 12 and 13 October, kept as the record of how the project got here, not
+as its current state.
+
 ## Session debrief checkpoint, 2026-10-13
 
 Authorized scope: expandable A-session measured summary in Rivalry, B reference,
