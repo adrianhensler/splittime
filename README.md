@@ -88,6 +88,21 @@ hard budget of $1 per UTC month. Everything else works without them.
   gateway that asks for a password (nginx or Caddy basic auth is enough).
   "Users" are whoever that gateway lets in.
 
+**Do you need a login at all?** Not for SplitTime to work. With no login,
+every lap is still recorded, every page works, and the automatic AI reports
+and weekly column are still written by the server. The login only protects
+the edits above: without one, anyone who can reach the site can make them,
+including deleting recordings (AI spend stays within its $1 a month cap). So:
+
+- **Only you and your drivers can reach it** (home network, VPN, or just your
+  own computer): no login needed. SplitTime refuses requests that arrive
+  under hostnames it doesn't know, so a web page can't reach it by pointing
+  its own domain at your machine.
+- **It's on the internet:** put a login in front of everything except GET and
+  HEAD, so anyone can view but only people you allow can edit. The reference
+  deployment does this with its site's existing sign-in, limited to an
+  allowlist of accounts ([docs/hosting/](docs/hosting/)).
+
 ### Try it on your own machine (no game needed)
 
 Python 3.12. Two terminals, from the repository folder:
