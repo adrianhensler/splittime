@@ -112,6 +112,7 @@ Python 3.12. Two terminals, from the repository folder:
 python -m venv .venv && . .venv/bin/activate
 pip install -r requirements.txt
 export SPLITTIME_DRIVERS='[{"id":"alex","name":"Alex","udp_port":19999},{"id":"sam","name":"Sam","udp_port":20000}]'
+export DATA_DIR=/tmp/splittime-tryout
 uvicorn app.main:app --port 8100
 ```
 
@@ -122,10 +123,11 @@ python tools/simulator.py --port 19999    # drives as Alex for about 2.5 minutes
 
 About 15 seconds after the simulator finishes, open <http://localhost:8100/>.
 Alex now has a session with three laps. Run it again with `--port 20000` to
-give Sam a lap to compare against. Recordings go in `./data`.
+give Sam a lap to compare against.
 
-These are spare ports, so the try-out can't collide with a real installation
-on the same machine; a real one uses 8000, 9999 and 10000 as below.
+The try-out uses spare ports and its own data folder, so it can't touch a
+real installation on the same machine. A real one uses ports 8000, 9999 and
+10000 and keeps its recordings in `./data`, as below.
 
 ### Run it for real
 
