@@ -247,7 +247,8 @@ Pitfalls:
 ## E. Drivers
 
 Send each driver [GAME_SETUP.md](GAME_SETUP.md), the server IP address and
-their port.
+their port. Adding, renaming and removing drivers later is covered in the
+README's [Adding, renaming or removing a driver](../README.md#adding-renaming-or-removing-a-driver).
 
 ## F. Optional session debrief
 
