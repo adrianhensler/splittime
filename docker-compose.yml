@@ -19,6 +19,12 @@ services:
       - SPLITTIME_DRIVERS=${SPLITTIME_DRIVERS:-}
       # Optional server-side key; costly generation must be protected by your gateway.
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      # The rest are described under Settings in the README.
+      - LS_ALLOWED_HOSTS=${LS_ALLOWED_HOSTS:-}
+      - LS_OFFLINE=${LS_OFFLINE:-0}
+      - SPLITTIME_AUTO_RACE_REPORTS=${SPLITTIME_AUTO_RACE_REPORTS:-1}
+      - SPLITTIME_AUTO_RECAPS=${SPLITTIME_AUTO_RECAPS:-1}
+      - RECAP_TZ=${RECAP_TZ:-America/Halifax}
     restart: unless-stopped
     logging:
       # Docker's default json-file driver never rotates. A recorder that

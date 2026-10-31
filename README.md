@@ -43,8 +43,9 @@ the recorder can get wrong.
 - **Race report**: two laps compared section by section and corner by corner
   (corners numbered per route), with an optional AI race engineer's review.
   The AI only writes about measured facts, and every number it states is
-  checked against them; a review that fails the check is not shown. A report
-  is written by itself when a record changes hands.
+  checked against them; a review that fails the check is not shown. When
+  SplitTime runs as a separate recorder and website, a report is also
+  written by itself whenever a record changes hands.
 - **Then vs now**: a driver's current best against their first clean run on
   the same route.
 - **Replay**: recorded laps raced against each other on the map, from above
@@ -67,23 +68,147 @@ wherever it appears.
 The AI features are optional (an OpenRouter key on the server) and share one
 hard budget of $1 per UTC month. Everything else works without them.
 
-## Running it
+## Getting started
 
-SplitTime is Python (FastAPI, SQLite), with no build step and no frontend
-bundler. [docs/SETUP.md](docs/SETUP.md) covers a server: firewall, the two UDP
-ports, a container or plain process, and the gateway in front of it.
-SplitTime itself has no login, so writes must sit behind a gateway that has
-one. [docs/GAME_SETUP.md](docs/GAME_SETUP.md) is the one page each driver needs.
+### How it fits together
+
+```
+ Driver A's game ──UDP 9999───┐
+                              ├──▶ SplitTime server ──▶ web pages (anyone can view)
+ Driver B's game ──UDP 10000──┘          ▲
+                                         └── your login gateway (needed to edit)
+```
+
+- **Drivers aren't accounts.** Each driver has a UDP port on the server. The
+  game sends telemetry to that port, and that port is how SplitTime knows
+  whose lap it is. Drivers never sign in, and no gamertag is sent.
+- **Viewing is open.** Whoever can reach the site can see every page.
+- **Editing needs a login, and SplitTime doesn't have one.** Renaming or
+  deleting a session, regrouping laps or asking the AI for a review all
+  change data or spend money, so they must go through a web server or
+  gateway that asks for a password (nginx or Caddy basic auth is enough).
+  "Users" are whoever that gateway lets in.
+
+**Do you need a login at all?** Not for SplitTime to work. With no login,
+every lap is still recorded, every page works, and any automatic AI reports
+(see Settings) are still written by the server. The login only protects
+the edits above: without one, anyone who can reach the site can make them,
+including deleting recordings (AI spend stays within its $1 a month cap). So:
+
+- **Only you and your drivers can reach it** (home network, VPN, or just your
+  own computer): no login needed. SplitTime refuses requests that arrive
+  under hostnames it doesn't know, so a web page can't reach it by pointing
+  its own domain at your machine.
+- **It's on the internet:** put a login in front of everything except GET and
+  HEAD, so anyone can view but only people you allow can edit. The reference
+  deployment does this with its site's existing sign-in, limited to an
+  allowlist of accounts ([docs/hosting/](docs/hosting/)).
+
+### Try it on your own machine (no game needed)
+
+Python 3.12. Two terminals, from the repository folder:
 
 ```sh
 python -m venv .venv && . .venv/bin/activate
+pip install -r requirements.txt
+export SPLITTIME_DRIVERS='[{"id":"alex","name":"Alex","udp_port":19999},{"id":"sam","name":"Sam","udp_port":20000}]'
+export DATA_DIR=/tmp/splittime-tryout
+uvicorn app.main:app --port 8100
+```
+
+```sh
+. .venv/bin/activate
+python tools/simulator.py --port 19999    # drives as Alex for about 2.5 minutes
+```
+
+About 15 seconds after the simulator finishes, open <http://localhost:8100/>.
+Alex now has a session with three laps. Run it again with `--port 20000` to
+give Sam a lap to compare against.
+
+The try-out uses spare ports and its own data folder, so it can't touch a
+real installation on the same machine. A real one uses ports 8000, 9999 and
+10000 and keeps its recordings in `./data`, as below.
+
+### Run it for real
+
+You need a Linux server with a fixed public IPv4 address. The game takes an
+IP address, not a hostname. [docs/SETUP.md](docs/SETUP.md) has the details;
+in short:
+
+1. **Set the drivers and settings** in a `.env` file next to
+   `docker-compose.yml`, one per line, for example:
+
+   ```sh
+   SPLITTIME_DRIVERS=[{"id":"alex","name":"Alex","udp_port":9999},{"id":"sam","name":"Sam","udp_port":10000}]
+   LS_ALLOWED_HOSTS=splittime.example.com
+   ```
+
+   Keep `.env` out of Git if it holds an API key.
+2. **Open the UDP ports** in the server's firewall and in your hosting
+   provider's firewall, if it has one. A tunnel or CDN such as Cloudflare
+   does not carry game traffic: the game must reach the server's own address.
+3. **Start it:** `docker compose up -d --build`. The web side listens on
+   `127.0.0.1:8000` only.
+4. **Put a gateway in front** that serves HTTPS, proxies to port 8000, and
+   asks for a login on everything except GET and HEAD (or on everything, if
+   the site should be private). SplitTime refuses requests for hostnames it
+   doesn't know, hence `LS_ALLOWED_HOSTS` above.
+5. **Send each driver** [docs/GAME_SETUP.md](docs/GAME_SETUP.md) with the
+   server's IP address and their port. It is five steps in the game's
+   settings, done once.
+
+### Adding, renaming or removing a driver
+
+Drivers are set only by `SPLITTIME_DRIVERS`, read when SplitTime starts.
+Each entry has three fields:
+
+| Field | What it is |
+|---|---|
+| `id` | Permanent storage name: letters, digits, `_` or `-`. Never change it, or the driver starts over with no history. |
+| `name` | What the pages show. Change it whenever you like. |
+| `udp_port` | Where that driver's game sends. 1025 or higher, never 5200–5300 (the game uses those). Each driver needs their own. |
+
+- **Add a driver:** add an entry with a new `id` and port, open the port in
+  the firewall(s), publish it in `docker-compose.yml`
+  (`- "10001:10001/udp"`), restart, and send them the game setup page.
+  SplitTime takes up to 8 drivers, but it was built for two: comparisons and
+  the AI reviews put two drivers side by side.
+- **Rename:** change `name` and restart. Old laps show the new name.
+- **Remove:** delete the entry and restart. Their recordings stay; nothing
+  new is recorded for them.
+
+Restart only when nobody is driving, or the event in progress is lost.
+[docs/SETUP.md](docs/SETUP.md#optional-collector-and-web-as-two-processes)
+shows how to split SplitTime into a recorder that keeps running and a website
+you can restart at any time.
+
+### Settings
+
+All optional except `SPLITTIME_DRIVERS`.
+
+| Setting | Default | What it does |
+|---|---|---|
+| `SPLITTIME_DRIVERS` | one driver on port 9999 | The drivers, as above |
+| `LS_ALLOWED_HOSTS` | localhost and IP addresses | Extra hostnames the site answers to, comma-separated |
+| `OPENROUTER_API_KEY` | none | Turns on the AI reviews and weekly column. Capped at $1 per month in total. |
+| `SPLITTIME_AUTO_RACE_REPORTS`, `SPLITTIME_AUTO_RECAPS` | `1` | Automatic race reports and weekly columns. These only run when SplitTime is split into a recorder and a website ([docs/SETUP.md](docs/SETUP.md#optional-collector-and-web-as-two-processes)); in the single process above, use the buttons. Set to `0` to turn them off. |
+| `RECAP_TZ` | `America/Halifax` | Time zone the weekly recap's Monday-to-Sunday weeks follow |
+| `DATA_DIR` | `./data` | Where recordings are kept. Back it up. |
+| `LS_OFFLINE` | `0` | `1` stops the once-a-day car and route list updates from LapScope's GitHub |
+
+### Development
+
+There's no build step: the pages are plain HTML and JavaScript served by
+the Python app.
+
+```sh
 pip install -r requirements.txt -r requirements-dev.txt
 python -m pytest -q                 # backend
 node --test tests/ui/*.test.cjs     # page scripts
 ```
 
-`tools/simulator.py` sends synthetic packets, so the whole pipeline can be
-tried without the game.
+Read [AGENTS.md](AGENTS.md) before changing anything; it applies to people as
+well as coding agents.
 
 ## Documents
 
