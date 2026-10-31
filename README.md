@@ -43,8 +43,9 @@ the recorder can get wrong.
 - **Race report**: two laps compared section by section and corner by corner
   (corners numbered per route), with an optional AI race engineer's review.
   The AI only writes about measured facts, and every number it states is
-  checked against them; a review that fails the check is not shown. A report
-  is written by itself when a record changes hands.
+  checked against them; a review that fails the check is not shown. When
+  SplitTime runs as a separate recorder and website, a report is also
+  written by itself whenever a record changes hands.
 - **Then vs now**: a driver's current best against their first clean run on
   the same route.
 - **Replay**: recorded laps raced against each other on the map, from above
@@ -89,8 +90,8 @@ hard budget of $1 per UTC month. Everything else works without them.
   "Users" are whoever that gateway lets in.
 
 **Do you need a login at all?** Not for SplitTime to work. With no login,
-every lap is still recorded, every page works, and the automatic AI reports
-and weekly column are still written by the server. The login only protects
+every lap is still recorded, every page works, and any automatic AI reports
+(see Settings) are still written by the server. The login only protects
 the edits above: without one, anyone who can reach the site can make them,
 including deleting recordings (AI spend stays within its $1 a month cap). So:
 
@@ -110,18 +111,21 @@ Python 3.12. Two terminals, from the repository folder:
 ```sh
 python -m venv .venv && . .venv/bin/activate
 pip install -r requirements.txt
-export SPLITTIME_DRIVERS='[{"id":"alex","name":"Alex","udp_port":9999},{"id":"sam","name":"Sam","udp_port":10000}]'
-uvicorn app.main:app --port 8000
+export SPLITTIME_DRIVERS='[{"id":"alex","name":"Alex","udp_port":19999},{"id":"sam","name":"Sam","udp_port":20000}]'
+uvicorn app.main:app --port 8100
 ```
 
 ```sh
 . .venv/bin/activate
-python tools/simulator.py --port 9999     # drives as Alex for about 2.5 minutes
+python tools/simulator.py --port 19999    # drives as Alex for about 2.5 minutes
 ```
 
-About 15 seconds after the simulator finishes, open <http://localhost:8000/>.
-Alex now has a session with three laps. Run it again with `--port 10000` to
+About 15 seconds after the simulator finishes, open <http://localhost:8100/>.
+Alex now has a session with three laps. Run it again with `--port 20000` to
 give Sam a lap to compare against. Recordings go in `./data`.
+
+These are spare ports, so the try-out can't collide with a real installation
+on the same machine; a real one uses 8000, 9999 and 10000 as below.
 
 ### Run it for real
 
@@ -185,7 +189,7 @@ All optional except `SPLITTIME_DRIVERS`.
 | `SPLITTIME_DRIVERS` | one driver on port 9999 | The drivers, as above |
 | `LS_ALLOWED_HOSTS` | localhost and IP addresses | Extra hostnames the site answers to, comma-separated |
 | `OPENROUTER_API_KEY` | none | Turns on the AI reviews and weekly column. Capped at $1 per month in total. |
-| `SPLITTIME_AUTO_RACE_REPORTS`, `SPLITTIME_AUTO_RECAPS` | `1` | Set to `0` to stop AI reviews being written by themselves (the buttons still work) |
+| `SPLITTIME_AUTO_RACE_REPORTS`, `SPLITTIME_AUTO_RECAPS` | `1` | Automatic race reports and weekly columns. These only run when SplitTime is split into a recorder and a website ([docs/SETUP.md](docs/SETUP.md#optional-collector-and-web-as-two-processes)); in the single process above, use the buttons. Set to `0` to turn them off. |
 | `RECAP_TZ` | `America/Halifax` | Time zone the weekly recap's Monday-to-Sunday weeks follow |
 | `DATA_DIR` | `./data` | Where recordings are kept. Back it up. |
 | `LS_OFFLINE` | `0` | `1` stops the once-a-day car and route list updates from LapScope's GitHub |
