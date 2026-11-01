@@ -114,6 +114,31 @@ def test_web_binds_no_udp_and_collector_binds_both(tmp_path, monkeypatch):
     assert seen == {"web": (True, True), "collector": (False, False)}
 
 
+def test_auto_writers_run_wherever_pages_are_served(tmp_path, monkeypatch):
+    """Automatic race reports and recaps (ADRs 34, 35) start in a single
+    process and in web, never in the collector (ADR 39)."""
+    from app.racereport import auto as race_auto
+    from app.recap import auto as recap_auto
+    _env(monkeypatch, tmp_path)
+    started = []
+
+    def fake(name):
+        async def loop(app):
+            started.append((app.state.role, name))
+        return loop
+
+    monkeypatch.setattr(race_auto, "loop", fake("race"))
+    monkeypatch.setattr(recap_auto, "loop", fake("recap"))
+    for role in (roles.ALL, roles.WEB, roles.COLLECTOR):
+        async def go():
+            app = create_app(role)
+            async with lifespan(app):
+                await asyncio.sleep(0)   # let the started tasks run
+        asyncio.run(go())
+    assert sorted(started) == sorted([(roles.ALL, "race"), (roles.ALL, "recap"),
+                                      (roles.WEB, "race"), (roles.WEB, "recap")])
+
+
 # -- HTTP surface ------------------------------------------------------------
 
 def _api(app) -> dict:

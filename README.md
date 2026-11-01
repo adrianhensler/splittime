@@ -43,9 +43,8 @@ the recorder can get wrong.
 - **Race report**: two laps compared section by section and corner by corner
   (corners numbered per route), with an optional AI race engineer's review.
   The AI only writes about measured facts, and every number it states is
-  checked against them; a review that fails the check is not shown. When
-  SplitTime runs as a separate recorder and website, a report is also
-  written by itself whenever a record changes hands.
+  checked against them; a review that fails the check is not shown. A report
+  is written by itself when a record changes hands.
 - **Then vs now**: a driver's current best against their first clean run on
   the same route.
 - **Replay**: recorded laps raced against each other on the map, from above
@@ -90,8 +89,8 @@ hard budget of $1 per UTC month. Everything else works without them.
   "Users" are whoever that gateway lets in.
 
 **Do you need a login at all?** Not for SplitTime to work. With no login,
-every lap is still recorded, every page works, and any automatic AI reports
-(see Settings) are still written by the server. The login only protects
+every lap is still recorded, every page works, and the automatic AI reports
+and weekly column are still written by the server. The login only protects
 the edits above: without one, anyone who can reach the site can make them,
 including deleting recordings (AI spend stays within its $1 a month cap). So:
 
@@ -191,7 +190,7 @@ All optional except `SPLITTIME_DRIVERS`.
 | `SPLITTIME_DRIVERS` | one driver on port 9999 | The drivers, as above |
 | `LS_ALLOWED_HOSTS` | localhost and IP addresses | Extra hostnames the site answers to, comma-separated |
 | `OPENROUTER_API_KEY` | none | Turns on the AI reviews and weekly column. Capped at $1 per month in total. |
-| `SPLITTIME_AUTO_RACE_REPORTS`, `SPLITTIME_AUTO_RECAPS` | `1` | Automatic race reports and weekly columns. These only run when SplitTime is split into a recorder and a website ([docs/SETUP.md](docs/SETUP.md#optional-collector-and-web-as-two-processes)); in the single process above, use the buttons. Set to `0` to turn them off. |
+| `SPLITTIME_AUTO_RACE_REPORTS`, `SPLITTIME_AUTO_RECAPS` | `1` | Set to `0` to stop AI reviews and weekly columns being written by themselves (the buttons still work) |
 | `RECAP_TZ` | `America/Halifax` | Time zone the weekly recap's Monday-to-Sunday weeks follow |
 | `DATA_DIR` | `./data` | Where recordings are kept. Back it up. |
 | `LS_OFFLINE` | `0` | `1` stops the once-a-day car and route list updates from LapScope's GitHub |
