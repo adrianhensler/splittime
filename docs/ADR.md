@@ -772,3 +772,23 @@ history piece: measured only, no AI).
   reached, undated); these are the dated moments.
 
 *Rests on:* 35. *Work:* WP-004.
+
+## 39. Automatic AI writing runs wherever the pages are served
+
+**Proposed, 2026-11-01** (owner asked for it after the README had to say
+automatic reports only worked in the two-process setup).
+
+- The automatic race reports (ADR 34) and weekly columns (ADR 35) start in
+  the single-process setup (`SPLITTIME_ROLE` unset or `all`) as well as in
+  web. They never start in the collector, which stays lean and makes no
+  outside calls (ADR 24).
+- They were tied to the web role only because the reference deployment runs
+  that way; the single-process install the README describes never wrote
+  them, with nothing saying why.
+- Safe in one process: there is still exactly one writer, so a report can't
+  be sent twice; each pass runs in a worker thread and reads through its own
+  SQLite connection (`Store.reader`), as web already does beside a recording
+  collector; the 20-call monthly limit, `SPLITTIME_AUTO_*` switches and $1
+  budget are unchanged, and nothing runs without a key.
+
+*Amends:* 34, 35. *Rests on:* 24.
