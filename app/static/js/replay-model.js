@@ -138,13 +138,22 @@
   function cornerAt(corners, dist) {
     return (corners || []).find(c => dist >= c.s_entry && dist <= c.s_exit) || null;
   }
-  /* Where each corner's apex sits on the map, read off one recorded lap. */
-  function markers(car, corners) {
-    return (corners || []).map(c => {
+  const reach = car => car.mono[car.mono.length - 1];
+  /* A lap that got as far as `dist`. A run cut off partway must not answer for
+     road it never drove: timeAtDist would pin it all to the lap's last point. */
+  const carReaching = (cars, dist) => cars.find(c => c.mono.length > 1 && reach(c) >= dist) || null;
+  /* Where each corner's apex sits on the map. A corner no lap reached has no mark. */
+  function markers(cars, corners) {
+    return (corners || []).flatMap(c => {
+      const car = carReaching(cars, c.s_apex);
+      if (!car) return [];
       const s = at(car, timeAtDist(car, c.s_apex));
-      return {corner: c, x: s.x, y: s.y, z: s.z};
+      return [{corner: c, x: s.x, y: s.y, z: s.z}];
     });
   }
+  /* The lap to draw a stretch on: one that drove all of it, else whoever got furthest. */
+  const carOver = (cars, to) => carReaching(cars, to) ||
+    cars.reduce((best, c) => reach(c) > reach(best) ? c : best);
   /* A stretch of road named in the address: ?at=from,to&name=C7. Links carry
      the position, not the number, because corner numbers can move when a route
      gets a new reference lap (ADR 40). Anything malformed means no stretch. */
@@ -159,7 +168,6 @@
   const nameOf = name => !name ? "this stretch" : name[0] === "S" ? `Section ${name.slice(1)}` : name;
   /* The stretch to play: a run-up to the first car arriving, until the last has left. */
   function clip(cars, from, to, runUp = 3, runOut = 1) {
-    const reach = c => c.mono[c.mono.length - 1];
     const present = cars.filter(c => c.mono.length > 1 && from < reach(c));
     if (!present.length) return null;
     const start = Math.max(0, Math.min(...present.map(c => timeAtDist(c, from))) - runUp);
@@ -198,7 +206,7 @@
     return parts.join(" · ");
   }
   const model = {COLORS, locate, at, timeAtDist, axis, car, standings, bounds, projector, parseLaps,
-    cornerAt, markers, parseAt, nameOf, clip, approaching, span, focus, caption};
+    cornerAt, markers, carOver, parseAt, nameOf, clip, approaching, span, focus, caption};
   if (typeof module !== "undefined" && module.exports) module.exports = model;
   else root.ReplayModel = model;
 })(globalThis);

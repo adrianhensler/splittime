@@ -59,7 +59,7 @@
     if (state.mode === "tilt") { state.view.pitch = 0.95; state.view.yaw = 0.5; state.view.relief = 3; }
     // opened at a stretch of road: frame it, until the viewer asks for the whole route
     if (state.mode === "top" && state.clip?.zoom) {
-      const f = R.focus(state.cars[0], state.clip.from, state.clip.to);
+      const f = R.focus(R.carOver(state.cars, state.clip.to), state.clip.from, state.clip.to);
       Object.assign(state.view, {cx:f.cx, cz:f.cz, scale: 0.5 * Math.min(w / f.width, h / f.height)});
     }
   }
@@ -142,7 +142,7 @@
   // the stretch a link or a pin chose, along the road
   function stretch(proj) {
     if (!state.clip) return;
-    const car = state.cars[0], c = car.channels, [first, last] = R.span(car, state.clip.from, state.clip.to);
+    const car = R.carOver(state.cars, state.clip.to), c = car.channels, [first, last] = R.span(car, state.clip.from, state.clip.to);
     ctx.beginPath();
     for (let i = first; i <= last; i++) {
       const [x,y] = proj(c.pos_x[i], c.pos_y[i], c.pos_z[i]);
@@ -243,7 +243,7 @@
     const data = await res.json(), route = pair ? data.corners : data;
     if (!route?.corners?.length) return;
     state.corners = route.corners;
-    state.pins = R.markers(state.cars[0], state.corners);
+    state.pins = R.markers(state.cars, state.corners);
     // route equivalence is never verified yet: on its own a caveat, not a fault (as on Traces & corners)
     if (pair && (data.reasons || []).every(reason => reason === "route_equivalence_unverified"))
       state.segments = new Map((data.segments || []).filter(s => s.kind === "corner").map(s => [s.n, s]));

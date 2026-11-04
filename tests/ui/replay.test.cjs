@@ -71,9 +71,17 @@ test("a route position is in a corner or on a straight", () => {
   assert.equal(R.cornerAt(undefined,20),null);
 });
 test("a pin sits where the recorded lap passed the apex", () => {
-  const pins = R.markers(fast,CORNERS);
+  const pins = R.markers([fast],CORNERS);
   assert.equal(pins[0].x,20); assert.equal(pins[1].x,70); assert.equal(pins[1].corner.n,2);
-  assert.deepEqual(R.markers(fast,undefined),[]);
+  assert.deepEqual(R.markers([fast],undefined),[]);
+});
+test("a lap cut off partway does not answer for road it never drove", () => {
+  const cut = R.car(lap(10,10,4),{time_s:3},0);            // stops at 30, before corner 2
+  const pins = R.markers([cut,fast],CORNERS);
+  assert.equal(pins[0].x,20); assert.equal(pins[1].x,70);  // corner 2 read from the full lap
+  assert.deepEqual(R.markers([cut],CORNERS).map(p => p.corner.n),[1]);  // no lap reached corner 2
+  assert.equal(R.carOver([cut,fast],70),fast); assert.equal(R.carOver([cut,fast],20),cut);
+  assert.equal(R.carOver([cut,fast],999),fast);            // nobody drove it all: whoever got furthest
 });
 test("a stretch in the address is two numbers in order and a checked name", () => {
   assert.deepEqual(R.parseAt("?laps=1,2&at=-80.5,120&name=S3"),{from:-80.5,to:120,name:"S3"});
