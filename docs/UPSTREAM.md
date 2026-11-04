@@ -224,3 +224,16 @@ ADR 24, WP-007. New logic is in `app/roles.py`. Edits to imported files:
 - `app/recorder/store.py`: `session_seq` table and `create_session` allocate
   session ids in the database; `Store(timeout=)` sets the lock wait. No
   schema version change: older builds ignore the table.
+
+### Lap clock at the crossing frame, 2026-11-04
+
+Adapted from LapScope's open PR
+[#110](https://github.com/darcane/LapScope/pull/110) at `87b8ca3`, not merged
+upstream when taken: `_fix_dead_lap_clock` in `app/api/routes.py` becomes
+`_fix_lap_clock`, plus its two tests in `tests/test_api.py`. This is that one
+change, not a sync.
+
+One difference: upstream continues the clock by the full elapsed time. On our
+real laps the crossing frame can arrive seconds late, which put a lap's last
+sample up to 10 s past its official time, so ours caps the step at the clock's
+previous step. Keep that cap on a later sync.
