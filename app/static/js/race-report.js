@@ -32,9 +32,26 @@
       this.content.textContent = next ? "Expand to see where the time went." : "Choose an A and a B lap.";
       if (this.host.open) this.load();
     }
+    // A link into Replay at this stretch of road, or null when the report has no position for it.
+    replayLink(kind, n) {
+      const spans = this.stretches?.[kind === "C" ? "corners" : "sections"] || [];
+      const span = spans.find(s => s.n === Number(n));
+      if (!span || !this.context) return null;
+      return `replay.html?laps=${this.context.lap_a},${this.context.lap_b}&at=${Number(span.s_from)},${Number(span.s_to)}&name=${kind}${Number(n)}`;
+    }
+    wrap(kind, n, html) {
+      const href = this.replayLink(kind, n);
+      return href ? `<a class="st-race-replay" href="${href}" title="See this in the replay">${html}</a>` : html;
+    }
+    // C7 and Section 3 in escaped text become links. Runs before gamertags go in,
+    // so a driver called C7 is never linked. The stored text does not change.
+    linked(escaped) {
+      return escaped.replace(/\b(?:C(\d+)|[Ss]ection (\d+))\b/g, (match, corner, section) =>
+        corner ? this.wrap("C", corner, match) : this.wrap("S", section, match));
+    }
     // The server stores gamertags as {A} and {B}; names are filled in here, after escaping.
     named(text) {
-      return esc(text).replaceAll("{A}", `<strong>${esc(this.context.a)}</strong>`)
+      return this.linked(esc(text)).replaceAll("{A}", `<strong>${esc(this.context.a)}</strong>`)
         .replaceAll("{B}", `<strong>${esc(this.context.b)}</strong>`);
     }
     async load(generate = false) {
@@ -69,6 +86,7 @@
     }
     render(report) {
       const f = report.facts, ai = report.ai, {a, b} = this.context;
+      this.stretches = report.stretches;
       const leader = f.a_gain_s >= 0 ? a : b, worst = Math.max(...f.sections.map(s => Math.abs(s.a_gain_s)), 0.001);
       this.retry = ["failed","uncertain"].includes(ai.state);
       const story = ai.narrative;
@@ -106,14 +124,14 @@
         <h3>Where the time went</h3>
         <ol class="st-race-sections">${f.sections.map(s => {
           const gainer = s.a_gain_s >= 0 ? "a" : "b", width = Math.round(100 * Math.abs(s.a_gain_s) / worst);
-          return `<li><span class="st-race-where">Section ${s.n} · ${km(s.from_m)}–${km(s.to_m)}${s.corners.length ? ` · C${s.corners.join(", C")}` : ""}</span>
+          return `<li><span class="st-race-where">${this.wrap("S", s.n, `Section ${s.n} · ${km(s.from_m)}–${km(s.to_m)}${s.corners.length ? ` · C${s.corners.join(", C")}` : ""}`)}</span>
             <span class="st-race-bar st-race-${gainer}" style="width:${width}%"></span>
             <span class="st-race-gain">${esc(gainer === "a" ? a : b)} +${secs(s.a_gain_s)}</span>
             <span class="st-quiet">Full throttle ${s.a.flat_pct}% / ${s.b.flat_pct}% · top ${s.a.max_kmh} / ${s.b.max_kmh} km/h · after: ${
               s.a_ahead_after_s === 0 ? "level" : `${esc(s.a_ahead_after_s > 0 ? a : b)} ahead by ${secs(s.a_ahead_after_s)}`}</span></li>`;
         }).join("")}</ol>
         <h3>Biggest corners</h3>
-        <ul>${f.corners.map(c => `<li><strong>C${c.c}</strong> · ${esc(c.a_gain_s >= 0 ? a : b)} +${secs(c.a_gain_s)} —
+        <ul>${f.corners.map(c => `<li>${this.wrap("C", c.c, `<strong>C${c.c}</strong>`)} · ${esc(c.a_gain_s >= 0 ? a : b)} +${secs(c.a_gain_s)} —
           A ${c.a.gear ? `gear ${c.a.gear}, ` : ""}min ${c.a.min_kmh ?? "—"} km/h, exit ${c.a.exit_kmh ?? "—"} ·
           B ${c.b.gear ? `gear ${c.b.gear}, ` : ""}min ${c.b.min_kmh ?? "—"} km/h, exit ${c.b.exit_kmh ?? "—"}</li>`).join("")}</ul>
         <p class="st-quiet">A · ${esc(a)}: ${style(f.lap.a)}<br>B · ${esc(b)}: ${style(f.lap.b)}</p>

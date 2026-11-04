@@ -792,3 +792,30 @@ automatic reports only worked in the two-process setup).
   budget are unchanged, and nothing runs without a key.
 
 *Amends:* 34, 35. *Rests on:* 24.
+
+## 40. Replay shows corners, and reports link to a place on the road
+
+**Proposed, 2026-11-04** (owner asked whether reports' corners and sections
+could be seen in Replay, without making a mess of the page).
+
+- Replay gains three things and no panel: corner marks on the map, one line
+  under it about the leader's corner, and a corner figure on each car's card.
+  With two laps the line adds the corner's time difference and minimum speeds,
+  only when nothing beyond the standing route-equivalence caveat stands against
+  the comparison, the same test Traces & corners uses.
+- Reports link with `replay.html?laps=a,b&at=<from>,<to>&name=C7`. The link
+  carries the **route position**, not the corner number: numbers can move when a
+  route gets a new reference lap, and a shared link must keep pointing at the
+  same road. `name` is only a label.
+- It never says left or right. Direction is still `direction_verified: false`
+  (see `app/corners/detect.py`); kind (turn, sweeper, hairpin) is safe to show.
+- Section marks appear only on arrival from a section's link. Sections belong to
+  a pair of laps and come from the report build, too heavy to run on every open.
+- The positions (`stretches`) sit beside the report's facts, added after its
+  fingerprint: they never reach the AI writer and never orphan a written review.
+- Both corner endpoints now go through the shared limit (`app/heavy.py`), since
+  a public page calls them on every open. Under load they answer 503, and Replay
+  plays on without corners.
+
+*Rests on:* 3, 33. *Not done:* lining the cars up at a corner, so a big gap can
+be compared side by side. That is a new playback mode, to judge after use.

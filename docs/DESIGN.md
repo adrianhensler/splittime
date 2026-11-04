@@ -177,6 +177,8 @@ Detection rules are upstream's and are documented in its
   led by each driver.
 - **Exploratory.** Any laps on the same route overlaid regardless of class,
   mode or flags. Differences are labelled. No winner is declared.
+- **Corners in Replay.** Replay marks a route's corners, and reports link to a
+  stretch of road by route position, not corner number (ADR 40).
 - **Corner comparison.** A route is divided once into stable corner segments by
   track position. For two laps, each segment reports time delta, brake onset,
   minimum speed, throttle application point and exit speed. Every figure links

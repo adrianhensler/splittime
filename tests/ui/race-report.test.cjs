@@ -90,3 +90,37 @@ test("then vs now: one driver's best against their first run, asked for in progr
   assert.match(html,/Improved<\/p><ul><li>Braking &lt;i&gt;later&lt;\/i&gt;.<\/li>/);
   assert.match(html,/Still to find<\/p><ul><li>Section 2./);assert.match(html,/Engineer’s progress review/);
 });
+
+// ---- links into Replay (ADR 40) ---------------------------------------------
+const STRETCHES = {sections:[{n:1,s_from:-80.5,s_to:900},{n:2,s_from:900,s_to:5950}],
+  corners:[{n:1,s_from:100,s_to:200},{n:2,s_from:300,s_to:400},{n:19,s_from:5000,s_to:5100}]};
+const REPLAY_C19 = 'href="replay.html?laps=98,174&at=5000,5100&name=C19"';
+test("sections and corners link to that stretch of road in the replay",()=>{
+  const p=panel(async()=>response(sample()));p.controller.setContext(a,b);
+  p.controller.render({...sample(),stretches:STRETCHES});
+  const html=p.content.innerHTML;
+  assert.ok(html.includes('href="replay.html?laps=98,174&at=-80.5,900&name=S1"'));
+  assert.match(html,/name=S2"[^>]*>Section 2 · 0.9 km–6.0 km · C19<\/a>/);
+  assert.ok(html.includes(`${REPLAY_C19} title="See this in the replay"><strong>C19</strong></a>`));
+});
+test("the written review links what it names, and only that",()=>{
+  const p=panel(async()=>response(sample()));
+  p.controller.setContext({lap_id:98,driver_name:"C2"},b);
+  p.controller.render({...sample(),stretches:STRETCHES,ai:{...sample().ai,state:"ready",cost_or_reserved_usd:.001,narrative:{
+    headline:"C19 decided it",story:"{A} lost time at C19 and in Section 2, then at C77 and in Section 9. AC19 is no corner.",
+    a:{strengths:[],costs:[],practice:"C1"},b:{strengths:[],costs:[],practice:"section 1"}}}});
+  const html=p.content.innerHTML;
+  assert.match(html,/<a [^>]*name=C19"[^>]*>C19<\/a> decided it/);
+  assert.match(html,/<a [^>]*name=S2"[^>]*>Section 2<\/a>/);
+  assert.match(html,/<a [^>]*name=S1"[^>]*>section 1<\/a>/);
+  // unmeasured numbers and other words stay plain
+  assert.match(html,/then at C77 and in Section 9\. AC19 is no corner/);
+  // a driver called C2 is a name, though corner 2 exists
+  assert.match(html,/<strong>C2<\/strong> lost time/);assert.doesNotMatch(html,/name=C2"/);
+});
+test("a report without positions still reads, with no links",()=>{
+  const p=panel(async()=>response(sample()));p.controller.setContext(a,b);
+  p.controller.render(sample());
+  assert.doesNotMatch(p.content.innerHTML,/replay\.html/);
+  assert.match(p.content.innerHTML,/<strong>C19<\/strong>/);
+});

@@ -62,3 +62,54 @@ test("a run-up from before the start line is not part of the timed run", () => {
   const run = R.car(data,{time_s:9},0);
   assert.equal(run.t[0],0); assert.equal(R.at(run,0).x,0); assert.equal(R.at(run,9).x,90);
 });
+
+// ---- corners and stretches of road (ADR 40) ---------------------------------
+const CORNERS = [{n:1,kind:"sweeper",s_entry:10,s_apex:20,s_exit:30},{n:2,kind:"hairpin",s_entry:60,s_apex:70,s_exit:80}];
+test("a route position is in a corner or on a straight", () => {
+  assert.equal(R.cornerAt(CORNERS,20).n,1); assert.equal(R.cornerAt(CORNERS,30).n,1);
+  assert.equal(R.cornerAt(CORNERS,45),null); assert.equal(R.cornerAt([],20),null);
+  assert.equal(R.cornerAt(undefined,20),null);
+});
+test("a pin sits where the recorded lap passed the apex", () => {
+  const pins = R.markers(fast,CORNERS);
+  assert.equal(pins[0].x,20); assert.equal(pins[1].x,70); assert.equal(pins[1].corner.n,2);
+  assert.deepEqual(R.markers(fast,undefined),[]);
+});
+test("a stretch in the address is two numbers in order and a checked name", () => {
+  assert.deepEqual(R.parseAt("?laps=1,2&at=-80.5,120&name=S3"),{from:-80.5,to:120,name:"S3"});
+  assert.deepEqual(R.parseAt("?at=10,20&name=C7"),{from:10,to:20,name:"C7"});
+  assert.equal(R.parseAt("?at=10,20&name=<img>").name,null);
+  for (const bad of ["?laps=1,2","?at=20,10","?at=10,10","?at=x,20","?at=10","?at=1,2,3","?at=Infinity,1","?at=1e9,2e9"])
+    assert.equal(R.parseAt(bad),null,bad);
+});
+test("a clip runs from before the first car arrives until the last has left", () => {
+  // fast reaches 40 at 4 s and 60 at 6 s; slow reaches them at 8 s and 12 s
+  assert.deepEqual(R.clip([fast,slow],40,60),{start:1,end:13});
+  assert.equal(R.clip([fast,slow],5,10).start,0);               // never before the start
+  assert.equal(R.clip([fast,slow],90,100).end,20);              // never past the longest lap
+  assert.equal(R.clip([fast,slow],500,600),null);               // nobody got there
+});
+test("a stretch is framed on the road, never closer than the smallest view", () => {
+  const f = R.focus(fast,20,40);
+  assert.equal(f.cx,35); assert.equal(f.width,250); assert.equal(f.height,250);
+  assert.deepEqual(R.span(fast,20,40),[2,5]);
+});
+test("the caption names the quicker lap, and never a turn direction", () => {
+  const seg = {dt:0.2144,a:{min_kmh:112.4},b:{min_kmh:107.6}};
+  assert.equal(R.caption(CORNERS[0],seg,"Ann","Bo"),"C1 · sweeper · Ann +0.214 s · min 112 / 108 km/h");
+  assert.equal(R.caption(CORNERS[0],{...seg,dt:-0.5},"Ann","Bo"),"C1 · sweeper · Bo +0.500 s · min 112 / 108 km/h");
+  assert.equal(R.caption(CORNERS[0],{dt:0.1,a:{min_kmh:null},b:{min_kmh:90}},"Ann","Bo"),"C1 · sweeper · Ann +0.100 s");
+  assert.equal(R.caption(CORNERS[0],undefined,"Ann","Bo"),"C1 · sweeper");
+  assert.equal(R.caption({...CORNERS[0],direction:"R"},undefined,"Ann","Bo"),"C1 · sweeper");
+  // a corner only partly on the shared stretch has no comparable time
+  assert.equal(R.caption(CORNERS[0],{...seg,partial:true},"Ann","Bo"),"C1 · sweeper");
+  assert.equal(R.caption(null,seg,"Ann","Bo"),"");
+});
+test("stretch names read as the report writes them", () => {
+  assert.equal(R.nameOf("S3"),"Section 3"); assert.equal(R.nameOf("C7"),"C7"); assert.equal(R.nameOf(null),"this stretch");
+});
+test("the run-up to a stretch is known until the stretch has played", () => {
+  const stretch = {from:40,armed:true};
+  assert.equal(R.approaching(stretch,39),true); assert.equal(R.approaching(stretch,40),false);
+  assert.equal(R.approaching({...stretch,armed:false},39),false); assert.equal(R.approaching(null,39),false);
+});
