@@ -57,3 +57,10 @@ test("the pair views' ?laps=a,b shape loads the same two laps",async()=>{
  const {calls}=await run(payload(),'?laps=11,12');
  assert.ok(calls.includes('api/corners/compare?lap_a=11&lap_b=12'));
 });
+
+test("each corner number links to that stretch in the replay, in A then B order",async()=>{
+ const result=payload();
+ result.segments=[{kind:"corner",n:7,s_from:-5.5,s_to:42,dt:0.1,a:{},b:{}},{kind:"straight",s_from:42,s_to:50,dt:0}];
+ const {elt}=await run(result);
+ assert.ok(elt('corners').innerHTML.includes('href="replay.html?laps=11,12&at=-5.5,42&name=C7"'));
+});

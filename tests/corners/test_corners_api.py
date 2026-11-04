@@ -6,6 +6,7 @@ functions reading `request.app.state`, so a stub request is enough.
 
 from __future__ import annotations
 
+import asyncio
 import json
 from types import SimpleNamespace
 
@@ -13,6 +14,8 @@ import pytest
 from fastapi import HTTPException
 
 import harness
+from app import heavy
+from app.corners import api
 from app.corners.api import corners_compare, pick_reference, route_corners, router
 from corner_course import trace_of
 
@@ -174,3 +177,48 @@ def test_world_time_attack_laps_use_the_race_clock(tmp_path):
     assert payload["a"]["timing_source"] == "game_race_clock"
     assert payload["b"]["timing_source"] == "game_race_clock"
     assert all(seg["time_a"] > 0 and seg["time_b"] > 0 for seg in payload["segments"])
+
+
+# ---- the HTTP routes share the limit on expensive reads (ADR 40) -------------
+def _shared_request(store):
+    return SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(store=store, heavy=None)))
+
+
+def test_identical_corner_requests_share_one_build(sim_store, sim_laps, monkeypatch):
+    route_id = sim_store.get_session(sim_laps[0]["session_id"])["route_id"]
+    calls = []
+    real = api._detect
+    monkeypatch.setattr(api, "_detect", lambda *args: calls.append(args) or real(*args))
+    request = _shared_request(sim_store)
+
+    async def flood():
+        return await asyncio.gather(*(api.route_corners_endpoint(route_id, request) for _ in range(5)))
+    results = asyncio.run(flood())
+    assert len(calls) == 1 and all(r["route_id"] == route_id for r in results)
+    assert request.app.state.heavy.inflight == {}
+
+
+def test_corner_routes_refuse_when_too_many_builds_wait(sim_store, sim_laps):
+    request = _shared_request(sim_store)
+
+    async def full():
+        heavy._state(request.app).inflight.update({n: None for n in range(heavy.MAX_PENDING)})
+        await api.corners_compare_endpoint(request, sim_laps[0]["id"], sim_laps[1]["id"])
+    with pytest.raises(HTTPException) as busy:
+        asyncio.run(full())
+    assert busy.value.status_code == 503
+
+
+def test_corner_routes_still_answer_404_and_409(two_routes):
+    store, by_route = two_routes
+    request = _shared_request(store)
+    with pytest.raises(HTTPException) as missing:
+        asyncio.run(api.route_corners_endpoint(999999, request))
+    assert missing.value.status_code == 404
+    with pytest.raises(HTTPException) as no_lap:
+        asyncio.run(api.corners_compare_endpoint(_shared_request(store), 999999, 1))
+    assert no_lap.value.status_code == 404
+    (one, *_), (other, *_) = by_route.values()
+    with pytest.raises(HTTPException) as apart:
+        asyncio.run(api.corners_compare_endpoint(_shared_request(store), one["id"], other["id"]))
+    assert apart.value.status_code == 409

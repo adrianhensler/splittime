@@ -27,15 +27,17 @@
 
     <section id="rp-stage" hidden aria-label="Replay">
       <div class="rp-layout">
-        <div class="rp-map"><canvas id="rp-canvas" aria-label="Map of the route with one dot per lap"></canvas>
+        <div class="rp-mapcol"><div class="rp-map"><canvas id="rp-canvas" aria-label="Map of the route with one dot per lap"></canvas>
           <div class="rp-views" role="group" aria-label="Camera">
             <button type="button" data-view="top" aria-pressed="true">Top</button>
             <button type="button" data-view="tilt" aria-pressed="false">3D</button>
             <button type="button" data-view="follow" aria-pressed="false">Follow</button>
+            <button type="button" id="rp-corners" aria-pressed="true" hidden>Corners</button>
             <label class="sr-only" for="rp-follow">Car to follow</label><select id="rp-follow"></select>
           </div>
           <p class="st-quiet rp-hint" id="rp-hint">Drag to move · scroll to zoom</p>
         </div>
+        <p class="rp-caption" id="rp-caption" hidden></p></div>
         <aside class="st-inspector rp-side" id="rp-side" aria-label="Live numbers"></aside>
       </div>
       <div class="rp-controls">
@@ -48,7 +50,8 @@
           <option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option><option value="8">8×</option></select></label>
       </div>
       <p class="st-quiet"><a id="rp-change" href="replay.html">Choose other laps</a> · Every lap starts together at its own start line and runs on the game’s lap clock.
-        The gap is how much later a car reaches the spot of the car ahead. Places and gaps are exploratory.</p>
+        The gap is how much later a car reaches the spot of the car ahead. Places and gaps are exploratory.
+        <span id="rp-reference"></span></p>
     </section>
   </main>
 </div><script src="js/rivalry-v2-model.js"></script><script src="js/replay-model.js"></script><script src="js/pair-bar.js"></script><script src="js/replay.js"></script></body>

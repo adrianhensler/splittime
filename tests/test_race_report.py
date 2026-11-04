@@ -63,6 +63,26 @@ def test_sections_add_up_and_every_fact_is_plain_json(circuit):
     assert writer.encode_request(report)  # fits the $0.01 worst-case reservation
 
 
+def test_stretches_say_where_things_are_without_touching_the_facts(circuit, monkeypatch):
+    """Replay links (ADR 40) must not orphan a written review or reach the AI."""
+    store, a, b = circuit
+    hashed, real = [], facts._digest
+    monkeypatch.setattr(facts, "_digest", lambda source: hashed.append(json.dumps(source)) or real(source))
+    report = facts.build(store, a, b)
+    assert len(hashed) == 2 and not any("stretches" in source for source in hashed)
+    spans = report["stretches"]
+    assert [s["n"] for s in spans["sections"]] == [s["n"] for s in report["facts"]["sections"]]
+    assert {c["n"] for c in spans["corners"]} == writer._corners(report["facts"])
+    assert all(s["s_to"] > s["s_from"] for s in spans["sections"] + spans["corners"])
+    # sections join up, in route units: the same scale as a lap's dist in Replay
+    for left, right in zip(spans["sections"], spans["sections"][1:]):
+        assert left["s_to"] == right["s_from"]
+
+    assert "stretches" not in report["facts"]
+    assert "stretches" not in writer.payload(report)["messages"][-1]["content"]
+    assert "s_from" not in writer.payload(report)["messages"][-1]["content"]
+
+
 def test_distances_are_metres_not_route_units(circuit, monkeypatch):
     """distance_traveled is a route parameter: every distance goes through the
     reference lap's metres_per_unit, and so does the window for 'first 250 m'."""

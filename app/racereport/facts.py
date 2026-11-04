@@ -181,9 +181,10 @@ def build(store, lap_a: int, lap_b: int, names: dict | None = None, progress: bo
     a_keys, b_keys = [s for s, _ in a], [s for s, _ in b]
     segments = measured["segments"]
     lo, hi = segments[0]["s_from"], segments[-1]["s_to"]
-    sections, ahead = [], 0.0
+    sections, section_spans, ahead = [], [], 0.0
     for n, group in enumerate(_sections(segments, lo, hi, mpu), start=1):
         s0, s1 = group[0]["s_from"], group[-1]["s_to"]
+        section_spans.append({"n": n, "s_from": s0, "s_to": s1})
         gain = sum(seg["dt"] for seg in group)
         ahead += gain
         ia, ib = _inputs(_between(a, a_keys, s0, s1)), _inputs(_between(b, b_keys, s0, s1))
@@ -258,6 +259,13 @@ def build(store, lap_a: int, lap_b: int, names: dict | None = None, progress: bo
     source = {"report": report, "laps": laps, "frames": digest_rows, "detector": DETECTOR_VERSION}
     legacy = _digest({**source, "report": _legacy(report)})  # before either is added to it
     report["fingerprint"], report["legacy_fingerprint"] = _digest(source), legacy
+    # Where each stretch is on the road, for links into Replay (ADR 40). Added
+    # after the fingerprint and outside facts: it never reaches the AI writer
+    # and never orphans a written review.
+    report["stretches"] = {
+        "sections": section_spans,
+        "corners": [{"n": seg["n"], "s_from": seg["s_from"], "s_to": seg["s_to"]}
+                    for seg in segments if seg["kind"] == "corner"]}
     return report
 
 

@@ -8,10 +8,15 @@
   const est = car => car.estimated ? ` <abbr class="st-est" title="${EST}">est.</abbr>` : "";
   const CAVEAT = "Recorded laps, driven at different times. Places and gaps are exploratory: a shared route does not prove the same direction, checkpoints or timing.";
   const state = {cars:[], time:0, playing:false, speed:1, mode:"top", follow:0, duration:0,
-    view:null, box:null, last:null, categories:[]};
+    view:null, box:null, last:null, categories:[], corners:[], pins:[], pinsOn:true, segments:new Map(),
+    clip:null, pinHits:[]};
   const canvas = $("rp-canvas"), ctx = canvas.getContext("2d");
   const say = text => { $("st-message").textContent = text; };
-  const css = name => getComputedStyle(document.body).getPropertyValue(name).trim();
+  // The theme's colours are light-dark(...), which a canvas refuses and silently
+  // keeps the previous colour. An element resolves them to a plain colour first.
+  const probe = document.createElement("span");
+  probe.hidden = true; document.body.append(probe);
+  const css = name => { probe.style.color = `var(${name})`; return getComputedStyle(probe).color; };
 
   // ---- choosing laps -------------------------------------------------------
   function picker() {
@@ -52,6 +57,11 @@
     state.view = {cx:b.cx, cz:b.cz, cy:b.minY, yaw:0, pitch:0, anchor:0.5, panX:0, panY:0,
       relief: 1, scale: 0.86 * Math.min(w / Math.max(b.maxX-b.minX,1), h / Math.max(b.maxZ-b.minZ,1))};
     if (state.mode === "tilt") { state.view.pitch = 0.95; state.view.yaw = 0.5; state.view.relief = 3; }
+    // opened at a stretch of road: frame it, until the viewer asks for the whole route
+    if (state.mode === "top" && state.clip?.zoom) {
+      const f = R.focus(R.carOver(state.cars, state.clip.to), state.clip.from, state.clip.to);
+      Object.assign(state.view, {cx:f.cx, cz:f.cz, scale: 0.5 * Math.min(w / f.width, h / f.height)});
+    }
   }
   function setMode(mode) {
     state.mode = mode;
@@ -98,6 +108,8 @@
       ctx.lineWidth = state.mode === "follow" ? 5 : 2.5; ctx.stroke();
     });
     ctx.globalAlpha = 1;
+    const current = R.cornerAt(state.corners, rows[0].state.dist);
+    stretch(proj); pins(proj, current, w, h);
     // a short tail behind each car, then the car, slowest first so the leader is on top
     for (const row of [...rows].reverse()) {
       const car = row.car, c = car.channels, [i] = R.locate(car.t, Math.min(state.time, car.traceEnd));
@@ -118,6 +130,62 @@
     $("rp-clock").textContent = `${M.time(Math.max(state.time, 0.0005))} / ${M.time(state.duration)}`;
     if (document.activeElement !== $("rp-scrub")) $("rp-scrub").value = String(Math.round(1000 * state.time / state.duration));
     side(rows);
+    if (state.corners.length) {
+      const showing = state.clip?.named ? `Showing ${R.nameOf(state.clip.name)}` : "";
+      // on the run-up to a stretch, say what is coming and not the corner before it
+      const text = R.approaching(state.clip, rows[0].state.dist) ? showing :
+        R.caption(current, current && state.segments.get(current.n),
+          label(state.cars[0]), label(state.cars[1] || state.cars[0])) || showing;
+      if ($("rp-caption").textContent !== text) $("rp-caption").textContent = text;
+    } else if (state.clip?.named) $("rp-caption").textContent = `Showing ${R.nameOf(state.clip.name)}`;
+  }
+  // the stretch a link or a pin chose, along the road
+  function stretch(proj) {
+    if (!state.clip) return;
+    const car = R.carOver(state.cars, state.clip.to), c = car.channels, [first, last] = R.span(car, state.clip.from, state.clip.to);
+    ctx.beginPath();
+    for (let i = first; i <= last; i++) {
+      const [x,y] = proj(c.pos_x[i], c.pos_y[i], c.pos_z[i]);
+      if (i === first) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    }
+    ctx.strokeStyle = css("--st-accent"); ctx.globalAlpha = 0.55; ctx.lineWidth = 7; ctx.stroke(); ctx.globalAlpha = 1;
+  }
+  // Corner marks, quiet and under the cars. A label that would touch another is
+  // left out, the leader's corner first so it is never the one dropped.
+  function pins(proj, current, w, h) {
+    state.pinHits = [];
+    if (!state.pinsOn || !state.pins.length) return;
+    const muted = css("--st-muted"), accent = css("--st-accent"), labels = [];
+    const ordered = [...state.pins].sort((a,b) => (b.corner === current) - (a.corner === current));
+    ctx.font = "600 10px system-ui, sans-serif";
+    for (const pin of ordered) {
+      const [x,y] = proj(pin.x, pin.y, pin.z), active = pin.corner === current;
+      if (x < -20 || y < -20 || x > w + 20 || y > h + 20) continue;
+      state.pinHits.push({x, y, corner:pin.corner});
+      ctx.fillStyle = active ? accent : muted;
+      ctx.beginPath(); ctx.arc(x, y, active ? 4 : 2.5, 0, Math.PI*2); ctx.fill();
+      if (labels.some(l => Math.hypot(l[0] - x, l[1] - y) < 22)) continue;
+      labels.push([x,y]);
+      ctx.fillText(`C${pin.corner.n}`, x + 6, y + 12);
+    }
+  }
+  function pinAt(x, y) {
+    let best = null, nearest = 14;   // a finger's width
+    for (const hit of state.pinHits) {
+      const d = Math.hypot(hit.x - x, hit.y - y);
+      if (d < nearest) { nearest = d; best = hit; }
+    }
+    return best;
+  }
+  // go to a stretch of road, paused; Play runs it and stops once when the last car has left
+  function goTo(from, to, name, zoom) {
+    const times = R.clip(state.cars, from, to);
+    if (!times) return false;
+    state.clip = {from, to, name, named:true, zoom, end:times.end, armed:true};
+    state.time = times.start;
+    if (zoom) fit();
+    play(false);
+    return true;
   }
   // two laps by one driver are told apart by their times
   function label(car) {
@@ -132,11 +200,16 @@
       <div class="rp-car-head"><strong><span class="rp-dot" style="background:${car.color}"></span>${place}. ${esc(car.meta.driver_name || `Lap ${car.id}`)}</strong>
         <span class="st-time">${place === 1 ? (s.finished ? M.time(car.duration) : "Ahead") : `+${gap.toFixed(3)} s`}</span></div>
       <div class="st-quiet">${esc(car.meta.car_name || "")}${car.meta.car_pi ? ` · PI ${esc(car.meta.car_pi)}` : ""} · ${M.time(car.duration)}${est(car)}${s.finished ? (car.estimated ? " · finished (estimated)" : " · finished") : ""}</div>
-      <div class="rp-nums"><span><b>${Math.round(s.speed)}</b><span class="st-quiet">km/h</span></span>
+      <div class="rp-nums${state.corners.length ? " rp-nums-4" : ""}"><span><b>${Math.round(s.speed)}</b><span class="st-quiet">km/h</span></span>
         <span><b>${gear(s.gear)}</b><span class="st-quiet">gear</span></span>
-        <span><b>${Math.round(100 * Math.min(1, s.dist / (car.mono[car.mono.length-1] || 1)))}%</b><span class="st-quiet">of route</span></span></div>
+        <span><b>${Math.round(100 * Math.min(1, s.dist / (car.mono[car.mono.length-1] || 1)))}%</b><span class="st-quiet">of route</span></span>${state.corners.length ? cornerTile(s) : ""}</div>
       <div class="rp-bar" title="Throttle"><i style="width:${Math.max(0,Math.min(100,s.throttle ?? 0))}%;background:${car.color}"></i></div>
       <div class="rp-bar" title="Brake"><i style="width:${Math.max(0,Math.min(100,s.brake ?? 0))}%;background:var(--st-warn)"></i></div></div>`).join("");
+  }
+
+  function cornerTile(s) {
+    const c = R.cornerAt(state.corners, s.dist);
+    return `<span><b>${c ? `C${Number(c.n)}` : "—"}</b><span class="st-quiet">corner</span></span>`;
   }
 
   // ---- playback ---------------------------------------------------------------
@@ -144,6 +217,9 @@
     if (!state.playing) return;
     if (state.last !== null) state.time += state.speed * Math.min(0.1, (now - state.last) / 1000);
     state.last = now;
+    if (state.clip?.armed && state.time >= state.clip.end) {
+      state.time = state.clip.end; state.clip.armed = false; play(false);
+    }
     if (state.time >= state.duration) { state.time = state.duration; play(false); }
     draw();
     if (state.playing) requestAnimationFrame(frame);
@@ -155,11 +231,32 @@
     if (on) requestAnimationFrame(frame); else draw();
   }
 
+  // Corners are extra: the replay plays without them and never waits for them.
+  // Two laps ask for the comparison, which carries the route's corners too.
+  async function loadCorners() {
+    const routes = new Set(state.cars.map(c => c.meta.route_id));
+    if (routes.size !== 1 || !Number.isSafeInteger([...routes][0])) return;
+    const pair = state.cars.length === 2;
+    const res = await fetch(pair ? `api/corners/compare?lap_a=${state.cars[0].id}&lap_b=${state.cars[1].id}` :
+      `api/routes/${[...routes][0]}/corners`);
+    if (!res.ok) return;
+    const data = await res.json(), route = pair ? data.corners : data;
+    if (!route?.corners?.length) return;
+    state.corners = route.corners;
+    state.pins = R.markers(state.cars, state.corners);
+    // route equivalence is never verified yet: on its own a caveat, not a fault (as on Traces & corners)
+    if (pair && (data.reasons || []).every(reason => reason === "route_equivalence_unverified"))
+      state.segments = new Map((data.segments || []).filter(s => s.kind === "corner").map(s => [s.n, s]));
+    $("rp-corners").hidden = false; $("rp-caption").hidden = false;
+    $("rp-reference").textContent = `Corner numbers come from lap ${Number(route.reference_lap_id)} and can change when the route gets a new reference lap.`;
+    draw();
+  }
+
   async function start(ids) {
     say("Loading laps…");
     const meta = new Map();
     for (const g of state.categories) for (const lap of g.attempts)
-      meta.set(lap.lap_id, {...lap, route_name:g.route_name, car_class_label:g.car_class_label});
+      meta.set(lap.lap_id, {...lap, route_id:g.route_id, route_name:g.route_name, car_class_label:g.car_class_label});
     const loaded = await Promise.all(ids.map(async id => {
       const res = await fetch(`api/laps/${id}/data?channels=${CHANNELS}&max_points=6000`);
       if (!res.ok) throw new Error(`lap ${id}: HTTP ${res.status}`);
@@ -177,23 +274,42 @@
     say(routes.size > 1 ? `These laps are on different routes, so the places and gaps mean little. ${CAVEAT}` :
       `${first.route_name || "Route"} · press Play. ${CAVEAT}`);
     resize(); setMode("top");
+    const at = R.parseAt(location.search);
+    if (at && goTo(at.from, at.to, at.name, true)) { $("rp-caption").hidden = false; draw(); }
+    loadCorners().catch(() => {});
   }
 
   // ---- wiring -------------------------------------------------------------------
   $("rp-play").addEventListener("click", () => play(!state.playing));
-  $("rp-restart").addEventListener("click", () => { state.time = 0; play(true); });
+  $("rp-restart").addEventListener("click", () => { if (state.clip) state.clip.armed = false; state.time = 0; play(true); });
+  $("rp-corners").addEventListener("click", () => {
+    state.pinsOn = !state.pinsOn; $("rp-corners").setAttribute("aria-pressed", String(state.pinsOn)); draw();
+  });
   $("rp-speed").addEventListener("change", e => { state.speed = Number(e.target.value) || 1; });
-  $("rp-scrub").addEventListener("input", e => { state.time = state.duration * Number(e.target.value) / 1000; state.last = null; draw(); });
+  $("rp-scrub").addEventListener("input", e => { if (state.clip) state.clip.armed = false; state.time = state.duration * Number(e.target.value) / 1000; state.last = null; draw(); });
   $("rp-follow").addEventListener("change", e => { state.follow = Number(e.target.value); draw(); });
   $("rp-share").addEventListener("click", async () => {
     try { await navigator.clipboard.writeText(location.href); $("rp-share").textContent = "Link copied"; }
     catch { $("rp-share").textContent = "Copy the address bar"; }
     setTimeout(() => { $("rp-share").textContent = "Copy link"; }, 2000);
   });
-  for (const b of document.querySelectorAll("[data-view]")) b.addEventListener("click", () => setMode(b.dataset.view));
-  let drag = null;
-  canvas.addEventListener("pointerdown", e => { if (state.mode === "follow" || !state.view) return;
+  for (const b of document.querySelectorAll("[data-view]")) b.addEventListener("click", () => {
+    if (state.clip) state.clip.zoom = false;   // Top goes back to the whole route
+    setMode(b.dataset.view);
+  });
+  let drag = null, press = null;
+  canvas.addEventListener("pointerdown", e => {
+    press = {x:e.clientX, y:e.clientY};
+    if (state.mode === "follow" || !state.view) return;
     drag = {x:e.clientX, y:e.clientY}; canvas.setPointerCapture(e.pointerId); canvas.style.cursor = "grabbing"; });
+  // a press that did not move is a click: on a pin it goes to that corner
+  canvas.addEventListener("pointerup", e => {
+    const moved = !press || Math.hypot(e.clientX - press.x, e.clientY - press.y) >= 4;
+    press = null;
+    if (moved) return;
+    const box = canvas.getBoundingClientRect(), hit = pinAt(e.clientX - box.left, e.clientY - box.top);
+    if (hit) goTo(hit.corner.s_entry, hit.corner.s_exit, `C${hit.corner.n}`, false);
+  });
   canvas.addEventListener("pointermove", e => {
     if (!drag) return;
     const dx = e.clientX - drag.x, dy = e.clientY - drag.y, v = state.view;

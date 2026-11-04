@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Query, Request
 
+from .. import heavy
 from ..rivalry import FULL_ROUTE_MIN, lap_covered
 from .compare import compare_laps
 from .detect import detect_corners
@@ -83,7 +84,6 @@ def _route_of(store, lap: dict) -> int | None:
     return session["route_id"] if session else None
 
 
-@router.get("/routes/{route_id}/corners")
 def route_corners(route_id: int, request: Request):
     store = request.app.state.store
     if store.get_route(route_id) is None:
@@ -94,8 +94,7 @@ def route_corners(route_id: int, request: Request):
     return {"route_id": route_id, **_detect(store, reference, warnings).to_dict()}
 
 
-@router.get("/corners/compare")
-def corners_compare(request: Request, lap_a: int = Query(...), lap_b: int = Query(...)):
+def corners_compare(request: Request, lap_a: int, lap_b: int):
     store = request.app.state.store
     laps = []
     for lap_id in (lap_a, lap_b):
@@ -121,3 +120,16 @@ def corners_compare(request: Request, lap_a: int = Query(...), lap_b: int = Quer
                             driver_name=names.get(driver_id, driver_id),
                             car_pi=session.get("car_pi"))
     return {"route_id": route_a, "corners": route.to_dict(), **result}
+
+
+# Both read whole laps of packets, and Replay asks for one each time it opens,
+# so they share the limit on expensive public reads (app/heavy.py, ADR 40).
+@router.get("/routes/{route_id}/corners")
+async def route_corners_endpoint(route_id: int, request: Request):
+    return await heavy.run(request, ("corners", route_id), lambda: route_corners(route_id, request))
+
+
+@router.get("/corners/compare")
+async def corners_compare_endpoint(request: Request, lap_a: int = Query(...), lap_b: int = Query(...)):
+    return await heavy.run(request, ("corners-compare", lap_a, lap_b),
+                           lambda: corners_compare(request, lap_a, lap_b))

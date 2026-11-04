@@ -212,7 +212,7 @@
         <tr><td>Analysis</td><td>Sessions, laps and stored packets</td><td>Lap tables, maps, traces; rename, flag, exclude, reprocess, delete</td></tr>
         <tr><td>Rivalry</td><td><code>/api/rivalry</code></td><td>Every lap with the verdict from section 10, which reads each lap's last packet once; the page only sorts and filters</td></tr>
         <tr><td>Stats</td><td><code>/api/stats</code></td><td>Thirteen sections computed from the session, lap, route and attempt tables. It reuses the Rivalry verdicts, so it reads the last packet of each lap once (then cached) for the full-route test. No statistic scans a whole trace yet</td></tr>
-        <tr><td>Replay</td><td><code>/api/laps/{id}/data</code></td><td>Position and speed per packet for up to six laps, played against each lap's own clock</td></tr>
+        <tr><td>Replay</td><td><code>/api/laps/{id}/data</code>, <code>/api/routes/{id}/corners</code>, <code>/api/corners/compare</code></td><td>Position and speed per packet for up to six laps, played against each lap's own clock. Corners are placed by route position; with two laps the comparison adds each corner's time difference and minimum speeds</td></tr>
       </tbody></table></div>
 
     <h2 id="faults">12. Where it fails</h2>

@@ -134,7 +134,79 @@
     const raw = new URLSearchParams(search).get("laps") || "";
     return [...new Set(raw.split(",").map(Number).filter(n => Number.isSafeInteger(n) && n > 0))].slice(0, COLORS.length);
   }
-  const model = {COLORS, locate, at, timeAtDist, axis, car, standings, bounds, projector, parseLaps};
+  /* The corner this route position is in, or null on a straight. */
+  function cornerAt(corners, dist) {
+    return (corners || []).find(c => dist >= c.s_entry && dist <= c.s_exit) || null;
+  }
+  const reach = car => car.mono[car.mono.length - 1];
+  /* A lap that got as far as `dist`. A run cut off partway must not answer for
+     road it never drove: timeAtDist would pin it all to the lap's last point. */
+  const carReaching = (cars, dist) => cars.find(c => c.mono.length > 1 && reach(c) >= dist) || null;
+  /* Where each corner's apex sits on the map. A corner no lap reached has no mark. */
+  function markers(cars, corners) {
+    return (corners || []).flatMap(c => {
+      const car = carReaching(cars, c.s_apex);
+      if (!car) return [];
+      const s = at(car, timeAtDist(car, c.s_apex));
+      return [{corner: c, x: s.x, y: s.y, z: s.z}];
+    });
+  }
+  /* The lap to draw a stretch on: one that drove all of it, else whoever got furthest. */
+  const carOver = (cars, to) => carReaching(cars, to) ||
+    cars.reduce((best, c) => reach(c) > reach(best) ? c : best);
+  /* A stretch of road named in the address: ?at=from,to&name=C7. Links carry
+     the position, not the number, because corner numbers can move when a route
+     gets a new reference lap (ADR 40). Anything malformed means no stretch. */
+  function parseAt(search) {
+    const params = new URLSearchParams(search), raw = params.get("at") || "";
+    if (!/^-?\d+(\.\d+)?,-?\d+(\.\d+)?$/.test(raw)) return null;
+    const [from, to] = raw.split(",").map(Number);
+    if (!(to > from)) return null;
+    const name = params.get("name") || "";
+    return {from, to, name: /^[CS]\d{1,3}$/.test(name) ? name : null};
+  }
+  const nameOf = name => !name ? "this stretch" : name[0] === "S" ? `Section ${name.slice(1)}` : name;
+  /* The stretch to play: a run-up to the first car arriving, until the last has left. */
+  function clip(cars, from, to, runUp = 3, runOut = 1) {
+    const present = cars.filter(c => c.mono.length > 1 && from < reach(c));
+    if (!present.length) return null;
+    const start = Math.max(0, Math.min(...present.map(c => timeAtDist(c, from))) - runUp);
+    const end = Math.max(...present.map(c => timeAtDist(c, Math.min(to, reach(c))))) + runOut;
+    return {start, end: Math.min(end, Math.max(...cars.map(c => c.duration)))};
+  }
+  /* True on the run-up to a stretch that has yet to play. */
+  const approaching = (stretch, dist) => Boolean(stretch?.armed) && dist < stretch.from;
+  /* Sample range [first, last] of a car over a stretch of road. */
+  function span(car, from, to) {
+    return [locate(car.mono, from)[0], Math.min(locate(car.mono, to)[0] + 1, car.mono.length - 1)];
+  }
+  /* What to frame for a stretch: its centre, and a size that never closes in on
+     a few metres, so the road around it still reads. */
+  function focus(car, from, to, least = 250) {
+    const [first, last] = span(car, from, to), c = car.channels;
+    let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+    for (let i = first; i <= last; i++) {
+      minX = Math.min(minX, c.pos_x[i]); maxX = Math.max(maxX, c.pos_x[i]);
+      minZ = Math.min(minZ, c.pos_z[i]); maxZ = Math.max(maxZ, c.pos_z[i]);
+    }
+    return {cx: (minX + maxX) / 2, cz: (minZ + maxZ) / 2,
+      width: Math.max(maxX - minX, least), height: Math.max(maxZ - minZ, least)};
+  }
+  /* The line under the map. `seg` is this corner in a two-lap comparison, when
+     its times can be stated. Turn direction is unverified, so it never says
+     left or right (ADR 40). dt > 0 means the first lap was quicker. */
+  function caption(corner, seg, nameA, nameB) {
+    if (!corner) return "";
+    const parts = [`C${corner.n}`, corner.kind];
+    if (seg && !seg.partial && Number.isFinite(seg.dt)) {
+      parts.push(seg.dt === 0 ? "level" : `${seg.dt > 0 ? nameA : nameB} +${Math.abs(seg.dt).toFixed(3)} s`);
+      const a = seg.a?.min_kmh, b = seg.b?.min_kmh;
+      if (Number.isFinite(a) && Number.isFinite(b)) parts.push(`min ${Math.round(a)} / ${Math.round(b)} km/h`);
+    }
+    return parts.join(" · ");
+  }
+  const model = {COLORS, locate, at, timeAtDist, axis, car, standings, bounds, projector, parseLaps,
+    cornerAt, markers, carOver, parseAt, nameOf, clip, approaching, span, focus, caption};
   if (typeof module !== "undefined" && module.exports) module.exports = model;
   else root.ReplayModel = model;
 })(globalThis);
