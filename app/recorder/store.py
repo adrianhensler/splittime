@@ -15,6 +15,8 @@ import time
 from contextlib import contextmanager
 from pathlib import Path
 
+from ..telemetry.packet import parse
+
 log = logging.getLogger("lapscope.store")
 
 SCHEMA = """
@@ -324,6 +326,21 @@ def _merge_edits(laps: list[dict], edits: list[dict]) -> list[dict]:
             elif e["kind"] == "exclude_lap":
                 lap["excluded"] = True
     return laps
+
+
+def is_next_run_frame(prev_raw: bytes, last_raw: bytes) -> bool:
+    """A lap's bounds are inclusive, so its last frame can be the first frame
+    of the next run: after a restart it arrives seconds later, back near the
+    start line with the clock reset. It is not part of this lap. Left in, it
+    looks like a rewind to everything that scans the lap, which then discards
+    the good frames it appears to have rewound over.
+
+    An ordinary crossing frame also resets the clock, but it stays where the
+    car is, so it needs the distance falling too. A real rewind falls with the
+    clock still running."""
+    prev, last = parse(prev_raw), parse(last_raw)
+    return (prev["current_lap"] > 5.0 and last["current_lap"] < 1.0
+            and last["distance_traveled"] < prev["distance_traveled"] - 0.5)
 
 
 class Store:
@@ -1169,4 +1186,7 @@ class Store:
                 "SELECT t, raw FROM frames WHERE session_id = ? AND t >= ? AND t <= ? ORDER BY t",
                 (lap["session_id"], lap["started_t"], end),
             ).fetchall()
-        return [(r["t"], r["raw"]) for r in rows]
+        frames = [(r["t"], r["raw"]) for r in rows]
+        if len(frames) >= 2 and is_next_run_frame(frames[-2][1], frames[-1][1]):
+            frames.pop()
+        return frames

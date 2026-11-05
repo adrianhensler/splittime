@@ -29,6 +29,7 @@ from .eventtype import guess_event
 # (laps.py). It is applied here too: recordings made before that still hold
 # last-packet times for runs that stopped short.
 from .recorder.laps import FULL_ROUTE_MIN, FULL_ROUTE_UNITS  # noqa: F401
+from .recorder.store import is_next_run_frame
 from .telemetry.packet import parse
 
 _covered_cache: dict[tuple, float | None] = {}
@@ -44,12 +45,14 @@ def lap_covered(store, lap: dict) -> float | None:
     key = (getattr(store, "db_path", None), lap["id"], lap.get("started_t"), end)
     if key not in _covered_cache:
         with reader() as conn:
-            row = conn.execute(
+            rows = conn.execute(
                 "SELECT raw FROM frames WHERE session_id = ? AND t >= ? AND t <= ?"
-                " ORDER BY t DESC LIMIT 1",
-                (lap["session_id"], lap.get("started_t") or 0.0, end)).fetchone()
+                " ORDER BY t DESC LIMIT 2",
+                (lap["session_id"], lap.get("started_t") or 0.0, end)).fetchall()
+        if len(rows) == 2 and is_next_run_frame(rows[1][0], rows[0][0]):
+            rows = rows[1:]
         _covered_cache[key] = (
-            parse(row[0])["distance_traveled"] - start if row else None)
+            parse(rows[0][0])["distance_traveled"] - start if rows else None)
     return _covered_cache[key]
 
 CLASS_LABELS = ("D", "C", "B", "A", "S1", "S2", "R", "X")

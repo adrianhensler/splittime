@@ -237,3 +237,14 @@ One difference: upstream continues the clock by the full elapsed time. On our
 real laps the crossing frame can arrive seconds late, which put a lap's last
 sample up to 10 s past its official time, so ours caps the step at the clock's
 previous step. Keep that cap on a later sync.
+
+### A next-run frame at the end of a lap, 2026-11-05
+
+Lap bounds are inclusive, so after a restart a lap's last frame can be the next
+run's first: seconds later, near the start line, clock reset. `_LapScan` and
+`build_trace` took it for a rewind and threw away the good frames behind it
+(the last 1,800 in `_LapScan`, nearly the whole lap in `build_trace`). Three of
+our 312 finished laps do this. `Store.lap_frames` in `app/recorder/store.py` now
+leaves that frame out, using the new `is_next_run_frame`, and `lap_covered` in
+`app/rivalry.py` applies the same check. Nothing stored changes. Not reported
+upstream; `lap_frames` and `_LapScan` there are the same code.
