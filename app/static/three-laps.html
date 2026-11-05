@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en"><head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SplitTime · Three laps found</title>
+  <link rel="stylesheet" href="css/fonts.css">
+  <link rel="stylesheet" href="css/rivalry-v2.css">
+  <link rel="stylesheet" href="css/note.css">
+</head>
+<body id="st-rivalry-workspace"><div class="st-window">
+  <header><a class="st-brand" href="index.html">Split<span>//</span>Time</a>
+    <nav aria-label="Site"><a href="index.html">Live</a><a href="analysis.html">Analysis</a>
+      <a href="rivalry-v2.html">Rivalry</a><a href="replay.html">Replay</a><a href="stats.html">Stats</a><a href="recap.html">Recap</a><a href="how-it-works.html">How it works</a><a href="whats-new.html">What’s new</a></nav>
+  </header>
+  <main class="st-note">
+    <header>
+      <div class="st-note-label">Repair note · 5 November 2026</div>
+      <h1>We thought three laps had lost their finish. They hadn’t.</h1>
+      <p class="st-note-lead">SplitTime records our Forza Horizon 6 driving and compares our laps. We fixed two bugs that made good laps look wrong. Nobody’s time or standing changed.</p>
+    </header>
+
+    <section>
+      <div class="st-note-label">Bug one</div>
+      <h2>The stopwatch reset a moment too soon</h2>
+      <p>One chart shows where you gain or lose time against another lap. On 76 of our 121 timed laps, the very last reading had already started counting the next lap, as if the stopwatch snapped back to zero right on the line.</p>
+      <p>That one reading made the chart useless. These two laps finished about a quarter of a second apart, but the chart claimed a gap of more than 61 seconds at the end, which squashed everything else into a flat line.</p>
+      <figure>
+        <img src="img/three-laps-before.jpg" alt="Before the fix: a flat line along zero with one huge spike at the far right edge, reaching past 50 seconds." width="1440" height="215">
+        <figcaption>Before: a flat line, then a false 61-second spike at the finish.</figcaption>
+      </figure>
+      <figure>
+        <img src="img/three-laps-after.jpg" alt="After the fix: a line that rises and falls around zero all the way round the lap, showing where each driver gained time." width="1440" height="215">
+        <figcaption>After: the same two laps, showing the real battle all the way round.</figcaption>
+      </figure>
+    </section>
+
+    <section>
+      <div class="st-note-label">Bug two</div>
+      <h2>Good laps were thrown away as a “rewind”</h2>
+      <p>Three laps looked as if the car had never reached the finish. At first we blamed lost recordings, and that was wrong. Every one was recorded right to the line.</p>
+      <p>Forza lets you rewind, so SplitTime discards whatever a driver rewinds over. One snapshot from the start of the next attempt had been filed at the end of each of these laps. It looked like a jump back to the start, so SplitTime treated it as a rewind and hid the good data before it.</p>
+      <p>Think of a misfiled page at the back of a logbook convincing someone that the last chapters had been crossed out. The chapters were always there. We now set that page aside when reading the book.</p>
+      <div class="st-note-scroll"><table>
+        <thead><tr><th scope="col">What we checked</th><th scope="col">Before</th><th scope="col">After</th></tr></thead>
+        <tbody>
+          <tr><td>Share of the route shown on <a href="replay.html?laps=327,329">lap 327</a>, 2 min 26 s into the replay</td><td class="st-num">1%</td><td class="st-num">88%</td></tr>
+          <tr><td>Where laps 327, 329 and 167 seemed to end, in the game’s distance units (the finish is about 5,950)</td><td class="st-num">56, 56, 268</td><td class="st-num">about 5,950</td></tr>
+          <tr><td>Corners shown on the Temple CC course</td><td class="st-num">0</td><td class="st-num">19</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <section class="st-note-same">
+      <div class="st-note-label">What stayed the same</div>
+      <ul>
+        <li>Lap times, standings and weekly recaps</li>
+        <li>Written race reports</li>
+        <li>The recordings themselves, which were never edited</li>
+      </ul>
+    </section>
+
+    <section>
+      <div class="st-note-label">What we can’t get back</div>
+      <p>Three laps have short holes in them, where the game’s data never reached us: about 13 seconds on lap 265 (River Descent), and about 6 seconds each on lap 319 (Daikoku Circuit) and lap 167 (Temple CC). Nothing was saved for those moments, so there’s nothing to restore.</p>
+    </section>
+
+    <section>
+      <div class="st-note-label">The technical record</div>
+      <ul>
+        <li><a href="https://github.com/adrianhensler/splittime/pull/69">Pull request #69</a>: the stopwatch fix</li>
+        <li><a href="https://github.com/adrianhensler/splittime/pull/70">Pull request #70</a>: the rewind fix</li>
+        <li><a href="https://github.com/darcane/LapScope/pull/110">LapScope pull request #110</a>: where the stopwatch fix started</li>
+      </ul>
+    </section>
+
+    <footer>
+      <p>SplitTime is built on <a href="https://github.com/darcane/LapScope">LapScope</a> by Erdem Darcan. LapScope’s project had already spotted the first bug, which led us to it.</p>
+    </footer>
+  </main>
+</div></body></html>
