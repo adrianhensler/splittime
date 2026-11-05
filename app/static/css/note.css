@@ -1,0 +1,20 @@
+/* A repair note: one readable column, with timing figures set as a sheet. */
+#st-rivalry-workspace .st-note{max-width:42rem;margin:24px auto 48px;display:grid;gap:36px;font-size:17px;line-height:1.6}
+#st-rivalry-workspace .st-note section,#st-rivalry-workspace .st-note>header,#st-rivalry-workspace .st-note>footer{display:grid;gap:12px;min-width:0}
+#st-rivalry-workspace .st-note h1,#st-rivalry-workspace .st-note h2{font-family:"Rajdhani",system-ui,sans-serif;font-weight:700;line-height:1.12;margin:0;padding:0;border:0;text-wrap:balance}
+#st-rivalry-workspace .st-note h1{font-size:clamp(32px,7vw,46px)}
+#st-rivalry-workspace .st-note h2{font-size:25px}
+#st-rivalry-workspace .st-note p{margin:0}
+#st-rivalry-workspace .st-note-lead{font-size:20px;color:var(--st-muted)}
+#st-rivalry-workspace .st-note-label{font:700 13px/1.2 "Rajdhani",system-ui,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--st-accent)}
+#st-rivalry-workspace .st-note figure{margin:0;display:grid;gap:6px;min-width:0}
+#st-rivalry-workspace .st-note img{display:block;width:100%;height:auto;border-radius:4px}
+#st-rivalry-workspace .st-note figcaption{font-size:15px;color:var(--st-muted)}
+#st-rivalry-workspace .st-note-scroll{overflow-x:auto}
+#st-rivalry-workspace .st-note table{width:100%;border-collapse:collapse;font-size:16px}
+#st-rivalry-workspace .st-note th,#st-rivalry-workspace .st-note td{text-align:left;vertical-align:top;padding:9px 12px 9px 0;border-bottom:1px solid var(--st-line)}
+#st-rivalry-workspace .st-note th{font:700 13px/1.3 "Rajdhani",system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--st-muted)}
+#st-rivalry-workspace .st-note td.st-num{font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap}
+#st-rivalry-workspace .st-note-same{background:var(--st-panel);padding:18px 20px;border-radius:4px}
+#st-rivalry-workspace .st-note ul{margin:0;padding-left:1.2em;display:grid;gap:4px}
+#st-rivalry-workspace .st-note>footer{border-top:1px solid var(--st-line);padding-top:18px;font-size:15px;color:var(--st-muted)}
