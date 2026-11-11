@@ -151,7 +151,7 @@ def test_every_fact_passes_the_check_and_names_come_back_as_placeholders():
                 column(highlights=["x"] * 5)):
         with pytest.raises(ValueError):
             writer.validate(bad, report)
-    assert writer.encode_request(report)  # fits the $0.01 worst-case reservation
+    assert writer.encode_request(report)  # fits the $0.04 worst-case reservation
 
 
 def provider(content):
@@ -190,6 +190,21 @@ def test_a_finished_week_is_written_once_and_a_failed_one_needs_a_retry(recorded
     assert api.write(None, (), db, next_week, "key", now=now) is False   # no automatic retry
     monkeypatch.setattr(openrouter, "request", lambda body, key: provider(column(story="A quieter week.")))
     assert api.write(None, (), db, next_week, "key", retry=True, now=now) == "ready"
+
+
+def test_a_week_too_big_for_one_call_says_so_plainly_and_sends_nothing(recorded, monkeypatch, tmp_path):
+    db, now, calls = Ledger(tmp_path / "debrief.db"), START + 30 * DAY, []
+    monkeypatch.setattr(openrouter, "request", lambda body, key: calls.append(body) or provider(column()))
+    report = facts.build(season(), MONDAY, now)
+    assert api.view(report, db)["ai"]["fits"] is True
+    huge = writer.payload(report)
+    monkeypatch.setattr(writer, "payload", lambda report: {**huge, "padding": "x" * 60_000})
+    shown = api.view(report, db)["ai"]
+    assert shown["fits"] is False and shown["too_large"] == writer.TOO_LARGE
+    assert "$0.04" in writer.TOO_LARGE and "Nothing was sent or charged" in writer.TOO_LARGE
+    with pytest.raises(ValueError, match="too much in it for one AI request"):
+        api.write(None, (), db, MONDAY, "key", now=now)
+    assert calls == [] and db.budget()["remaining_usd"] == 1  # refused before reserving or sending
 
 
 def test_the_monday_writer_sends_last_week_once_an_hour_after_it_ends(recorded, monkeypatch, tmp_path):

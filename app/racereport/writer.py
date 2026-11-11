@@ -14,7 +14,7 @@ import re
 
 from ..debrief import openrouter
 from ..debrief.contracts import MODEL
-from ..debrief.ledger import CALL_LIMIT
+from ..debrief.ledger import CALL_LIMIT, CALL_LIMIT_USD
 
 PROMPT_VERSION = 2
 PROGRESS_VERSION = 1
@@ -93,15 +93,25 @@ def payload(report, mode="race"):
                 "name": name, "strict": True, "schema": schema}}}
 
 
-def bounded(payload_dict):
-    """The encoded request, refused unless its worst case fits one reservation."""
+class TooLarge(ValueError):
+    """The request's worst case would not fit one call's reservation; nothing was sent."""
+
+
+# Shown to whoever pressed the button, so said plainly (the old wording was the bound's own name)
+TOO_LARGE = ("This race has too many measured facts for one AI request: each call is capped at "
+             f"{CALL_LIMIT_USD} and this one could cost more. Nothing was sent or charged, and the "
+             "measurements above are complete.")
+
+
+def bounded(payload_dict, too_large=TOO_LARGE):
+    """The encoded request, refused (TooLarge) unless its worst case fits one reservation."""
     body = json.dumps(payload_dict, ensure_ascii=True, allow_nan=False,
                       separators=(",", ":")).encode("ascii")
     # Same conservative bound as the debrief: one input token per byte at the capped prices.
     prices = openrouter.PROVIDER["max_price"]
     worst_micro = len(body) * prices["prompt"] + MAX_TOKENS * prices["completion"]
     if worst_micro > CALL_LIMIT:
-        raise ValueError("Report facts exceed the bounded request size")
+        raise TooLarge(too_large)
     return body
 
 

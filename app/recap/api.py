@@ -52,7 +52,8 @@ def view(report, db):
     if cached["state"] == "ready":
         cached["narrative"] = writer.validate(result, report)
     return {**report, "ai": {**cached, "enabled": bool(os.environ.get("OPENROUTER_API_KEY")),
-                             "model": MODEL, "budget": db.budget()}}
+                             "fits": not report["complete"] or writer.fits(report),
+                             "too_large": writer.TOO_LARGE, "model": MODEL, "budget": db.budget()}}
 
 
 def _summary(store, drivers):
