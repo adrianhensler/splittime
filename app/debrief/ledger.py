@@ -10,7 +10,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 MONTH_LIMIT = 1_000_000  # micro USD: $1 per UTC calendar month
-CALL_LIMIT = 10_000     # reserve at most $0.01 before every network call
+CALL_LIMIT = 40_000     # reserve at most $0.04 before every network call (ADR 41)
+CALL_LIMIT_USD = f"${CALL_LIMIT / 1_000_000:.2f}"
 LEASE_S = 120
 REJECTED_KEPT = 50  # newest answers that failed a fact check, for tuning it
 

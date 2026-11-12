@@ -215,7 +215,7 @@ def test_cross_worker_duplicate_and_shared_month_cap_survive_restart(tmp_path):
     with ThreadPoolExecutor(max_workers=8) as pool:
         claims = list(pool.map(lambda _: Ledger(path).claim("same"), range(16)))
     assert len([c for c in claims if c]) == 1
-    assert Ledger(path).budget()["used_or_reserved_usd"] == .01
+    assert Ledger(path).budget()["used_or_reserved_usd"] == .04
     for i in range(MONTH_LIMIT // CALL_LIMIT - 1):
         db.claim(str(i))
     with pytest.raises(BudgetError):
@@ -231,12 +231,12 @@ def test_failed_ambiguous_calls_need_explicit_retry_and_keep_reservation(tmp_pat
     assert Ledger(path).get("report")["state"] == "failed"
     assert db.claim("report") is None
     second = db.claim("report", retry=True)
-    assert second and db.budget()["used_or_reserved_usd"] == .02
+    assert second and db.budget()["used_or_reserved_usd"] == .08
     late = Ledger(path, now=lambda: 200)
     assert late.get("report")["state"] == "uncertain"
     assert late.claim("report") is None
     assert late.claim("report", retry=True)
-    assert late.budget()["used_or_reserved_usd"] == .03
+    assert late.budget()["used_or_reserved_usd"] == .12
     # Different UTC month starts a new budget without deleting old reservations.
     assert Ledger(path, now=lambda: 32 * 86400).budget()["remaining_usd"] == 1
 
@@ -245,7 +245,7 @@ def test_known_per_call_overcharge_stops_month_and_is_recorded(tmp_path):
     db = Ledger(tmp_path / "debrief.db")
     call = db.claim("report")
     db.finish("report", call, cost=CALL_LIMIT + 1)
-    assert db.budget()["used_or_reserved_usd"] == .010001
+    assert db.budget()["used_or_reserved_usd"] == .040001
     with pytest.raises(BudgetError):
         db.claim("new")
 
@@ -277,8 +277,8 @@ def test_api_unknown_charge_and_collector_excludes_debrief(source, monkeypatch):
     monkeypatch.setattr(openrouter, "request", lambda *args: (_ for _ in ()).throw(TimeoutError()))
     client = TestClient(app, base_url="http://localhost")
     first = client.post("/api/debrief/generate", json={"lap_a": 3}).json()
-    assert first["ai"]["state"] == "failed" and first["ai"]["budget"]["used_or_reserved_usd"] == .01
-    assert client.post("/api/debrief/generate", json={"lap_a": 3}).json()["ai"]["budget"]["used_or_reserved_usd"] == .01
+    assert first["ai"]["state"] == "failed" and first["ai"]["budget"]["used_or_reserved_usd"] == .04
+    assert client.post("/api/debrief/generate", json={"lap_a": 3}).json()["ai"]["budget"]["used_or_reserved_usd"] == .04
     routes = {route.path for route in create_app("collector").routes}
     assert not any("debrief" in path for path in routes)
     monkeypatch.delenv("OPENROUTER_API_KEY")

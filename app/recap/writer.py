@@ -10,12 +10,16 @@ import json
 
 from ..debrief import openrouter
 from ..debrief.contracts import MODEL
-from ..racereport.writer import _check_text, _numbers, bounded
+from ..debrief.ledger import CALL_LIMIT_USD
+from ..racereport.writer import TooLarge, _check_text, _numbers, bounded
 
 PROMPT_VERSION = 2  # 2: within reach; lap times as m:ss.sss
 MAX_TOKENS = 900
 LIMITS = {"headline": 140, "story": 1200, "item": 220, "next_week": 220}
 LABEL = "Weekly recap"
+TOO_LARGE = ("This week had too much in it for one AI request: each call is capped at "
+             f"{CALL_LIMIT_USD} and this one could cost more. Nothing was sent or charged, and the measured week below "
+             "is complete.")
 
 SYSTEM = (
     "You write the weekly recap for SplitTime, a friendly time-attack rivalry between a few"
@@ -61,7 +65,16 @@ def payload(report):
 
 
 def encode_request(report):
-    return bounded(payload(report))
+    return bounded(payload(report), TOO_LARGE)
+
+
+def fits(report):
+    """Whether the week's request fits one call, so the page can say so before anyone presses."""
+    try:
+        encode_request(report)
+    except TooLarge:
+        return False
+    return True
 
 
 def validate(result, report):

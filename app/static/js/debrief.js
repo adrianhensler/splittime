@@ -71,7 +71,7 @@
         ai.state === "pending" ? "Generation is in progress. Reload to check; no second call will be made." :
         this.retry ? "The last call did not produce a usable report. Unknown charges remain reserved. Retry is an explicit new call." :
         "Optional: Gemini prioritizes anonymous statistics and suggests one practice focus. No raw packets or driver names are sent.";
-      const disabled = !ai.enabled || ["ready","pending"].includes(ai.state) || ai.budget.remaining_usd < 0.01;
+      const disabled = !ai.enabled || ["ready","pending"].includes(ai.state) || ai.budget.remaining_usd < 0.04;
       this.content.innerHTML = `<div class="st-debrief-stats">
         <div><strong>${s.laps_runs}</strong><span>Laps / runs · ${s.eligible} eligible</span></div>
         <div><strong>${time(s.best_s)}${s.best_estimated ? " est." : ""}</strong><span>Session recorded best</span></div>
@@ -89,7 +89,7 @@
           <h3>One practice focus · hypothesis</h3><p>${esc(explanation.focus)}</p><p>${esc(explanation.practice)}</p>` : ""}
           <p class="st-quiet st-debrief-status">${esc(status)}</p><div class="st-debrief-actions"><button type="button" data-debrief="generate" ${disabled ? "disabled" : ""}>${this.retry ? "Retry AI priorities" : "Generate AI priorities"}</button>
           <button type="button" data-debrief="refresh">Reload measurements</button></div>
-          <p class="st-quiet">Generating one needs a signed-in SplitTime account · shared AI budget $1 / UTC month, up to $0.01 reserved per call · $${ai.budget.remaining_usd.toFixed(3)} left.</p></div></div>
+          <p class="st-quiet">Generating one needs a signed-in SplitTime account · shared AI budget $1 / UTC month, up to $0.04 reserved per call · $${ai.budget.remaining_usd.toFixed(3)} left.</p></div></div>
       <p class="st-quiet">${s.estimated} estimated finishes · ${s.laps_runs - s.eligible} laps/runs not eligible.</p>
       <ul class="st-quiet st-debrief-warnings">${report.warnings.map(w => `<li>${esc(w)}</li>`).join("")}</ul>`;
     }

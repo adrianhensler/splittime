@@ -110,7 +110,7 @@
         this.retry ? "The last attempt did not pass the fact check. Unknown charges stay reserved; retry is a new call." :
         this.progress ? "Optional: an AI race engineer reviews your progress from these measurements. Every number it uses must be one of them. Your gamertag is sent so it can name you." :
         "Optional: an AI race engineer writes the review from these measurements. Every number it uses must be one of them. Gamertags are sent so it can name you.";
-      const disabled = !ai.enabled || ["ready","pending"].includes(ai.state) || ai.budget.remaining_usd < 0.01;
+      const disabled = !ai.enabled || ["ready","pending"].includes(ai.state) || ai.budget.remaining_usd < 0.04;
       this.content.innerHTML = `
         <p class="st-race-headline">${this.progress ?
           `<strong>${esc(this.context.driver)}</strong>’s best is <span class="st-time">${secs(f.a_gain_s)}</span> ${f.a_gain_s >= 0 ? "faster" : "slower"} than their first clean run` :

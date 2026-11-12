@@ -24,10 +24,11 @@
       !ai.enabled ? "AI is not configured; the measured week below is complete." :
       ai.state === "ready" ? `Written by Gemini 3.8 Flash from these measurements · $${ai.cost_or_reserved_usd.toFixed(5)}` :
       ai.state === "pending" ? "Being written. Reload to check; no second call will be made." :
+      ai.fits === false ? ai.too_large :
       ["failed","uncertain"].includes(ai.state) ? "The last attempt did not pass the fact check. Unknown charges stay reserved; retry is a new call." :
       "Written automatically the Monday after a week ends, or now with the button. Every number it uses must be one of the measurements. Gamertags and route names are sent.";
     const retry = ["failed","uncertain"].includes(ai.state);
-    const can = week.complete && ai.enabled && !["ready","pending"].includes(ai.state) && ai.budget.remaining_usd >= 0.01;
+    const can = week.complete && ai.enabled && ai.fits !== false && !["ready","pending"].includes(ai.state) && ai.budget.remaining_usd >= 0.04;
     return `${story ? `<p class="st-race-ai-headline">${named(story.headline, tags)}</p><p>${named(story.story, tags)}</p>
       ${story.highlights.length ? `<ul>${story.highlights.map(t => `<li>${named(t, tags)}</li>`).join("")}</ul>` : ""}
       <p><span class="st-quiet">Next week ·</span> ${named(story.next_week, tags)}</p>` : ""}
@@ -126,11 +127,13 @@
         body:JSON.stringify({week:button.dataset.recap, retry:button.dataset.retry === "true"})});
       if (response.status === 401 || response.status === 403 || response.redirected)
         throw new Error("This needs a signed-in account with SplitTime access to write an AI recap. If you are signed in, an admin can add you to SplitTime. The measured weeks remain public.");
-      const data = await response.json();
-      if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : `HTTP ${response.status}`);
+      // an error page from the proxy is not JSON: say what happened, not "Unexpected token"
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail :
+        `The server answered ${response.status}, so it is not known whether the recap was written or charged. Refresh to see.`);
       await load();
     } catch (error) {
-      status.textContent = error.message; button.disabled = false;
+      status.textContent = `The recap was not written. ${error.message}`; button.disabled = false;
     } finally {busy = false;}
   });
   $("st-refresh").addEventListener("click", load);

@@ -26,7 +26,7 @@ log = logging.getLogger(__name__)
 
 INTERVAL_S = 300
 WINDOW_S = 14 * 86400
-AUTO_MONTH_CALLS = 20  # at most $0.20 of the $1 month, at the $0.01 reservation
+AUTO_MONTH_CALLS = 20  # at most $0.80 of the $1 month, at the $0.04 reservation
 
 
 def _stamp(value):

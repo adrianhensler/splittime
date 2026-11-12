@@ -60,7 +60,7 @@ def test_sections_add_up_and_every_fact_is_plain_json(circuit):
         assert 0 <= lap["flat_pct"] <= 100 and lap["pedals"] in ("on_off", "progressive")
     json.dumps(report, allow_nan=False)
     assert facts.build(store, a, b)["fingerprint"] == report["fingerprint"]
-    assert writer.encode_request(report)  # fits the $0.01 worst-case reservation
+    assert writer.encode_request(report)  # fits the $0.04 worst-case reservation
 
 
 def test_stretches_say_where_things_are_without_touching_the_facts(circuit, monkeypatch):
@@ -242,8 +242,8 @@ def test_request_names_drivers_and_is_bounded_and_strict(circuit):
     assert set(sent) == {"drivers", *report["facts"]}
     assert "session" not in json.dumps(sent) and "car_name" not in json.dumps(sent)
     huge = copy.deepcopy(report)
-    huge["facts"]["corners"] *= 40
-    with pytest.raises(ValueError):
+    huge["facts"]["corners"] *= 160
+    with pytest.raises(writer.TooLarge, match="too many measured facts for one AI request"):
         writer.encode_request(huge)
 
 

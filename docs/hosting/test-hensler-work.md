@@ -26,7 +26,7 @@ login; it was not executed. Real synthetic provider/browser checks passed.
 Keep `debrief.db` across deployment/rollback and back it up online separately;
 weekly telemetry backup does not yet include it. Do not restore an older ledger
 with AI enabled in the same UTC month. Inference is explicit, anonymous and
-bounded to $1/UTC month, with $0.01/call reserved before sending.
+bounded to $1/UTC month, with $0.04/call reserved before sending (ADR 41).
 
 This is the owner's personal hosting. The generic guide is
 [../SETUP.md](../SETUP.md). This record describes the deployment checked on

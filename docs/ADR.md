@@ -819,3 +819,24 @@ could be seen in Replay, without making a mess of the page).
 
 *Rests on:* 3, 33. *Not done:* lining the cars up at a corner, so a big gap can
 be compared side by side. That is a new playback mode, to judge after use.
+
+## 41. $0.04 per AI call, and saying plainly when a request is too big
+
+**Proposed, 2026-11-11** (owner hit "Report facts exceed the bounded request
+size" on the weekly recap, asked for a clearer error and a $0.04 cap).
+
+- `CALL_LIMIT` goes from $0.01 to $0.04. It is the worst case reserved before
+  each call (one input token per byte, full output allowance, capped prices),
+  not the expected cost: calls still settle at their real cost, a few tenths
+  of a cent. The $1 UTC month is unchanged. Unknown charges still stay
+  reserved, now at up to $0.04 each, and the 20 automatic race reports could
+  hold up to $0.80 of the month if every one of them stayed unknown.
+- The busy week of 2026-11-02 was refused at $0.01: its 8,434-byte request had
+  a worst case of $0.010076.
+- A request that is too big raises `TooLarge` with a plain sentence for the
+  person who pressed the button: what was capped, that nothing was sent or
+  charged, and that the measurements are complete.
+- The recap list says `ai.fits` for each finished week, so the page shows
+  that sentence and a disabled button instead of failing after the press.
+
+*Amends:* 32, 33, 35.
