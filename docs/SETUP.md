@@ -266,7 +266,7 @@ or route labels leave the server. Output is a validated choice of measured
 facts and one supported practice hypothesis, not free-form coaching.
 
 `DATA_DIR/debrief.db` is a separate web-owned cache/spending ledger. It reserves
-$0.01/call before sending and enforces $1 per UTC calendar month for this
+up to $0.04/call before sending (the worst case; calls settle at their real cost, ADR 41) and enforces $1 per UTC calendar month for this
 project's inference (not whole-account spending or credit purchase fees).
 Unknown charges retain reservations; retries are explicit. Keep this database
 across deployments/rollbacks, back it up using SQLite's online backup API, and

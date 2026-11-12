@@ -29,6 +29,9 @@ requires the gateway's login and service grant (ADR 23).
 - Corner-by-corner comparison of two laps on the same route.
 - Expandable measured session debrief with optional cached Gemini priorities
   and one practice hypothesis, under a $1/UTC-month inference cap (ADR 32).
+  Every AI call reserves its worst case, at most $0.04, before sending; a
+  request that could cost more is never sent, and the page says so in plain
+  words before anyone presses the button (ADR 41).
 - Section-by-section race report for any two eligible bests on one route,
   with an optional Gemini review written on request by management. Every
   number and corner in it must match a measured fact. Only derived facts and

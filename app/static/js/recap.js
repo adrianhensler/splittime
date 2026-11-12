@@ -130,7 +130,7 @@
       // an error page from the proxy is not JSON: say what happened, not "Unexpected token"
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail :
-        `The server answered ${response.status}. Nothing new was charged; try again later.`);
+        `The server answered ${response.status}, so it is not known whether the recap was written or charged. Refresh to see.`);
       await load();
     } catch (error) {
       status.textContent = `The recap was not written. ${error.message}`; button.disabled = false;
