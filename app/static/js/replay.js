@@ -271,6 +271,7 @@
     $("rp-label").textContent = `${[...routes].filter(Boolean).join(" / ") || "Recorded laps"} · ${state.cars.length} laps`;
     $("rp-follow").innerHTML = state.cars.map((c,i) => `<option value="${i}">${esc(c.meta.driver_name || `Lap ${c.id}`)} · ${M.time(c.duration)}${c.estimated ? " est." : ""}</option>`).join("");
     $("rp-picker").hidden = true; $("rp-stage").hidden = false; $("rp-share").hidden = false;
+    $("rp-chase").href = `replay-chase.html?laps=${state.cars.map(c => c.id).join(",")}`;
     say(routes.size > 1 ? `These laps are on different routes, so the places and gaps mean little. ${CAVEAT}` :
       `${first.route_name || "Route"} · press Play. ${CAVEAT}`);
     resize(); setMode("top");
