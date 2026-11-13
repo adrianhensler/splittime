@@ -56,7 +56,7 @@
     const b = state.box, w = canvas.clientWidth, h = canvas.clientHeight;
     state.view = {cx:b.cx, cz:b.cz, cy:b.minY, yaw:0, pitch:0, anchor:0.5, panX:0, panY:0,
       relief: 1, scale: 0.86 * Math.min(w / Math.max(b.maxX-b.minX,1), h / Math.max(b.maxZ-b.minZ,1))};
-    if (state.mode === "tilt") { state.view.pitch = 0.95; state.view.yaw = 0.5; state.view.relief = 3; }
+    if (state.mode === "tilt") { state.view.pitch = 0.95; state.view.yaw = 0.5; state.view.relief = R.relief(state.cars, b); }
     // opened at a stretch of road: frame it, until the viewer asks for the whole route
     if (state.mode === "top" && state.clip?.zoom) {
       const f = R.focus(R.carOver(state.cars, state.clip.to), state.clip.from, state.clip.to);
@@ -96,6 +96,7 @@
     const proj = R.projector(view, w, h);
     ctx.clearRect(0,0,w,h);
     ctx.lineJoin = ctx.lineCap = "round";
+    if (state.mode === "tilt") heights(proj);
     // the road: every lap's line, faint, so the route reads even off the pace line
     state.cars.forEach((car, n) => {
       const c = car.channels;
@@ -138,6 +139,22 @@
           label(state.cars[0]), label(state.cars[1] || state.cars[0])) || showing;
       if ($("rp-caption").textContent !== text) $("rp-caption").textContent = text;
     } else if (state.clip?.named) $("rp-caption").textContent = `Showing ${R.nameOf(state.clip.name)}`;
+  }
+  // In 3D, the first lap's line drawn again on the ground with posts up to the
+  // road, so you can see how high each part runs (as on Analysis).
+  function heights(proj) {
+    const car = state.cars[0], c = car.channels, ground = state.box.minY;
+    ctx.beginPath();
+    for (let i = 0; i < car.t.length; i++) {
+      const [x,y] = proj(c.pos_x[i], ground, c.pos_z[i]);
+      if (i) ctx.lineTo(x,y); else ctx.moveTo(x,y);
+    }
+    ctx.strokeStyle = css("--st-line"); ctx.lineWidth = 3; ctx.stroke();
+    ctx.beginPath();
+    for (const i of R.posts(car)) {
+      ctx.moveTo(...proj(c.pos_x[i], ground, c.pos_z[i])); ctx.lineTo(...proj(c.pos_x[i], c.pos_y[i], c.pos_z[i]));
+    }
+    ctx.strokeStyle = css("--st-muted"); ctx.globalAlpha = 0.35; ctx.lineWidth = 1; ctx.stroke(); ctx.globalAlpha = 1;
   }
   // the stretch a link or a pin chose, along the road
   function stretch(proj) {

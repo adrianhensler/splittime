@@ -121,3 +121,12 @@ test("the run-up to a stretch is known until the stretch has played", () => {
   assert.equal(R.approaching(stretch,39),true); assert.equal(R.approaching(stretch,40),false);
   assert.equal(R.approaching({...stretch,armed:false},39),false); assert.equal(R.approaching(null,39),false);
 });
+test("3D heights stretch to the route's climb band and posts stand every step of road", () => {
+  const n = 101, hill = R.car({lap:{id:9}, t:seq(n), dist:seq(n).map(i => i*10),
+    channels:{pos_x:seq(n).map(i => i*10), pos_y:seq(n).map(i => i/2), pos_z:Array(n).fill(0),
+      speed_kmh:Array(n).fill(36)}}, {time_s:100}, 0);
+  const box = R.bounds([hill]);
+  assert.ok(Math.abs(R.relief([hill], box) - 1000/6/45) < 1e-9);
+  assert.equal(R.relief([fast], R.bounds([fast])), 3, "a flat route keeps the default");
+  assert.deepEqual(R.posts(hill, 250).map(i => hill.dist[i]), [0, 250, 500, 750, 1000]);
+});
