@@ -130,6 +130,23 @@
               height * view.anchor - (rz * flat + (y - view.cy) * lift * view.relief) * view.scale + view.panY];
     };
   }
+  /* How much to stretch heights in the 3D view, so a route's climbs read at
+     about a sixth of its size on the level. The band is p5-p95 of every lap's
+     height, so a few jumps do not flatten the rest; clamped to 2x-10x. */
+  function relief(cars, box) {
+    const ys = cars.flatMap(c => c.channels.pos_y || []).sort((a, b) => a - b);
+    if (ys.length < 2) return 3;
+    const band = ys[Math.floor(0.95 * (ys.length - 1))] - ys[Math.floor(0.05 * (ys.length - 1))];
+    return band > 0.3 ? Math.max(2, Math.min(10, box.size / 6 / band)) : 3;
+  }
+  /* Points along a lap every `step` of route distance: where the 3D view
+     stands its height posts. */
+  function posts(car, step = 25) {
+    const out = [];
+    let next = -Infinity;
+    for (let i = 0; i < car.t.length; i++) if (car.mono[i] >= next) { out.push(i); next = car.mono[i] + step; }
+    return out;
+  }
   function parseLaps(search) {
     const raw = new URLSearchParams(search).get("laps") || "";
     return [...new Set(raw.split(",").map(Number).filter(n => Number.isSafeInteger(n) && n > 0))].slice(0, COLORS.length);
@@ -205,7 +222,7 @@
     }
     return parts.join(" · ");
   }
-  const model = {COLORS, locate, at, timeAtDist, axis, car, standings, bounds, projector, parseLaps,
+  const model = {COLORS, locate, at, timeAtDist, axis, car, standings, bounds, projector, relief, posts, parseLaps,
     cornerAt, markers, carOver, parseAt, nameOf, clip, approaching, span, focus, caption};
   if (typeof module !== "undefined" && module.exports) module.exports = model;
   else root.ReplayModel = model;

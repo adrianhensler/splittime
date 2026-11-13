@@ -1,0 +1,7 @@
+    #st-rivalry-workspace #ch-canvas{display:block;width:100%;height:min(62vh,560px);touch-action:none;cursor:grab;border-radius:6px}
+    #st-rivalry-workspace #ch-profile{display:block;width:100%;height:96px;margin-top:8px;background:var(--st-panel);border-radius:6px}
+    #st-rivalry-workspace .ch-test{font-size:12px;font-weight:600;vertical-align:middle;border:1px solid var(--st-accent);color:var(--st-accent);border-radius:4px;padding:1px 6px;text-transform:uppercase;letter-spacing:.05em}
+    #st-rivalry-workspace #ch-play{background:var(--st-accent);color:var(--st-bg);border-color:var(--st-accent);font-weight:600;min-width:70px}
+    #st-rivalry-workspace #ch-scrub{flex:1;min-width:140px;accent-color:var(--st-accent)}
+    #st-rivalry-workspace .rp-views select{font-size:12px;padding:5px}
+    @media(max-width:740px){#st-rivalry-workspace #ch-canvas{height:52vh}}

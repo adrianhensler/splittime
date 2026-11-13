@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en"><head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SplitTime · Chase view (test)</title>
+  <link rel="stylesheet" href="css/rivalry-v2.css">
+  <link rel="stylesheet" href="css/replay.css">
+  <link rel="stylesheet" href="css/chase.css">
+<script src="js/updates.js"></script></head>
+<body id="st-rivalry-workspace"><div class="st-window">
+  <header><a class="st-brand" href="index.html">Split<span>//</span>Time</a>
+    <nav aria-label="Site"><a href="index.html">Live</a><a href="analysis.html">Analysis</a>
+      <a href="rivalry-v2.html">Rivalry</a><a href="replay.html" aria-current="page">Replay</a><a href="stats.html">Stats</a><a href="recap.html">Recap</a><a href="how-it-works.html">How it works</a><a href="whats-new.html">What’s new</a></nav>
+  </header>
+  <main>
+    <div class="st-top"><div><h1>Chase view <span class="ch-test">test</span></h1><div class="st-sub" id="ch-label">Recorded laps, from behind the wheel</div></div></div>
+    <p id="st-message" class="st-quiet" role="status" aria-live="polite">Loading…</p>
+
+    <section id="ch-stage" hidden aria-label="Chase view">
+      <div class="rp-layout">
+        <div class="rp-mapcol"><div class="rp-map"><canvas id="ch-canvas" aria-label="The road ahead, seen from behind the car being followed"></canvas>
+          <div class="rp-views" role="group" aria-label="Camera">
+            <label class="sr-only" for="ch-follow">Car to follow</label><select id="ch-follow"></select>
+            <button type="button" data-rig="chase" aria-pressed="true">Chase</button>
+            <button type="button" data-rig="close" aria-pressed="false">Close</button>
+            <button type="button" data-rig="high" aria-pressed="false">High</button>
+            <label class="sr-only" for="ch-exag">Height</label><select id="ch-exag" title="Stretch heights so slopes and jumps stand out">
+              <option value="1" selected>Height ×1</option><option value="2">Height ×2</option><option value="4">Height ×4</option></select>
+          </div>
+          <p class="st-quiet rp-hint">Drag to look round · scroll to zoom · double-click to reset</p>
+        </div>
+        <canvas id="ch-profile" aria-label="Height along the route, with each car's place on it"></canvas>
+        </div>
+        <aside class="st-inspector rp-side" id="ch-side" aria-label="Live numbers"></aside>
+      </div>
+      <div class="rp-controls">
+        <button id="ch-play" type="button" aria-label="Play">Play</button>
+        <button id="ch-restart" type="button">Restart</button>
+        <label class="sr-only" for="ch-scrub">Position in the lap</label>
+        <input id="ch-scrub" type="range" min="0" max="1000" value="0">
+        <span class="st-time" id="ch-clock">0:00.000</span>
+        <label class="st-filter">Speed <select id="ch-speed"><option value="0.25">¼×</option><option value="0.5">½×</option>
+          <option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option><option value="8">8×</option></select></label>
+      </div>
+      <p class="st-quiet"><a id="ch-back" href="replay.html">Back to Replay</a> · A test page. The road is the followed
+        car’s own line, drawn 10 m wide, and posts drop from it to the lowest road nearby, so you can see how high it runs.
+        Cars are boxes, not the real cars. Every lap starts together on the game’s lap clock, as in Replay.</p>
+    </section>
+  </main>
+</div><script src="js/rivalry-v2-model.js"></script><script src="js/replay-model.js"></script><script src="js/chase-model.js"></script><script src="js/chase.js"></script></body>
+</html>
