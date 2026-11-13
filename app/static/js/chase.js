@@ -6,6 +6,8 @@
   const esc = value => String(value ?? "").replace(/[&<>"']/g, char =>
     ({"&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"}[char]));
   const CHANNELS = "pos_x,pos_y,pos_z,speed_kmh,gear,throttle,brake,lap_time";
+  const EST = "The game stopped sending data at the finish line, so this time is SplitTime’s last clock reading.";
+  const est = car => car.estimated ? ` <abbr class="st-est" title="${EST}">est.</abbr>` : "";
   const FAR = 450;   // metres of road drawn ahead; fades out toward it
   const state = {cars:[], roads:[], dirs:[], time:0, playing:false, speed:1, follow:0, duration:0,
     rig:"chase", orbit:0, raise:0, zoom:1, exag:1, yaw:null, ground:null, last:null, low:0, high:1};
@@ -52,7 +54,8 @@
     const road = state.roads[state.follow], low = C.localLow(road, s.dist);
     state.ground = state.ground === null || k === 1 ? low : state.ground + (low - state.ground) * Math.min(1, k * 0.6);
     const g = state.ground, ex = state.exag, lift = p => [p[0], g + (p[1] - g) * ex, p[2]];
-    const pos = lift([s.x, s.y, s.z]), r = C.RIGS[state.rig];
+    const seat = st => [st.x, g + (st.y - C.RIDE - g) * ex + C.RIDE, st.z];
+    const pos = seat(s), r = C.RIGS[state.rig];
     const view = C.rig(pos, state.yaw, r, state.orbit, state.zoom, state.raise);
     const cam = C.camera(view.eye, view.target, r.fov * Math.PI / 180, w, h);
     const near = p => Math.hypot(p[0] - pos[0], p[2] - pos[2]) < FAR;
@@ -113,7 +116,7 @@
     // the cars, furthest first, each with a stick down to the ground under it
     const rows = R.standings(state.cars, state.time), placed = new Map(rows.map(row => [row.car, row]));
     const shown = state.cars.map((car, n) => {
-      const st = R.at(car, state.time), p = lift([st.x, st.y, st.z]);
+      const st = R.at(car, state.time), p = seat(st);
       const d = state.dirs[n] || [1, 0, 0], tip = C.norm([d[0], d[1] * ex, d[2]]) || d;
       return {car, p, tip, depth: C.project(cam, p)?.[2] ?? -1};
     }).filter(c => c.depth > 0 && near(c.p)).sort((a, b) => b.depth - a.depth);
@@ -128,7 +131,7 @@
       if (tag && tag[2] < 250) {
         const row = placed.get(car);
         ctx.fillStyle = car.color; ctx.font = "600 12px system-ui, sans-serif"; ctx.textAlign = "center";
-        ctx.fillText(`${row.place} ${label(car)}${row.place > 1 ? ` +${row.gap.toFixed(2)}` : ""}`, tag[0], tag[1]);
+        ctx.fillText(`${row.place} ${label(car)}${row.place > 1 ? ` +${row.gap.toFixed(2)}` : ""}${car.estimated && row.state.finished ? " est." : ""}`, tag[0], tag[1]);
         ctx.textAlign = "start";
       }
     }
@@ -173,7 +176,7 @@
       return `<div class="rp-car">
       <div class="rp-car-head"><strong><span class="rp-dot" style="background:${car.color}"></span>${place}. ${esc(car.meta.driver_name || `Lap ${car.id}`)}</strong>
         <span class="st-time">${place === 1 ? (s.finished ? M.time(car.duration) : "Ahead") : `+${gap.toFixed(3)} s`}</span></div>
-      <div class="st-quiet">${esc(car.meta.car_name || "")}${car.meta.car_pi ? ` · PI ${esc(car.meta.car_pi)}` : ""}</div>
+      <div class="st-quiet">${esc(car.meta.car_name || "")}${car.meta.car_pi ? ` · PI ${esc(car.meta.car_pi)}` : ""} · ${M.time(car.duration)}${est(car)}${s.finished ? (car.estimated ? " · finished (estimated)" : " · finished") : ""}</div>
       <div class="rp-nums rp-nums-4"><span><b>${Math.round(s.speed)}</b><span class="st-quiet">km/h</span></span>
         <span><b>${gear(s.gear)}</b><span class="st-quiet">gear</span></span>
         <span><b>${Math.round(s.y - C.RIDE - state.low)}</b><span class="st-quiet">m up</span></span>
@@ -234,7 +237,7 @@
     const routes = new Set(state.cars.map(c => c.meta.route_name).filter(Boolean));
     $("ch-label").textContent = `${[...routes].join(" / ") || "Recorded laps"} · ${state.cars.length} laps`;
     $("ch-follow").innerHTML = state.cars.map((c, i) =>
-      `<option value="${i}">Follow ${esc(label(c))}</option>`).join("");
+      `<option value="${i}">Follow ${esc(label(c))}${c.estimated ? " est." : ""}</option>`).join("");
     $("ch-back").href = `replay.html?laps=${state.cars.map(c => c.id).join(",")}`;
     $("ch-stage").hidden = false;
     say(`${[...routes][0] || "Route"} · press Play. Heights are in metres above the route’s lowest point.`);
