@@ -101,7 +101,7 @@
       state.pinHits = [];   // no corner marks to click from behind the car
       state.ground = chase.draw({cars:state.cars, roads:state.roads, dirs:state.dirs, time:state.time,
         follow:state.follow, rig:state.rig, orbit:state.orbit, raise:state.raise, zoom:state.zoom,
-        exag:state.exag, dt, rows, label});
+        exag:state.exag, dt, rows, label, pins:state.pinsOn ? state.pins : [], current, gear});
     } else map(rows, current);
     $("rp-clock").textContent = `${M.time(Math.max(state.time, 0.0005))} / ${M.time(state.duration)}`;
     if (document.activeElement !== $("rp-scrub")) $("rp-scrub").value = String(Math.round(1000 * state.time / state.duration));

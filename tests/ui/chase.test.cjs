@@ -82,3 +82,32 @@ test("a car is in the air inside one of its jumps; brake lights sit at the back"
   assert.equal(R.car({lap:{id:6}, t:[0, 1], dist:[0, 1], channels:{pos_x:[0, 1], pos_y:[0, 0], pos_z:[0, 0],
     speed_kmh:[0, 0]}, jumps:[{dist0:0, dist1:1}]}, {}, 0).jumps.length, 1);
 });
+test("a solid car is six body faces, five cabin faces and four wheels, every face pointing out", () => {
+  const pos = [0, C.RIDE, 0], faces = C.carFaces(pos, C.basis(0));
+  assert.equal(faces.length, 15);
+  assert.equal(faces.filter(f => f.part === "wheel").length, 4);
+  assert.equal(faces.filter(f => f.part === "rear").length, 1);
+  for (const f of faces) {
+    close(Math.hypot(...f.n), 1);
+    const c = f.pts.reduce((a, b) => [a[0] + b[0] / 4, a[1] + b[1] / 4, a[2] + b[2] / 4], [0, 0, 0]);
+    assert.ok(f.n[0] * (c[0] - pos[0]) + f.n[1] * (c[1] - pos[1]) + f.n[2] * (c[2] - pos[2]) > 0, `${f.part} points out`);
+  }
+});
+test("from behind, the back of the car faces the camera and the front does not", () => {
+  const cam = C.camera([0, 2, -10], [0, 0, 0], Math.PI / 2, 200, 100);   // car heads +z, camera behind it
+  const faces = C.carFaces([0, C.RIDE, 0], C.basis(0));
+  assert.equal(C.facing(cam, faces.find(f => f.part === "rear")), true);
+  const front = faces.find(f => f.part === "body" && f.n[2] > 0.9);
+  assert.equal(C.facing(cam, front), false);
+});
+test("a level camera has the horizon mid-screen; looking down lifts it", () => {
+  close(C.horizon(C.camera([0, 0, 0], [10, 0, 0], Math.PI / 2, 200, 100)), 50);
+  assert.ok(C.horizon(C.camera([0, 5, 0], [10, 0, 0], Math.PI / 2, 200, 100)) < 50);
+  assert.equal(C.horizon(C.camera([0, 10, 0], [0, 0, 0], Math.PI / 2, 200, 100)), null);
+});
+test("road laid through a jump is marked as air", () => {
+  const car = {...climb, jumps:[{dist0:55, dist1:85}]};
+  const road = C.road(car, 10);
+  assert.deepEqual(road.filter(q => q.air).map(q => q.s), [60, 70, 80]);
+  assert.ok(C.road(climb, 10).every(q => !q.air));
+});
