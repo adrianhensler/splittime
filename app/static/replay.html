@@ -32,12 +32,21 @@
             <button type="button" data-view="top" aria-pressed="true">Top</button>
             <button type="button" data-view="tilt" aria-pressed="false">3D</button>
             <button type="button" data-view="follow" aria-pressed="false">Follow</button>
+            <button type="button" data-view="chase" aria-pressed="false">Chase</button>
             <button type="button" id="rp-corners" aria-pressed="true" hidden>Corners</button>
             <label class="sr-only" for="rp-follow">Car to follow</label><select id="rp-follow"></select>
+            <span class="rp-rigs" id="rp-rigs" role="group" aria-label="Chase camera" hidden>
+              <button type="button" data-rig="chase" aria-pressed="true">Behind</button>
+              <button type="button" data-rig="close" aria-pressed="false">Close</button>
+              <button type="button" data-rig="high" aria-pressed="false">High</button>
+              <label class="sr-only" for="rp-exag">Height</label><select id="rp-exag" title="Stretch heights so slopes and jumps stand out">
+                <option value="1" selected>Height ×1</option><option value="2">Height ×2</option><option value="4">Height ×4</option></select>
+            </span>
           </div>
           <p class="st-quiet rp-hint" id="rp-hint">Drag to move · scroll to zoom</p>
         </div>
-        <p class="rp-caption" id="rp-caption" hidden></p></div>
+        <p class="rp-caption" id="rp-caption" hidden></p>
+        <canvas id="rp-profile" aria-label="Height along the route, with each car's place on it"></canvas></div>
         <aside class="st-inspector rp-side" id="rp-side" aria-label="Live numbers"></aside>
       </div>
       <div class="rp-controls">
@@ -49,10 +58,10 @@
         <label class="st-filter">Speed <select id="rp-speed"><option value="0.25">¼×</option><option value="0.5">½×</option>
           <option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option><option value="8">8×</option></select></label>
       </div>
-      <p class="st-quiet"><a id="rp-change" href="replay.html">Choose other laps</a> · <a id="rp-chase" href="replay-chase.html">Chase view (test)</a> · Every lap starts together at its own start line and runs on the game’s lap clock.
+      <p class="st-quiet"><a id="rp-change" href="replay.html">Choose other laps</a> · Every lap starts together at its own start line and runs on the game’s lap clock.
         The gap is how much later a car reaches the spot of the car ahead. Places and gaps are exploratory.
         <span id="rp-reference"></span></p>
     </section>
   </main>
-</div><script src="js/rivalry-v2-model.js"></script><script src="js/replay-model.js"></script><script src="js/pair-bar.js"></script><script src="js/replay.js"></script></body>
+</div><script src="js/rivalry-v2-model.js"></script><script src="js/replay-model.js"></script><script src="js/chase-model.js"></script><script src="js/chase-view.js"></script><script src="js/pair-bar.js"></script><script src="js/replay.js"></script></body>
 </html>

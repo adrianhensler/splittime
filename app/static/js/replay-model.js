@@ -151,6 +151,19 @@
     const raw = new URLSearchParams(search).get("laps") || "";
     return [...new Set(raw.split(",").map(Number).filter(n => Number.isSafeInteger(n) && n > 0))].slice(0, COLORS.length);
   }
+  /* The camera named in the address (?view=chase), or null for the default. */
+  const VIEWS = ["top", "tilt", "follow", "chase"];
+  function parseView(search) {
+    const view = new URLSearchParams(search).get("view");
+    return VIEWS.includes(view) ? view : null;
+  }
+  /* The address with this camera in it; Top is the default and is left out. */
+  function withView(search, view) {
+    const params = new URLSearchParams(search);
+    if (view && view !== "top" && VIEWS.includes(view)) params.set("view", view); else params.delete("view");
+    const text = params.toString().replace(/%2C/gi, ",");   // keep laps=1,2 readable
+    return text ? `?${text}` : "";
+  }
   /* The corner this route position is in, or null on a straight. */
   function cornerAt(corners, dist) {
     return (corners || []).find(c => dist >= c.s_entry && dist <= c.s_exit) || null;
@@ -222,7 +235,7 @@
     }
     return parts.join(" · ");
   }
-  const model = {COLORS, locate, at, timeAtDist, axis, car, standings, bounds, projector, relief, posts, parseLaps,
+  const model = {COLORS, locate, at, timeAtDist, axis, car, standings, bounds, projector, relief, posts, parseLaps, parseView, withView,
     cornerAt, markers, carOver, parseAt, nameOf, clip, approaching, span, focus, caption};
   if (typeof module !== "undefined" && module.exports) module.exports = model;
   else root.ReplayModel = model;

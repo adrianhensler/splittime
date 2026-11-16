@@ -47,8 +47,8 @@ the recorder can get wrong.
   is written by itself when a record changes hands.
 - **Then vs now**: a driver's current best against their first clean run on
   the same route.
-- **Replay**: recorded laps raced against each other on the map, from above
-  or following one car.
+- **Replay**: recorded laps raced against each other: on the map from above
+  or in 3D, following one car, or in Chase, from behind it in 3D.
 - **Stats**: totals, leaderboards, head to head, clean driving, consistency,
   improvement, routes, cars, activity, achievements and next goals.
 - **Weekly recap**: each Monday-to-Sunday week's laps, personal bests,
