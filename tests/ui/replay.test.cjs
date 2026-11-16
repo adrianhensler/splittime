@@ -130,3 +130,12 @@ test("3D heights stretch to the route's climb band and posts stand every step of
   assert.equal(R.relief([fast], R.bounds([fast])), 3, "a flat route keeps the default");
   assert.deepEqual(R.posts(hill, 250).map(i => hill.dist[i]), [0, 250, 500, 750, 1000]);
 });
+test("the camera in the address is one of the four, and Top is left out of it", () => {
+  assert.equal(R.parseView("?laps=1,2&view=chase"), "chase");
+  assert.equal(R.parseView("?laps=1,2&view=tilt&at=10,20&name=C7"), "tilt");
+  assert.equal(R.parseView("?laps=1,2&view=sideways"), null);
+  assert.equal(R.parseView("?laps=1,2"), null);
+  assert.equal(R.withView("?laps=1,2&at=10,20", "chase"), "?laps=1,2&at=10,20&view=chase");
+  assert.equal(R.withView("?laps=1,2&view=chase", "top"), "?laps=1,2");
+  assert.deepEqual(R.parseLaps(R.withView("?laps=1,2", "follow")), [1, 2]);
+});

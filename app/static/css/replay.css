@@ -28,3 +28,6 @@
     #st-rivalry-workspace #rp-go{border:0;width:100%;max-width:320px}
     #st-rivalry-workspace #rp-share{border:1px solid var(--st-line);border-radius:5px;background:var(--st-panel);color:var(--st-fg);padding:8px 10px;font:inherit;white-space:nowrap}
     @media(max-width:740px){#st-rivalry-workspace .rp-layout{grid-template-columns:1fr}#st-rivalry-workspace #rp-canvas{height:52vh}#st-rivalry-workspace .rp-side{display:block}}
+    #st-rivalry-workspace .rp-rigs{display:flex;gap:6px;flex-wrap:wrap}
+    #st-rivalry-workspace .rp-rigs[hidden]{display:none}
+    #st-rivalry-workspace #rp-profile{display:block;width:100%;height:96px;margin-top:8px;background:var(--st-panel);border-radius:6px}

@@ -9,14 +9,19 @@
   const CAVEAT = "Recorded laps, driven at different times. Places and gaps are exploratory: a shared route does not prove the same direction, checkpoints or timing.";
   const state = {cars:[], time:0, playing:false, speed:1, mode:"top", follow:0, duration:0,
     view:null, box:null, last:null, categories:[], corners:[], pins:[], pinsOn:true, segments:new Map(),
-    clip:null, pinHits:[]};
+    clip:null, pinHits:[],
+    // the Chase camera: each lap's road, its heading, and the rig the viewer chose
+    roads:[], dirs:[], rig:"chase", orbit:0, raise:0, zoom:1, exag:1, low:0, high:1, ground:null};
+  const C = globalThis.ChaseModel;
   const canvas = $("rp-canvas"), ctx = canvas.getContext("2d");
+  const strip = $("rp-profile"), sctx = strip.getContext("2d");
   const say = text => { $("st-message").textContent = text; };
   // The theme's colours are light-dark(...), which a canvas refuses and silently
   // keeps the previous colour. An element resolves them to a plain colour first.
   const probe = document.createElement("span");
   probe.hidden = true; document.body.append(probe);
   const css = name => { probe.style.color = `var(${name})`; return getComputedStyle(probe).color; };
+  const chase = globalThis.ChaseView.create(canvas, ctx, css);
 
   // ---- choosing laps -------------------------------------------------------
   function picker() {
@@ -66,23 +71,53 @@
   function setMode(mode) {
     state.mode = mode;
     for (const b of document.querySelectorAll("[data-view]")) b.setAttribute("aria-pressed", String(b.dataset.view === mode));
-    $("rp-follow").hidden = mode !== "follow";
-    $("rp-hint").textContent = mode === "follow" ? "Following · scroll to zoom" :
+    $("rp-follow").hidden = mode !== "follow" && mode !== "chase";
+    $("rp-rigs").hidden = mode !== "chase";
+    $("rp-hint").textContent = mode === "chase" ? "Drag to look round · scroll to zoom · double-click to reset" :
+      mode === "follow" ? "Following · scroll to zoom" :
       mode === "tilt" ? "Drag to turn · shift-drag to move · scroll to zoom" : "Drag to move · scroll to zoom";
-    fit(); draw();
+    // the camera goes in the address, so a copied link opens on it
+    try { history.replaceState(null, "", location.pathname + R.withView(location.search, mode) + location.hash); } catch { /* not allowed here */ }
+    chase.reset(); fit(); draw();
   }
   function resize() {
     const ratio = globalThis.devicePixelRatio || 1;
-    canvas.width = Math.round(canvas.clientWidth * ratio); canvas.height = Math.round(canvas.clientHeight * ratio);
-    ctx.setTransform(ratio,0,0,ratio,0,0);
+    for (const [el, c] of [[canvas, ctx], [strip, sctx]]) {
+      el.width = Math.round(el.clientWidth * ratio); el.height = Math.round(el.clientHeight * ratio);
+      c.setTransform(ratio,0,0,ratio,0,0);
+    }
     if (state.box) { fit(); draw(); }
   }
 
   // ---- drawing ---------------------------------------------------------------
-  function draw() {
+  // dt: seconds since the last frame while playing; 0 for a jump (scrub, new camera)
+  function draw(dt = 0) {
     if (!state.cars.length || !state.view) return;
-    const w = canvas.clientWidth, h = canvas.clientHeight, view = state.view;
     const rows = R.standings(state.cars, state.time);
+    const current = R.cornerAt(state.corners, rows[0].state.dist);
+    state.ground = null;
+    if (state.mode === "chase") {
+      state.pinHits = [];   // no corner marks to click from behind the car
+      state.ground = chase.draw({cars:state.cars, roads:state.roads, dirs:state.dirs, time:state.time,
+        follow:state.follow, rig:state.rig, orbit:state.orbit, raise:state.raise, zoom:state.zoom,
+        exag:state.exag, dt, rows, label});
+    } else map(rows, current);
+    $("rp-clock").textContent = `${M.time(Math.max(state.time, 0.0005))} / ${M.time(state.duration)}`;
+    if (document.activeElement !== $("rp-scrub")) $("rp-scrub").value = String(Math.round(1000 * state.time / state.duration));
+    side(rows);
+    profile();
+    if (state.corners.length) {
+      const showing = state.clip?.named ? `Showing ${R.nameOf(state.clip.name)}` : "";
+      // on the run-up to a stretch, say what is coming and not the corner before it
+      const text = R.approaching(state.clip, rows[0].state.dist) ? showing :
+        R.caption(current, current && state.segments.get(current.n),
+          label(state.cars[0]), label(state.cars[1] || state.cars[0])) || showing;
+      if ($("rp-caption").textContent !== text) $("rp-caption").textContent = text;
+    } else if (state.clip?.named) $("rp-caption").textContent = `Showing ${R.nameOf(state.clip.name)}`;
+  }
+  // the route from above, in 3D or following a car
+  function map(rows, current) {
+    const w = canvas.clientWidth, h = canvas.clientHeight, view = state.view;
     if (state.mode === "follow") {
       const target = state.cars[state.follow] || state.cars[0], s = R.at(target, state.time);
       // ease the camera so a noisy heading does not shake the picture
@@ -109,7 +144,6 @@
       ctx.lineWidth = state.mode === "follow" ? 5 : 2.5; ctx.stroke();
     });
     ctx.globalAlpha = 1;
-    const current = R.cornerAt(state.corners, rows[0].state.dist);
     stretch(proj); pins(proj, current, w, h);
     // a short tail behind each car, then the car, slowest first so the leader is on top
     for (const row of [...rows].reverse()) {
@@ -128,17 +162,35 @@
       ctx.fillStyle = car.color; ctx.font = "600 11px system-ui, sans-serif";
       ctx.fillText(`${row.place} ${label(car)}`, px + 12, py - 8 - 13 * (rows.length - row.place));
     }
-    $("rp-clock").textContent = `${M.time(Math.max(state.time, 0.0005))} / ${M.time(state.duration)}`;
-    if (document.activeElement !== $("rp-scrub")) $("rp-scrub").value = String(Math.round(1000 * state.time / state.duration));
-    side(rows);
-    if (state.corners.length) {
-      const showing = state.clip?.named ? `Showing ${R.nameOf(state.clip.name)}` : "";
-      // on the run-up to a stretch, say what is coming and not the corner before it
-      const text = R.approaching(state.clip, rows[0].state.dist) ? showing :
-        R.caption(current, current && state.segments.get(current.n),
-          label(state.cars[0]), label(state.cars[1] || state.cars[0])) || showing;
-      if ($("rp-caption").textContent !== text) $("rp-caption").textContent = text;
-    } else if (state.clip?.named) $("rp-caption").textContent = `Showing ${R.nameOf(state.clip.name)}`;
+  }
+  // Height along the whole route under every camera: the followed car's road,
+  // every car's place on it and, from behind the car, the level the posts stand on.
+  function profile() {
+    const w = strip.clientWidth, h = strip.clientHeight, pad = 6, road = state.roads[state.follow] || [];
+    sctx.clearRect(0, 0, w, h);
+    if (road.length < 2) return;
+    const s0 = road[0].s, s1 = road[road.length - 1].s, lo = state.low, hi = Math.max(state.high, lo + 1);
+    const X = s => pad + (w - 2 * pad) * (s - s0) / Math.max(1, s1 - s0);
+    const Y = y => h - pad - (h - 2 * pad - 12) * (y - lo) / (hi - lo);
+    sctx.beginPath(); sctx.moveTo(X(s0), h);
+    for (const q of road) sctx.lineTo(X(q.s), Y(q.p[1]));
+    sctx.lineTo(X(s1), h); sctx.closePath();
+    sctx.fillStyle = css("--st-line"); sctx.fill();
+    sctx.beginPath();
+    for (const [i, q] of road.entries()) if (i) sctx.lineTo(X(q.s), Y(q.p[1])); else sctx.moveTo(X(q.s), Y(q.p[1]));
+    sctx.strokeStyle = css("--st-muted"); sctx.lineWidth = 1.5; sctx.stroke();
+    if (state.ground !== null) {
+      sctx.setLineDash([3, 3]); sctx.beginPath(); sctx.moveTo(pad, Y(state.ground)); sctx.lineTo(w - pad, Y(state.ground));
+      sctx.strokeStyle = css("--st-accent"); sctx.lineWidth = 1; sctx.stroke(); sctx.setLineDash([]);
+    }
+    sctx.fillStyle = css("--st-muted"); sctx.font = "11px system-ui, sans-serif";
+    sctx.fillText(`Height along the route · ${Math.round(hi - lo)} m from lowest to highest`, pad + 2, 13);
+    for (const [n, car] of [...state.cars.entries()].reverse()) {
+      const st = R.at(car, state.time), x = X(Math.min(st.dist, s1)), y = Y(st.y - C.RIDE);
+      sctx.beginPath(); sctx.arc(x, y, n === state.follow ? 5 : 4, 0, Math.PI * 2);
+      sctx.fillStyle = car.color; sctx.fill();
+      sctx.lineWidth = 1.5; sctx.strokeStyle = css("--st-bg"); sctx.stroke();
+    }
   }
   // In 3D, the first lap's line drawn again on the ground with posts up to the
   // road, so you can see how high each part runs (as on Analysis).
@@ -232,20 +284,20 @@
   // ---- playback ---------------------------------------------------------------
   function frame(now) {
     if (!state.playing) return;
-    if (state.last !== null) state.time += state.speed * Math.min(0.1, (now - state.last) / 1000);
-    state.last = now;
+    const dt = state.last === null ? 0 : Math.min(0.1, (now - state.last) / 1000);
+    state.time += state.speed * dt; state.last = now;
     if (state.clip?.armed && state.time >= state.clip.end) {
       state.time = state.clip.end; state.clip.armed = false; play(false);
     }
     if (state.time >= state.duration) { state.time = state.duration; play(false); }
-    draw();
+    draw(dt || 1e-3);
     if (state.playing) requestAnimationFrame(frame);
   }
   function play(on) {
     if (on && state.time >= state.duration) state.time = 0;
     state.playing = on; state.last = null;
     $("rp-play").textContent = on ? "Pause" : "Play"; $("rp-play").setAttribute("aria-label", on ? "Pause" : "Play");
-    if (on) requestAnimationFrame(frame); else draw();
+    if (on) requestAnimationFrame(frame); else draw(1e-3);
   }
 
   // Corners are extra: the replay plays without them and never waits for them.
@@ -284,14 +336,15 @@
     state.cars = usable.map((data, i) => R.car(data, meta.get(data.lap.id), i));
     state.duration = Math.max(...state.cars.map(c => c.duration));
     state.box = R.bounds(state.cars);
+    state.roads = state.cars.map(car => C.road(car));
+    state.low = state.box.minY - C.RIDE; state.high = state.box.maxY - C.RIDE;
     const first = state.cars[0].meta, routes = new Set(state.cars.map(c => c.meta.route_name));
     $("rp-label").textContent = `${[...routes].filter(Boolean).join(" / ") || "Recorded laps"} · ${state.cars.length} laps`;
     $("rp-follow").innerHTML = state.cars.map((c,i) => `<option value="${i}">${esc(c.meta.driver_name || `Lap ${c.id}`)} · ${M.time(c.duration)}${c.estimated ? " est." : ""}</option>`).join("");
     $("rp-picker").hidden = true; $("rp-stage").hidden = false; $("rp-share").hidden = false;
-    $("rp-chase").href = `replay-chase.html?laps=${state.cars.map(c => c.id).join(",")}`;
     say(routes.size > 1 ? `These laps are on different routes, so the places and gaps mean little. ${CAVEAT}` :
       `${first.route_name || "Route"} · press Play. ${CAVEAT}`);
-    resize(); setMode("top");
+    resize(); setMode(R.parseView(location.search) || "top");
     const at = R.parseAt(location.search);
     if (at && goTo(at.from, at.to, at.name, true)) { $("rp-caption").hidden = false; draw(); }
     loadCorners().catch(() => {});
@@ -305,7 +358,15 @@
   });
   $("rp-speed").addEventListener("change", e => { state.speed = Number(e.target.value) || 1; });
   $("rp-scrub").addEventListener("input", e => { if (state.clip) state.clip.armed = false; state.time = state.duration * Number(e.target.value) / 1000; state.last = null; draw(); });
-  $("rp-follow").addEventListener("change", e => { state.follow = Number(e.target.value); draw(); });
+  $("rp-follow").addEventListener("change", e => { state.follow = Number(e.target.value); chase.reset(); draw(); });
+  function setRig(name) {
+    state.rig = name; state.orbit = 0; state.raise = 0; state.zoom = 1;
+    for (const b of document.querySelectorAll("[data-rig]")) b.setAttribute("aria-pressed", String(b.dataset.rig === name));
+    draw();
+  }
+  for (const b of document.querySelectorAll("[data-rig]")) b.addEventListener("click", () => setRig(b.dataset.rig));
+  $("rp-exag").addEventListener("change", e => { state.exag = Number(e.target.value) || 1; draw(); });
+  canvas.addEventListener("dblclick", () => { if (state.mode === "chase") setRig(state.rig); });
   $("rp-share").addEventListener("click", async () => {
     try { await navigator.clipboard.writeText(location.href); $("rp-share").textContent = "Link copied"; }
     catch { $("rp-share").textContent = "Copy the address bar"; }
@@ -332,7 +393,10 @@
     if (!drag) return;
     const dx = e.clientX - drag.x, dy = e.clientY - drag.y, v = state.view;
     drag = {x:e.clientX, y:e.clientY};
-    if (state.mode === "tilt" && !e.shiftKey) {
+    if (state.mode === "chase") {
+      state.orbit -= dx * 0.008;
+      state.raise = Math.max(-C.RIGS[state.rig].up + 0.5, Math.min(60, state.raise + dy * 0.05));
+    } else if (state.mode === "tilt" && !e.shiftKey) {
       v.yaw += dx * 0.008; v.pitch = Math.max(0, Math.min(1.35, v.pitch + dy * 0.006));
     } else { v.panX += dx; v.panY += dy; }
     draw();
@@ -343,7 +407,8 @@
     if (!state.view) return;
     e.preventDefault();
     const k = Math.exp(-e.deltaY * 0.0015);
-    if (state.mode === "follow") state.view.zoom = Math.max(0.3, Math.min(6, (state.view.zoom || 1) * k));
+    if (state.mode === "chase") state.zoom = Math.max(0.4, Math.min(5, state.zoom / k));
+    else if (state.mode === "follow") state.view.zoom = Math.max(0.3, Math.min(6, (state.view.zoom || 1) * k));
     else state.view.scale *= k;
     draw();
   }, {passive:false});
