@@ -49,7 +49,8 @@
     for (let i = 0; i < car.t.length; i++) {
       if (car.mono[i] < next) continue;   // backing up re-drives road already laid
       next = car.mono[i] + step;
-      pts.push({s: car.mono[i], p: [c.pos_x[i], c.pos_y[i] - RIDE, c.pos_z[i]]});
+      // in the air the trace is the flight, not road: drawn apart, never as road
+      pts.push({s: car.mono[i], p: [c.pos_x[i], c.pos_y[i] - RIDE, c.pos_z[i]], air: airborne(car, car.dist[i])});
     }
     for (let k = 0; k < pts.length; k++) {
       const a = pts[Math.max(0, k - 1)].p, b = pts[Math.min(pts.length - 1, k + 1)].p;
@@ -146,6 +147,45 @@
     }
     return edges;
   }
+  /* The same car as solid quads, each {pts, n, part}: n is the outward unit
+     normal, part is body, rear (the body's back, where the brake lights are),
+     cabin (no underside: it rests on the body) or wheel. */
+  function carFaces(pos, way) {
+    const {f, r, u} = way.f ? way : level(way);
+    const P = (x, y, z) => add(add(add(pos, mul(f, x)), mul(u, y)), mul(r, z));
+    const ring = (back, front, y, w) => [P(front, y, -w), P(front, y, w), P(back, y, w), P(back, y, -w)];
+    const mid = pts => mul(pts.reduce((a, b) => add(a, b), [0, 0, 0]), 1 / pts.length);
+    const out = [];
+    const hull = (lo, hi, part) => {
+      const centre = mid([...lo, ...hi]);
+      const quads = [[lo[3], lo[2], lo[1], lo[0]], hi, ...[0, 1, 2, 3].map(i => [lo[i], lo[(i + 1) % 4], hi[(i + 1) % 4], hi[i]])];
+      quads.forEach((pts, k) => {
+        if (part === "cabin" && k === 0) return;   // the cabin's underside rests on the body: never seen
+        let n = norm(cross(sub(pts[1], pts[0]), sub(pts[3], pts[0]))) || u;
+        if (dot(n, sub(mid(pts), centre)) < 0) n = mul(n, -1);   // always pointing out
+        out.push({pts, n, part: part === "body" && k === 4 ? "rear" : part});
+      });
+    };
+    hull(ring(-2.3, 2.3, -0.4, 0.95), ring(-2.25, 2.15, 0.15, 0.95), "body");
+    hull(ring(-1.45, 0.75, 0.15, 0.85), ring(-1.05, 0.2, 0.68, 0.72), "cabin");
+    for (const x of [-1.45, 1.4]) for (const z of [-1.0, 1.0])
+      out.push({pts: [P(x - 0.34, -RIDE, z), P(x + 0.34, -RIDE, z), P(x + 0.34, -0.1, z), P(x - 0.34, -0.1, z)],
+        n: mul(r, Math.sign(z)), part: "wheel"});
+    return out;
+  }
+  /* A face turned toward the camera (the rest are hidden behind the car). */
+  function facing(cam, face) {
+    const c = mul(face.pts.reduce((a, b) => add(a, b), [0, 0, 0]), 1 / face.pts.length);
+    return dot(face.n, sub(c, cam.eye)) < 0;
+  }
+  /* Screen height of the horizon: a far point level with the eye, straight
+     ahead. null when the camera looks straight down. */
+  function horizon(cam) {
+    const ahead = norm([cam.f[0], 0, cam.f[2]]);
+    if (!ahead) return null;
+    const p = project(cam, add(cam.eye, mul(ahead, 1e5)));
+    return p ? p[1] : null;
+  }
   /* Two brake lights across the back of the body, as [from, to] pairs. */
   function brakeLights(pos, way) {
     const {f, r, u} = way.f ? way : level(way);
@@ -154,7 +194,7 @@
   }
 
   const model = {RIDE, RIGS, sub, add, mul, norm, camera, project, segment, road, localLow, heading,
-    slope, ease, rig, basis, attitude, airborne, carEdges, brakeLights};
+    slope, ease, rig, basis, attitude, airborne, carEdges, carFaces, facing, horizon, brakeLights};
   if (typeof module !== "undefined" && module.exports) module.exports = model;
   else root.ChaseModel = model;
 })(globalThis);
