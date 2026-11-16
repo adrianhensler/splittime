@@ -8,7 +8,8 @@
   // background without a stroke per segment.
   const BANDS = [[90, 1], [180, 0.7], [300, 0.45], [FAR, 0.2]];
   const BRAKE = "#ff4d4d";   // brake lights: the same red whatever the theme
-  const TOP = 48;            // the camera buttons sit above this: no labels there
+  const TOP = 48;
+  const LAYER = {body: 0, rear: 0, wheel: 1, cabin: 2};   // painting order of a solid car            // the camera buttons sit above this: no labels there
 
   /* `css(name)` resolves a theme colour for the canvas. */
   function create(canvas, ctx, css) {
@@ -64,7 +65,10 @@
       const faces = C.carFaces(p, way).filter(face => C.facing(eye, face))
         .map(face => ({face, scr: face.pts.map(q => C.project(eye, q))}))
         .filter(({scr}) => scr.every(Boolean))
-        .sort((a, b) => b.scr.reduce((s, q) => s + q[2], 0) - a.scr.reduce((s, q) => s + q[2], 0));
+        // body, then wheels, then cabin: the cabin sits on the body, so its roof must
+        // never be painted over by the body's top, whatever the faces' average depths
+        .sort((a, b) => (LAYER[a.face.part] - LAYER[b.face.part]) ||
+          b.scr.reduce((s, q) => s + q[2], 0) - a.scr.reduce((s, q) => s + q[2], 0));
       const dark = css("--st-bg");
       for (const {face, scr} of faces) {
         polygon(scr);
@@ -210,7 +214,8 @@
     function hud(f, s, w, h) {
       const row = f.rows.find(r => r.car === f.cars[f.follow]);
       if (!row) return;
-      const place = row.place === 1 ? (s.finished ? "Finished first" : "Ahead") : `${row.place}. +${row.gap.toFixed(2)} s`;
+      const car = f.cars[f.follow], est = car.estimated && s.finished ? " · est." : "";   // a last-packet finish is not exact
+      const place = (row.place === 1 ? (s.finished ? "Finished first" : "Ahead") : `${row.place}. +${row.gap.toFixed(2)} s`) + est;
       const bw = 150, bh = 58, x = w - bw - 10, y = h - bh - 10;
       ctx.fillStyle = css("--st-bg"); ctx.globalAlpha = 0.8; ctx.fillRect(x, y, bw, bh); ctx.globalAlpha = 1;
       ctx.fillStyle = css("--st-fg"); ctx.font = "700 24px system-ui, sans-serif";
