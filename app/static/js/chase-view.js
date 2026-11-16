@@ -9,7 +9,7 @@
   const BANDS = [[90, 1], [180, 0.7], [300, 0.45], [FAR, 0.2]];
   const BRAKE = "#ff4d4d";   // brake lights: the same red whatever the theme
   const TOP = 48;
-  const LAYER = {body: 0, rear: 0, wheel: 1, cabin: 2};   // painting order of a solid car            // the camera buttons sit above this: no labels there
+  const LAYER = {body: 0, rear: 0, wheel: 1, hub: 2, cabin: 3};   // painting order of a solid car            // the camera buttons sit above this: no labels there
 
   /* `css(name)` resolves a theme colour for the canvas. */
   function create(canvas, ctx, css) {
@@ -72,8 +72,8 @@
       const dark = css("--st-bg");
       for (const {face, scr} of faces) {
         polygon(scr);
-        const wheel = face.part === "wheel";
-        ctx.fillStyle = wheel ? dark : color;
+        const wheel = face.part === "wheel" || face.part === "hub";
+        ctx.fillStyle = face.part === "hub" ? css("--st-muted") : wheel ? dark : color;
         ctx.globalAlpha = ghost ? 0.22 : 1; ctx.fill();
         if (!ghost && !wheel) {   // shade by how much the face looks toward the light
           const lit = Math.max(0, face.n[0] * light[0] + face.n[1] * light[1] + face.n[2] * light[2]);
@@ -181,7 +181,7 @@
       }
 
       // the cars, furthest first, each with a stick down to the ground under it
-      const placed = new Map(f.rows.map(row => [row.car, row]));
+      const placed = new Map(f.rows.map(row => [row.car, row])), labels = [];
       const shown = f.cars.map((car, n) => {
         const st = R.at(car, f.time), p = seat(st);
         // how the car really sat (yaw, nose, roll); level along its travel if not recorded
@@ -200,12 +200,21 @@
         if (shadow.every(Boolean)) { polygon(shadow); ctx.fillStyle = "#000"; ctx.globalAlpha = 0.25; ctx.fill(); ctx.globalAlpha = 1; }
         solid(eye, p, way, car.color, n !== f.follow, brake);
         const at = C.project(eye, [p[0], p[1] + 1.8, p[2]]), row = placed.get(car);
-        if (at && at[2] < 250 && at[1] > TOP && row) {
-          ctx.fillStyle = car.color; ctx.font = "600 12px system-ui, sans-serif"; ctx.textAlign = "center";
-          ctx.fillText(`${row.place} ${f.label(car)}${row.place > 1 ? ` +${row.gap.toFixed(2)}` : ""}${car.estimated && row.state.finished ? " est." : ""}${air ? " · air" : ""}`, at[0], at[1]);
-          ctx.textAlign = "start";
-        }
+        if (at && at[2] < 250 && row) labels.push({x: at[0], y: at[1], color: car.color, place: row.place,
+          text: `${row.place} ${f.label(car)}${row.place > 1 ? ` +${row.gap.toFixed(2)}` : ""}${car.estimated && row.state.finished ? " est." : ""}${air ? " · air" : ""}`});
       }
+      // labels last, over every car; one that would cover another moves up a line
+      ctx.font = "600 12px system-ui, sans-serif"; ctx.textAlign = "center";
+      const taken = [];
+      for (const label of labels.sort((a, b) => a.place - b.place)) {
+        const w = ctx.measureText(label.text).width;
+        let y = label.y;
+        while (taken.some(t => Math.abs(t.x - label.x) < (t.w + w) / 2 + 4 && Math.abs(t.y - y) < 15)) y -= 15;
+        if (y <= TOP) continue;
+        taken.push({x: label.x, y, w});
+        ctx.fillStyle = label.color; ctx.fillText(label.text, label.x, y);
+      }
+      ctx.textAlign = "start";
       hud(f, s, w, h);
       return g;
     }

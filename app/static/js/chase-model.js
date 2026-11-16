@@ -13,6 +13,7 @@
   const UP = [0, 1, 0], NEAR = 0.3;
   // the recorded position is the car's middle, not the road under it
   const RIDE = 0.7;
+  const WHEEL_R = 0.34, WHEEL_SIDES = 16;   // wheel radius (m), drawn as a 16-sided disc
 
   /* A camera at `eye` looking at `target`. right = up x forward keeps a car
      heading along +x with -z on its right, as on the map. */
@@ -149,7 +150,7 @@
   }
   /* The same car as solid quads, each {pts, n, part}: n is the outward unit
      normal, part is body, rear (the body's back, where the brake lights are),
-     cabin (no underside: it rests on the body) or wheel. */
+     cabin (no underside: it rests on the body), wheel or hub. */
   function carFaces(pos, way) {
     const {f, r, u} = way.f ? way : level(way);
     const P = (x, y, z) => add(add(add(pos, mul(f, x)), mul(u, y)), mul(r, z));
@@ -168,9 +169,15 @@
     };
     hull(ring(-2.3, 2.3, -0.4, 0.95), ring(-2.25, 2.15, 0.15, 0.95), "body");
     hull(ring(-1.45, 0.75, 0.15, 0.85), ring(-1.05, 0.2, 0.68, 0.72), "cabin");
-    for (const x of [-1.45, 1.4]) for (const z of [-1.0, 1.0])
-      out.push({pts: [P(x - 0.34, -RIDE, z), P(x + 0.34, -RIDE, z), P(x + 0.34, -0.1, z), P(x - 0.34, -0.1, z)],
-        n: mul(r, Math.sign(z)), part: "wheel"});
+    // round wheels touching the road: a tyre, and a hub a touch further out
+    const disc = (x, z, radius) => [...Array(WHEEL_SIDES).keys()].map(k => {
+      const a = 2 * Math.PI * k / WHEEL_SIDES;
+      return P(x + radius * Math.cos(a), -RIDE + WHEEL_R + radius * Math.sin(a), z);
+    });
+    for (const x of [-1.45, 1.4]) for (const z of [-1.0, 1.0]) {
+      out.push({pts: disc(x, z, WHEEL_R), n: mul(r, Math.sign(z)), part: "wheel"});
+      out.push({pts: disc(x, z * 1.02, WHEEL_R * 0.45), n: mul(r, Math.sign(z)), part: "hub"});
+    }
     return out;
   }
   /* A face turned toward the camera (the rest are hidden behind the car). */
