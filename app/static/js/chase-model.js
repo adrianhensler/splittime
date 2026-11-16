@@ -96,10 +96,43 @@
       target: [pos[0] + d[0] * r.ahead, pos[1] + r.look, pos[2] + d[2] * r.ahead]};
   }
 
-  /* A wireframe car at `pos` facing `dir` (a unit vector, may climb), as a
-     list of [from, to] world points: body, cabin and four wheels. */
-  function carEdges(pos, dir) {
-    const f = norm(dir) || [1, 0, 0], r = norm(cross(UP, f)) || [0, 0, -1], u = cross(f, r);
+  /* The car's own axes from the game's angles: forward f, right r, up u.
+     Yaw is the game's (forward = (sin yaw, cos yaw) on the level), nose is
+     how far the front is raised (the game's pitch with its sign flipped:
+     nose up is negative there) and a positive roll drops the right side.
+     All checked against real laps' positions and cornering forces. */
+  function basis(yaw, nose = 0, roll = 0) {
+    const f = [Math.sin(yaw) * Math.cos(nose), Math.sin(nose), Math.cos(yaw) * Math.cos(nose)];
+    const r0 = [Math.cos(yaw), 0, -Math.sin(yaw)], u0 = cross(f, r0);
+    const c = Math.cos(roll), s = Math.sin(roll);
+    return {f, r: sub(mul(r0, c), mul(u0, s)), u: add(mul(u0, c), mul(r0, s))};
+  }
+  /* Axes for a car with no recorded angles: along its travel, level. */
+  function level(dir) {
+    const f = norm(dir) || [1, 0, 0], r = norm(cross(UP, f)) || [0, 0, -1];
+    return {f, r, u: cross(f, r)};
+  }
+  const short = (a, b) => Math.atan2(Math.sin(b - a), Math.cos(b - a));
+  /* The car's yaw, nose and roll at `time`, or null when the lap was loaded
+     without them. Angles move the short way round between samples. Height xN
+     raises the nose as it steepens the road; roll is never stretched. */
+  function attitude(model, car, time, exag = 1) {
+    const c = car.channels;
+    if (!c.raw_yaw || !c.raw_pitch || !c.raw_roll || car.t.length < 1) return null;
+    const [i, k] = model.locate(car.t, Math.min(time, car.duration)), j = Math.min(i + 1, car.t.length - 1);
+    const ang = arr => arr[i] + short(arr[i], arr[j]) * k;
+    const nose = -ang(c.raw_pitch);
+    return {yaw: ang(c.raw_yaw), nose: exag === 1 ? nose : Math.atan(Math.tan(nose) * exag), roll: ang(c.raw_roll)};
+  }
+  /* In the air at this distance along the route: inside one of the lap's
+     jumps, as the server's own detector found them (every wheel unloaded). */
+  const airborne = (car, dist) => (car.jumps || []).some(j => dist >= j.dist0 && dist <= j.dist1);
+
+  /* A wireframe car at `pos`, as a list of [from, to] world points: body,
+     cabin and four wheels. `way` is its axes from basis(), or a direction of
+     travel (a unit vector, may climb) to sit level along. */
+  function carEdges(pos, way) {
+    const {f, r, u} = way.f ? way : level(way);
     // x forward, y up, z to the right of the car
     const P = (x, y, z) => add(add(add(pos, mul(f, x)), mul(u, y)), mul(r, z));
     const ring = (back, front, y, w) => [P(front, y, -w), P(front, y, w), P(back, y, w), P(back, y, -w)];
@@ -113,9 +146,15 @@
     }
     return edges;
   }
+  /* Two brake lights across the back of the body, as [from, to] pairs. */
+  function brakeLights(pos, way) {
+    const {f, r, u} = way.f ? way : level(way);
+    const P = (x, y, z) => add(add(add(pos, mul(f, x)), mul(u, y)), mul(r, z));
+    return [[P(-2.32, 0.02, -0.9), P(-2.32, 0.02, -0.5)], [P(-2.32, 0.02, 0.5), P(-2.32, 0.02, 0.9)]];
+  }
 
   const model = {RIDE, RIGS, sub, add, mul, norm, camera, project, segment, road, localLow, heading,
-    slope, ease, rig, carEdges};
+    slope, ease, rig, basis, attitude, airborne, carEdges, brakeLights};
   if (typeof module !== "undefined" && module.exports) module.exports = model;
   else root.ChaseModel = model;
 })(globalThis);

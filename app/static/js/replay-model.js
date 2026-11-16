@@ -82,7 +82,8 @@
       estimated: meta?.finish === "last_packet",
       // the recorded time is the result; the trace can end a frame or two early
       duration: Number.isFinite(meta?.time_s) && meta.time_s > 0 ? meta.time_s : last,
-      traceEnd: last, meta: meta || {}, color: COLORS[index % COLORS.length]};
+      traceEnd: last, meta: meta || {}, color: COLORS[index % COLORS.length],
+      jumps: data.jumps || []};   // flights the server found: {dist0, dist1, air_s, hard}
   }
   /* Who is ahead at `time`, and by how much. The leader is the car furthest
      along the route (a finished car by its lap time). gap = how much later

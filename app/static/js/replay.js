@@ -3,7 +3,8 @@
   const M = globalThis.RivalryModel, R = globalThis.ReplayModel, $ = id => document.getElementById(id);
   const esc = value => String(value ?? "").replace(/[&<>"']/g, char =>
     ({"&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"}[char]));
-  const CHANNELS = "pos_x,pos_y,pos_z,speed_kmh,gear,throttle,brake,lap_time";
+  // raw_yaw/pitch/roll: how the car sat, for the Chase camera's cars
+  const CHANNELS = "pos_x,pos_y,pos_z,speed_kmh,gear,throttle,brake,lap_time,raw_yaw,raw_pitch,raw_roll";
   const EST = "The game stopped sending data at the finish line, so this time is SplitTime’s last clock reading.";
   const est = car => car.estimated ? ` <abbr class="st-est" title="${EST}">est.</abbr>` : "";
   const CAVEAT = "Recorded laps, driven at different times. Places and gaps are exploratory: a shared route does not prove the same direction, checkpoints or timing.";
@@ -182,6 +183,13 @@
     if (state.ground !== null) {
       sctx.setLineDash([3, 3]); sctx.beginPath(); sctx.moveTo(pad, Y(state.ground)); sctx.lineTo(w - pad, Y(state.ground));
       sctx.strokeStyle = css("--st-accent"); sctx.lineWidth = 1; sctx.stroke(); sctx.setLineDash([]);
+    }
+    // the followed car's jumps, as ticks along the bottom
+    const jumps = state.cars[state.follow]?.jumps || [];
+    if (jumps.length) {
+      sctx.strokeStyle = css("--st-accent"); sctx.lineWidth = 3; sctx.beginPath();
+      for (const j of jumps) { sctx.moveTo(X(j.dist0), h - 2); sctx.lineTo(Math.max(X(j.dist1), X(j.dist0) + 2), h - 2); }
+      sctx.stroke();
     }
     sctx.fillStyle = css("--st-muted"); sctx.font = "11px system-ui, sans-serif";
     sctx.fillText(`Height along the route · ${Math.round(hi - lo)} m from lowest to highest`, pad + 2, 13);

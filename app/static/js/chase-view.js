@@ -7,6 +7,7 @@
   // Lines are batched by how far away they are, so distant road fades into the
   // background without a stroke per segment.
   const BANDS = [[90, 1], [180, 0.7], [300, 0.45], [FAR, 0.2]];
+  const BRAKE = "#ff4d4d";   // brake lights: the same red whatever the theme
 
   /* `css(name)` resolves a theme colour for the canvas. */
   function create(canvas, ctx, css) {
@@ -101,20 +102,30 @@
       const placed = new Map(f.rows.map(row => [row.car, row]));
       const shown = f.cars.map((car, n) => {
         const st = R.at(car, f.time), p = seat(st);
-        const d = f.dirs[n] || [1, 0, 0], tip = C.norm([d[0], d[1] * ex, d[2]]) || d;
-        return {car, p, tip, depth: C.project(eye, p)?.[2] ?? -1};
+        // how the car really sat (yaw, nose, roll); level along its travel if not recorded
+        const att = C.attitude(R, car, f.time, ex), d = f.dirs[n] || [1, 0, 0];
+        const way = att ? C.basis(att.yaw, att.nose, att.roll) : C.norm([d[0], d[1] * ex, d[2]]) || d;
+        return {car, p, way, brake: st.brake ?? 0, air: !st.finished && C.airborne(car, st.dist),
+          depth: C.project(eye, p)?.[2] ?? -1};
       }).filter(c => c.depth > 0 && near(c.p)).sort((a, b) => b.depth - a.depth);
-      for (const {car, p, tip} of shown) {
-        const segs = C.carEdges(p, tip).map(([a, b]) => C.segment(eye, a, b)).filter(Boolean);
+      for (const {car, p, way, brake, air} of shown) {
+        const segs = C.carEdges(p, way).map(([a, b]) => C.segment(eye, a, b)).filter(Boolean);
         const stick = C.segment(eye, [p[0], p[1] - C.RIDE, p[2]], [p[0], g, p[2]]);
-        if (stick && p[1] - C.RIDE - g > 0.4) lines([stick], car.color, 1, 0.6);
+        if (stick && air) {
+          // in the air: the drop to the ground, dashed and bright
+          ctx.setLineDash([4, 4]); lines([stick], css("--st-accent"), 1.5, 0.9); ctx.setLineDash([]);
+        } else if (stick && p[1] - C.RIDE - g > 0.4) lines([stick], car.color, 1, 0.6);
         const shadow = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([u, v]) => [p[0] + u * 1.2, g, p[2] + v * 1.2]);
         lines(shadow.map((q, i) => C.segment(eye, q, shadow[(i + 1) % 4])).filter(Boolean), car.color, 1, 0.5);
         lines(segs, car.color, 2);
+        if (brake > 5) {
+          const lit = C.brakeLights(p, way).map(([a, b]) => C.segment(eye, a, b)).filter(Boolean);
+          lines(lit, BRAKE, 3.5, 0.35 + 0.65 * Math.min(1, brake / 100));
+        }
         const tag = C.project(eye, [p[0], p[1] + 1.8, p[2]]), row = placed.get(car);
         if (tag && tag[2] < 250 && row) {
           ctx.fillStyle = car.color; ctx.font = "600 12px system-ui, sans-serif"; ctx.textAlign = "center";
-          ctx.fillText(`${row.place} ${f.label(car)}${row.place > 1 ? ` +${row.gap.toFixed(2)}` : ""}${car.estimated && row.state.finished ? " est." : ""}`, tag[0], tag[1]);
+          ctx.fillText(`${row.place} ${f.label(car)}${row.place > 1 ? ` +${row.gap.toFixed(2)}` : ""}${car.estimated && row.state.finished ? " est." : ""}${air ? " · air" : ""}`, tag[0], tag[1]);
           ctx.textAlign = "start";
         }
       }

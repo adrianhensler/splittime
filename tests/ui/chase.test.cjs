@@ -53,3 +53,32 @@ test("a wireframe car is body, cabin and four wheels, wheels on the road", () =>
   const lowest = Math.min(...edges.flat().map(p => p[1]));
   close(lowest, 0);
 });
+test("the game's angles become the car's axes: yaw on the level, nose up, right side down", () => {
+  const z = C.basis(0), x = C.basis(Math.PI / 2);
+  close(z.f[2], 1); close(x.f[0], 1);
+  // level and unrolled, right matches the cameras' right (up x forward): -z for a car heading +x
+  close(x.r[2], -1); close(x.u[1], 1);
+  assert.ok(C.basis(0, 0.2).f[1] > 0, "a raised nose points the front up");
+  const rolled = C.basis(0, 0, 0.3);
+  assert.ok(rolled.r[1] < 0, "a positive roll drops the right side");
+  close(Math.hypot(...rolled.u), 1);
+});
+const att = (yaw, pitch, roll) => R.car({lap:{id:5}, t:[0, 1, 2], dist:[0, 10, 20],
+  channels:{pos_x:[0, 0, 0], pos_y:[0, 0, 0], pos_z:[0, 10, 20], speed_kmh:[36, 36, 36],
+    raw_yaw:yaw, raw_pitch:pitch, raw_roll:roll}}, {time_s:2}, 0);
+test("attitude follows the samples the short way round, with the nose stretched by height", () => {
+  const a = C.attitude(R, att([0.1, 0.3, 0.5], [-0.1, -0.1, -0.1], [0, 0.2, 0.4]), 0.5);
+  close(a.yaw, 0.2); close(a.nose, 0.1); close(a.roll, 0.1);
+  const wrap = C.attitude(R, att([3.1, -3.1, -3.1], [0, 0, 0], [0, 0, 0]), 0.5);
+  assert.ok(Math.abs(Math.abs(wrap.yaw) - Math.PI) < 0.05, "across +-pi it goes the short way");
+  close(C.attitude(R, att([0, 0, 0], [-0.1, -0.1, -0.1], [0, 0, 0]), 1, 4).nose, Math.atan(Math.tan(0.1) * 4));
+  assert.equal(C.attitude(R, climb, 1), null, "a lap loaded without angles has none");
+});
+test("a car is in the air inside one of its jumps; brake lights sit at the back", () => {
+  const car = {jumps:[{dist0:100, dist1:140}]};
+  assert.equal(C.airborne(car, 120), true); assert.equal(C.airborne(car, 150), false);
+  assert.equal(C.airborne({}, 120), false);
+  for (const [a] of C.brakeLights([0, 0, 0], C.basis(0))) assert.ok(a[2] < -2, "behind the car");
+  assert.equal(R.car({lap:{id:6}, t:[0, 1], dist:[0, 1], channels:{pos_x:[0, 1], pos_y:[0, 0], pos_z:[0, 0],
+    speed_kmh:[0, 0]}, jumps:[{dist0:0, dist1:1}]}, {}, 0).jumps.length, 1);
+});
