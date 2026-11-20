@@ -272,21 +272,84 @@
   }
   // Data Out gears: 0 is reverse, 11 is neutral
   const gear = g => g === null || g === undefined ? "—" : g === 0 ? "R" : g === 11 ? "N" : String(g);
-  function side(rows) {
-    $("rp-side").innerHTML = rows.map(({car,state:s,place,gap}) => `<div class="rp-car">
-      <div class="rp-car-head"><strong><span class="rp-dot" style="background:${car.color}"></span>${place}. ${esc(car.meta.driver_name || `Lap ${car.id}`)}</strong>
-        <span class="st-time">${place === 1 ? (s.finished ? M.time(car.duration) : "Ahead") : `+${gap.toFixed(3)} s`}</span></div>
-      <div class="st-quiet">${esc(car.meta.car_name || "")}${car.meta.car_pi ? ` · PI ${esc(car.meta.car_pi)}` : ""} · ${M.time(car.duration)}${est(car)}${s.finished ? (car.estimated ? " · finished (estimated)" : " · finished") : ""}</div>
-      <div class="rp-nums${state.corners.length ? " rp-nums-4" : ""}"><span><b>${Math.round(s.speed)}</b><span class="st-quiet">km/h</span></span>
-        <span><b>${gear(s.gear)}</b><span class="st-quiet">gear</span></span>
-        <span><b>${Math.round(100 * Math.min(1, s.dist / (car.mono[car.mono.length-1] || 1)))}%</b><span class="st-quiet">of route</span></span>${state.corners.length ? cornerTile(s) : ""}</div>
-      <div class="rp-bar" title="Throttle"><i style="width:${Math.max(0,Math.min(100,s.throttle ?? 0))}%;background:${car.color}"></i></div>
-      <div class="rp-bar" title="Brake"><i style="width:${Math.max(0,Math.min(100,s.brake ?? 0))}%;background:var(--st-warn)"></i></div></div>`).join("");
+  /* The side panel: one card per car, kept from frame to frame with only its
+     numbers rewritten, so a change of places slides the cards instead of
+     redrawing the list. Each card's line starts with its lap time, so two runs
+     by one driver can be told apart. The followed car's card is open with the
+     details; the rest are one line each, so six fit beside the map. Clicking a
+     card follows that car. */
+  const panel = {cards:new Map(), order:[], still:matchMedia("(prefers-reduced-motion: reduce)")};
+  const setText = (el, text) => { if (el.textContent !== text) el.textContent = text; };
+  const day = car => {
+    const d = new Date(car.meta.started_at_utc || "");
+    return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString(undefined, {day:"numeric", month:"short"});
+  };
+  function card(car, i) {
+    const el = document.createElement("div");
+    el.className = "rp-car"; el.tabIndex = 0; el.setAttribute("role", "button");
+    el.innerHTML = `<div class="rp-car-head"><strong><span class="rp-dot" style="background:${car.color}"></span><span class="rp-place"></span>. ${esc(car.meta.driver_name || `Lap ${car.id}`)}</strong>
+        <span class="st-time rp-gap"></span></div>
+      <div class="st-quiet rp-line"></div>
+      <div class="rp-more"><div class="st-quiet rp-sub"></div>
+        <div class="rp-nums"><span><b class="rp-speed"></b><span class="st-quiet">km/h</span></span>
+          <span><b class="rp-gear"></b><span class="st-quiet">gear</span></span>
+          <span><b class="rp-pct"></b><span class="st-quiet">of route</span></span>
+          <span class="rp-corner-tile"><b class="rp-corner"></b><span class="st-quiet">corner</span></span></div>
+        <div class="rp-bar" title="Throttle"><i class="rp-throttle" style="background:${car.color}"></i></div>
+        <div class="rp-bar" title="Brake"><i class="rp-brake" style="background:var(--st-warn)"></i></div></div>`;
+    const pick = () => { state.follow = i; $("rp-follow").value = String(i); chase.reset(); draw(); };
+    el.addEventListener("click", pick);
+    el.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pick(); } });
+    const q = cls => el.querySelector(`.${cls}`);
+    return {el, place:q("rp-place"), gap:q("rp-gap"), line:q("rp-line"), sub:q("rp-sub"), speed:q("rp-speed"),
+      gear:q("rp-gear"), pct:q("rp-pct"), corner:q("rp-corner"), cornerTile:q("rp-corner-tile"),
+      throttle:q("rp-throttle"), brake:q("rp-brake")};
   }
-
-  function cornerTile(s) {
-    const c = R.cornerAt(state.corners, s.dist);
-    return `<span><b>${c ? `C${Number(c.n)}` : "—"}</b><span class="st-quiet">corner</span></span>`;
+  function side(rows) {
+    const box = $("rp-side");
+    if (panel.cards.size !== state.cars.length) {
+      panel.cards = new Map(state.cars.map((car, i) => [car.id, card(car, i)]));
+      panel.order = []; box.replaceChildren();
+    }
+    for (const {car, state:s, place, gap} of rows) {
+      const c = panel.cards.get(car.id), open = state.cars[state.follow] === car;
+      const corner = state.corners.length ? R.cornerAt(state.corners, s.dist) : null;
+      const pct = `${Math.round(100 * Math.min(1, s.dist / (car.mono[car.mono.length-1] || 1)))}%`;
+      const speed = String(Math.round(s.speed));
+      c.el.classList.toggle("rp-open", open); c.el.setAttribute("aria-expanded", String(open));
+      setText(c.place, String(place));
+      setText(c.gap, place === 1 ? (s.finished ? M.time(car.duration) : "Ahead") : `+${gap.toFixed(3)} s`);
+      if (open) {
+        const sub = `${esc([day(car), car.meta.car_name].filter(Boolean).join(" · "))}${car.meta.car_pi ? ` · <span class="rp-nowrap">PI ${esc(car.meta.car_pi)}</span>` : ""} · <span class="rp-nowrap">${M.time(car.duration)}${est(car)}</span>${s.finished ? (car.estimated ? " · finished (estimated)" : " · finished") : ""}`;
+        if (c.sub.innerHTML !== sub) c.sub.innerHTML = sub;
+        setText(c.speed, speed); setText(c.gear, gear(s.gear)); setText(c.pct, pct);
+        c.cornerTile.hidden = !state.corners.length; setText(c.corner, corner ? `C${Number(corner.n)}` : "—");
+        c.el.querySelector(".rp-nums").classList.toggle("rp-nums-4", state.corners.length > 0);
+        c.throttle.style.width = `${Math.max(0, Math.min(100, s.throttle ?? 0))}%`;
+        c.brake.style.width = `${Math.max(0, Math.min(100, s.brake ?? 0))}%`;
+      } else {
+        setText(c.line, [`${M.time(car.duration)}${car.estimated ? " est." : ""}`, `${speed} km/h`, `gear ${gear(s.gear)}`, pct, corner ? `C${Number(corner.n)}` : ""].filter(Boolean).join(" · "));
+      }
+    }
+    const ids = rows.map(r => r.car.id), {changed, gained} = R.reorder(panel.order, ids);
+    if (!changed) return;
+    // slide: note where each card is, move them, then animate from there
+    const animate = panel.order.length && !panel.still.matches;
+    const before = animate ? new Map(ids.map(id => [id, panel.cards.get(id).el.getBoundingClientRect().top])) : null;
+    box.append(...ids.map(id => panel.cards.get(id).el));
+    panel.order = ids;
+    if (!animate) return;
+    for (const id of ids) {
+      const el = panel.cards.get(id).el, dy = before.get(id) - el.getBoundingClientRect().top;
+      if (!dy) continue;
+      el.style.transition = "none"; el.style.transform = `translateY(${dy}px)`;
+      el.getBoundingClientRect();   // apply the jump before animating back
+      el.style.transition = "transform 280ms ease-out"; el.style.transform = "";
+    }
+    for (const id of gained) {
+      const el = panel.cards.get(id).el;
+      el.classList.remove("rp-gained"); void el.offsetWidth; el.classList.add("rp-gained");
+    }
   }
 
   // ---- playback ---------------------------------------------------------------

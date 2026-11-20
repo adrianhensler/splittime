@@ -236,8 +236,16 @@
     }
     return parts.join(" · ");
   }
+  /* The side panel's order from one frame to the next: `ids` is the new order
+     (leader first). gained = cars now placed higher than they were, so the
+     panel can show who passed whom; none on the first frame. */
+  function reorder(prev, ids) {
+    const was = new Map(prev.map((id, i) => [id, i]));
+    const gained = prev.length ? ids.filter((id, i) => was.has(id) && i < was.get(id)) : [];
+    return {changed: prev.join(",") !== ids.join(","), gained};
+  }
   const model = {COLORS, locate, at, timeAtDist, axis, car, standings, bounds, projector, relief, posts, parseLaps, parseView, withView,
-    cornerAt, markers, carOver, parseAt, nameOf, clip, approaching, span, focus, caption};
+    cornerAt, markers, carOver, parseAt, nameOf, clip, approaching, span, focus, caption, reorder};
   if (typeof module !== "undefined" && module.exports) module.exports = model;
   else root.ReplayModel = model;
 })(globalThis);

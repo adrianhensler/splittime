@@ -139,3 +139,9 @@ test("the camera in the address is one of the four, and Top is left out of it", 
   assert.equal(R.withView("?laps=1,2&view=chase", "top"), "?laps=1,2");
   assert.deepEqual(R.parseLaps(R.withView("?laps=1,2", "follow")), [1, 2]);
 });
+test("the panel order reports a change and who moved up, not who dropped back", () => {
+  assert.deepEqual(R.reorder([], [1,2,3]), {changed:true, gained:[]});
+  assert.deepEqual(R.reorder([1,2,3], [1,2,3]), {changed:false, gained:[]});
+  assert.deepEqual(R.reorder([1,2,3], [1,3,2]), {changed:true, gained:[3]});
+  assert.deepEqual(R.reorder([1,2,3], [3,1,2]).gained, [3]);
+});
