@@ -299,7 +299,7 @@
         <div class="rp-bar" title="Brake"><i class="rp-brake" style="background:var(--st-warn)"></i></div></div>`;
     const pick = () => { state.follow = i; $("rp-follow").value = String(i); chase.reset(); draw(); };
     el.addEventListener("click", pick);
-    el.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pick(); } });
+    el.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); pick(); } });   // not also play/pause
     const q = cls => el.querySelector(`.${cls}`);
     return {el, place:q("rp-place"), gap:q("rp-gap"), line:q("rp-line"), sub:q("rp-sub"), speed:q("rp-speed"),
       gear:q("rp-gear"), pct:q("rp-pct"), corner:q("rp-corner"), cornerTile:q("rp-corner-tile"),
