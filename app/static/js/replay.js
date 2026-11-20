@@ -333,9 +333,14 @@
     }
     const ids = rows.map(r => r.car.id), {changed, gained} = R.reorder(panel.order, ids);
     if (!changed) return;
-    // slide: note where each card is, move them, then animate from there
+    // slide: note where each card is on screen (mid-slide included), drop any
+    // slide still running, move them, then animate from where they were seen
     const animate = panel.order.length && !panel.still.matches;
     const before = animate ? new Map(ids.map(id => [id, panel.cards.get(id).el.getBoundingClientRect().top])) : null;
+    if (animate) for (const id of ids) {
+      const el = panel.cards.get(id).el;
+      el.style.transition = "none"; el.style.transform = "";
+    }
     // moving a node drops its focus; put it back so keyboard users keep their place
     const focused = box.contains(document.activeElement) ? document.activeElement : null;
     box.append(...ids.map(id => panel.cards.get(id).el));
@@ -345,7 +350,7 @@
     for (const id of ids) {
       const el = panel.cards.get(id).el, dy = before.get(id) - el.getBoundingClientRect().top;
       if (!dy) continue;
-      el.style.transition = "none"; el.style.transform = `translateY(${dy}px)`;
+      el.style.transform = `translateY(${dy}px)`;
       el.getBoundingClientRect();   // apply the jump before animating back
       el.style.transition = "transform 280ms ease-out"; el.style.transform = "";
     }
