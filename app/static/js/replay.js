@@ -336,7 +336,10 @@
     // slide: note where each card is, move them, then animate from there
     const animate = panel.order.length && !panel.still.matches;
     const before = animate ? new Map(ids.map(id => [id, panel.cards.get(id).el.getBoundingClientRect().top])) : null;
+    // moving a node drops its focus; put it back so keyboard users keep their place
+    const focused = box.contains(document.activeElement) ? document.activeElement : null;
     box.append(...ids.map(id => panel.cards.get(id).el));
+    if (focused && document.activeElement !== focused) focused.focus({preventScroll: true});
     panel.order = ids;
     if (!animate) return;
     for (const id of ids) {
