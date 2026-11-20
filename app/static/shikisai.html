@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en"><head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SplitTime · Eighteen runs at Shikisai</title>
+  <link rel="stylesheet" href="css/fonts.css">
+  <link rel="stylesheet" href="css/rivalry-v2.css">
+  <link rel="stylesheet" href="css/note.css">
+  <link rel="stylesheet" href="css/shikisai.css">
+</head>
+<body id="st-rivalry-workspace"><div class="st-window">
+  <header><a class="st-brand" href="index.html">Split<span>//</span>Time</a>
+    <nav aria-label="Site"><a href="index.html">Live</a><a href="analysis.html">Analysis</a>
+      <a href="rivalry-v2.html">Rivalry</a><a href="replay.html">Replay</a><a href="stats.html">Stats</a><a href="recap.html">Recap</a><a href="how-it-works.html">How it works</a><a href="whats-new.html">What’s new</a></nav>
+  </header>
+  <main class="st-note">
+    <header>
+      <div class="st-note-label">Story · 20 November 2026</div>
+      <h1>Eighteen runs at Shikisai</h1>
+      <p class="st-note-lead">Shikisai Sprint is the road my friend FishFighterNS and I have started more than any other in Forza Horizon 6: 28 times between us. Here are the 18 runs we finished in the same car, a 2016 Aston Martin Vulcan, all leaving the line at once.</p>
+      <p class="sk-byline">By Captn Compass</p>
+    </header>
+
+    <section class="sk-wide" aria-labelledby="gr-title">
+      <h2 id="gr-title" class="sr-only">Ghost race</h2>
+      <p class="sk-legend"><span><span class="sk-dot sk-f" aria-hidden="true"></span>FishFighterNS · 3 runs</span>
+        <span><span class="sk-dot sk-c" aria-hidden="true"></span>Captn Compass · 15 runs</span></p>
+      <p id="gr-status" class="sk-status" role="status"></p>
+      <div id="gr-stage" class="gr-stage" hidden>
+        <div class="gr-map">
+          <div class="gr-cams" role="group" aria-label="Camera"><button id="gr-cam-pack" type="button" aria-pressed="true">Follow the pack</button><button id="gr-cam-road" type="button" aria-pressed="false">Whole road</button></div>
+          <canvas id="gr-canvas" aria-label="Map of Shikisai Sprint from above, with a dot for each of the 18 runs. The list beside it gives the order."></canvas>
+        </div>
+        <ol id="gr-board" class="gr-board" aria-label="Order"></ol>
+        <div class="gr-controls">
+          <button id="gr-play" type="button">Play</button>
+          <button id="gr-restart" type="button">Restart</button>
+          <label class="sr-only" for="gr-scrub">Time</label><input id="gr-scrub" type="range" min="0" max="1000" value="0">
+          <span id="gr-clock" class="gr-clock">0:00.000</span>
+          <label for="gr-speed">Speed</label>
+          <select id="gr-speed"><option value="1">1×</option><option value="2" selected>2×</option><option value="4">4×</option><option value="8">8×</option></select>
+        </div>
+      </div>
+      <p class="sk-caption">They were driven on different days, so nobody could see anybody else. It’s a ghost race. Places come from distance along the road, as on the <a href="replay.html?laps=428,424,92,361,338,358">Replay</a> page, which can show up to six runs with speed, gear and pedals.</p>
+    </section>
+
+    <section>
+      <div class="st-note-label">The night shift</div>
+      <h2>Fourteen runs in 36 minutes. Then he drove it twice.</h2>
+      <p>On the evening of 4 November I drove Shikisai fourteen times back to back. My first run was 2:09.405. By the end I’d found about two seconds: my first seven runs averaged 2:08.6 and my last seven 2:06.5. My best, 2:02.493, came on run thirteen.</p>
+      <p>About nine hours later FishFighterNS sat down and drove it twice. 2:02.911, then 2:00.718. He beat my whole evening on his second try, by 1.775 seconds.</p>
+    </section>
+
+    <section>
+      <div class="st-note-label">The numbers</div>
+      <h2>Every lap time</h2>
+      <figure class="sk-figure">
+        <div class="sk-strip-wrap"><div id="sk-strip" class="sk-strip"></div><div id="sk-tip" class="sk-tip" role="tooltip" hidden></div></div>
+        <figcaption>Each dot is one run. The short line is that driver’s average. Hover or tab to a dot for its time and date.</figcaption>
+      </figure>
+      <div class="st-note-scroll"><table>
+        <thead><tr><th scope="col">Same car, same road</th><th scope="col">FishFighterNS</th><th scope="col">Captn Compass</th></tr></thead>
+        <tbody>
+          <tr><td>Runs finished</td><td class="st-num">3</td><td class="st-num">15</td></tr>
+          <tr><td>Best</td><td class="st-num">2:00.718</td><td class="st-num">2:02.493</td></tr>
+          <tr><td>Average</td><td class="st-num">2:04.04</td><td class="st-num">2:08.36</td></tr>
+          <tr><td>Slowest</td><td class="st-num">2:08.490</td><td class="st-num">2:19.971</td></tr>
+          <tr><td>Top speed</td><td class="st-num">326.8 km/h</td><td class="st-num">328.8 km/h</td></tr>
+          <tr><td>Runs with contact</td><td class="st-num">0 of 3</td><td class="st-num">6 of 15</td></tr>
+        </tbody>
+      </table></div>
+      <p>Split the road into four equal quarters and he has the quickest time in three of them. I have the second. Put the best quarter from either of us together and you get about 1:57.3, three and a half seconds under anything we’ve driven. On average my last quarter is where I lose the most to him: 2.2 seconds.</p>
+      <div class="st-note-scroll"><table>
+        <thead><tr><th scope="col">Quarter of the road</th><th scope="col">Best · Fish</th><th scope="col">Best · Captn</th><th scope="col">Average · Fish</th><th scope="col">Average · Captn</th></tr></thead>
+        <tbody>
+          <tr><td>First</td><td class="st-num sk-win">26.96</td><td class="st-num">27.03</td><td class="st-num">27.19</td><td class="st-num">28.01</td></tr>
+          <tr><td>Second</td><td class="st-num">24.45</td><td class="st-num sk-win">24.29</td><td class="st-num">25.48</td><td class="st-num">25.55</td></tr>
+          <tr><td>Third</td><td class="st-num sk-win">34.63</td><td class="st-num">35.15</td><td class="st-num">36.38</td><td class="st-num">37.80</td></tr>
+          <tr><td>Fourth</td><td class="st-num sk-win">31.41</td><td class="st-num">31.57</td><td class="st-num">32.41</td><td class="st-num">34.61</td></tr>
+        </tbody>
+      </table></div>
+      <p class="sk-small">Seconds. The quarters are equal distances along the road, not the game’s own checkpoints. The quicker best in each row is in bold.</p>
+    </section>
+
+    <section>
+      <div class="st-note-label">How we drive</div>
+      <h2>Same grip, different right foot</h2>
+      <p>We corner equally hard. In both our runs the car peaks at about 3.3 g sideways, so that’s the car’s limit, not ours.</p>
+      <p>The throttle is different. Mine is nearly always fully on or fully off: on any run, the time I spend above 90% is the same as the time I spend above 50%. His sits in between for more than a tenth of every run, easing it. That could be how he drives or what he drives with: a controller and a keyboard don’t press the same way, and the data can’t tell those apart.</p>
+    </section>
+
+    <section>
+      <div class="st-note-label">So who’s the better driver?</div>
+      <h2>He’s faster. I’m more persistent.</h2>
+      <p>Not just here. Across everything SplitTime has recorded since 12 October:</p>
+      <div class="st-note-scroll"><table>
+        <thead><tr><th scope="col">Every route, every car</th><th scope="col">FishFighterNS</th><th scope="col">Captn Compass</th></tr></thead>
+        <tbody>
+          <tr><td>Fastest time on a route and class</td><td class="st-num">31</td><td class="st-num">7</td></tr>
+          <tr><td>Where we’ve both set a time, who’s ahead</td><td class="st-num">14</td><td class="st-num">0</td></tr>
+          <tr><td>Cars driven to a valid time</td><td class="st-num">20</td><td class="st-num">11</td></tr>
+          <tr><td>Valid laps and runs</td><td class="st-num">93</td><td class="st-num">101</td></tr>
+          <tr><td>Time in timed laps</td><td class="st-num">3.4 h</td><td class="st-num">4.3 h</td></tr>
+          <tr><td>Times we beat our own best</td><td class="st-num">39</td><td class="st-num">39</td></tr>
+        </tbody>
+      </table></div>
+      <p>Fourteen to nothing is not a close call. He’s the quicker driver. I put in more laps and get better just as often as he does. Those numbers keep changing on the <a href="stats.html">Stats</a> page; these are from 20 November.</p>
+    </section>
+
+    <section>
+      <div class="st-note-label">Why keep your own data</div>
+      <h2>The game gives you a time. Then it forgets the run.</h2>
+      <p>Forza tells you your time and where you placed. It doesn’t keep the fourteen runs from one evening, or how you took each corner. But the game has a setting, <strong>Data Out</strong> under Settings → HUD and Gameplay, that sends what the car is doing, about sixty times a second, to any computer you point it at.</p>
+      <p>SplitTime is that computer. Since 12 October it has caught 572 sessions, about 15.6 hours of driving and 2.7 GB of readings, all on a small server I rent. Because the data is ours, we can ask questions the game never will. Which of my runs was best, and where did it gain? Did I get better over an evening? Who’s faster where? This page is one answer. The same 18 runs also went out to Blender, a free 3D program, as a few files in a couple of minutes, ready for a proper rendered replay.</p>
+    </section>
+
+    <section>
+      <div class="st-note-label">Who maintains it?</div>
+      <h2>I do, the same way I built it: in plain English</h2>
+      <p>I don’t read the code. I describe what I want, AI coding assistants write it, and each change arrives as a short pull request with a plain description and a line on the <a href="whats-new.html">What’s new</a> page. Since 12 October that’s 71 changes and 41 written-down design decisions. When something’s wrong I say so in a sentence. The cards beside the Replay used to jump when places changed; I mentioned it, and now they slide.</p>
+      <p>Is the code sloppy? Maybe. I’ll never look. It does exactly what the two of us need, and it doesn’t have to do anything else. It isn’t flawless. In October the website part once grew to 5.5 GB of memory in under an hour and slowed the whole server. We still don’t know why. It now has a hard limit and restarts itself if it reaches it, and recordings carry on regardless.</p>
+      <p>None of this is a new idea. Robin Sloan made a messaging app for his family alone and wrote that “when you liberate programming from the requirement to be professional and scalable, it becomes a different activity altogether” (<a href="https://www.robinsloan.com/notes/home-cooked-app/">An app can be a home-cooked meal</a>, 2020). Clay Shirky called it situated software, “designed for use by a specific social group, rather than for a generic set of ‘users’” (<a href="https://gwern.net/doc/technology/2004-03-30-shirky-situatedsoftware.html">Situated Software</a>, 2004). He was honest about the cost: it gets brittle if lots more people show up. That’s fine. There are two of us.</p>
+    </section>
+
+    <section>
+      <div class="st-note-label">All eighteen runs</div>
+      <details class="sk-details"><summary>Show every run</summary>
+        <div class="st-note-scroll"><table>
+          <thead><tr><th scope="col">#</th><th scope="col">Driver</th><th scope="col">Time</th><th scope="col">Driven</th><th scope="col">Notes</th><th scope="col"><span class="sr-only">Replay</span></th></tr></thead>
+          <tbody id="sk-runs"></tbody>
+        </table></div>
+      </details>
+    </section>
+
+    <footer>
+      <p>About these numbers: 12 of the 18 times are SplitTime’s own reading at the finish, because the game stopped sending data at the line. Three runs is a small sample for FishFighterNS’s averages. The two runs he drove in a slower car are left out. Figures are as of 20 November 2026.</p>
+      <p>SplitTime is built on <a href="https://github.com/darcane/LapScope">LapScope</a> by Erdem Darcan.</p>
+    </footer>
+  </main>
+</div>
+<script src="js/rivalry-v2-model.js"></script><script src="js/replay-model.js"></script><script src="js/shikisai-data.js"></script><script src="js/shikisai.js"></script>
+</body></html>
