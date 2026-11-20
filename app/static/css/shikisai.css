@@ -1,0 +1,53 @@
+/* Eighteen runs at Shikisai: a story page on the note layout, with a wider
+   ghost race and a lap-time chart. Driver colours checked for colour-blind
+   separation and contrast against the panel, in both themes. */
+#st-rivalry-workspace{--sk-fish:light-dark(#00836e,#1fa592);--sk-captn:light-dark(#b45f06,#cc7a1c)}
+#st-rivalry-workspace .sk-byline{margin:0;color:var(--st-muted);font-size:15px}
+#st-rivalry-workspace .sk-dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:baseline;box-shadow:0 0 0 2px var(--st-panel)}
+#st-rivalry-workspace .sk-dot.sk-f{background:var(--sk-fish)}
+#st-rivalry-workspace .sk-dot.sk-c{background:var(--sk-captn)}
+#st-rivalry-workspace .sk-small,#st-rivalry-workspace .sk-caption{font-size:15px;color:var(--st-muted)}
+#st-rivalry-workspace .sk-win{font-weight:800}
+
+/* the ghost race: wider than the reading column */
+#st-rivalry-workspace .sk-wide{width:min(1100px,calc(100vw - 32px));justify-self:center;margin-inline:calc((42rem - min(1100px,calc(100vw - 32px))) / 2)}
+@media(max-width:44rem){#st-rivalry-workspace .sk-wide{width:auto;margin-inline:0}}
+#st-rivalry-workspace .sk-legend{display:flex;gap:18px;flex-wrap:wrap;margin:0;font-size:15px}
+#st-rivalry-workspace .sk-status:empty{display:none}
+#st-rivalry-workspace .gr-stage{display:grid;grid-template-columns:minmax(0,1fr) 230px;gap:14px;align-items:start}
+#st-rivalry-workspace .gr-stage[hidden]{display:none}
+#st-rivalry-workspace .gr-map{position:relative;background:var(--st-panel);border-radius:6px;min-width:0}
+#st-rivalry-workspace .gr-cams{position:absolute;top:8px;left:8px;display:flex;gap:6px}
+#st-rivalry-workspace .gr-cams button{border:1px solid var(--st-line);border-radius:5px;background:var(--st-bg);color:var(--st-fg);padding:5px 10px;font:inherit;font-size:12px}
+#st-rivalry-workspace .gr-cams button[aria-pressed=true]{border-color:var(--st-accent);color:var(--st-accent)}
+#st-rivalry-workspace #gr-canvas{display:block;width:100%;height:min(64vh,580px)}
+#st-rivalry-workspace .gr-board{list-style:none;margin:0;padding:8px 10px;background:var(--st-panel);border-radius:6px;font-size:13px;line-height:1.25;display:grid;gap:1px;max-height:min(64vh,580px);overflow:auto}
+#st-rivalry-workspace .gr-board li{display:grid;grid-template-columns:1.6em auto 1fr auto;align-items:center;padding:2px 0;font-variant-numeric:tabular-nums}
+#st-rivalry-workspace .gr-board .gr-place{color:var(--st-muted);text-align:right;padding-right:6px}
+#st-rivalry-workspace .gr-board .gr-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#st-rivalry-workspace .gr-board .gr-gap{color:var(--st-muted);padding-left:6px}
+#st-rivalry-workspace .gr-board .gr-done .gr-gap{color:var(--st-fg);font-weight:600}
+#st-rivalry-workspace .gr-controls{grid-column:1 / -1;display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:14px}
+#st-rivalry-workspace .gr-controls button,#st-rivalry-workspace .gr-controls select{border:1px solid var(--st-line);border-radius:5px;background:var(--st-bg);color:var(--st-fg);padding:6px 12px;font:inherit}
+#st-rivalry-workspace #gr-play{background:var(--st-accent);color:var(--st-bg);border-color:var(--st-accent);font-weight:600;min-width:72px}
+#st-rivalry-workspace #gr-scrub{flex:1;min-width:140px;accent-color:var(--st-accent)}
+#st-rivalry-workspace .gr-clock{font-variant-numeric:tabular-nums}
+@media(max-width:740px){#st-rivalry-workspace .gr-stage{grid-template-columns:1fr}#st-rivalry-workspace #gr-canvas{height:56vh}#st-rivalry-workspace .gr-board{max-height:none;grid-template-columns:1fr 1fr;column-gap:14px}}
+
+/* the lap-time chart */
+#st-rivalry-workspace .sk-strip-wrap{position:relative}
+#st-rivalry-workspace .sk-strip svg{display:block;width:100%;height:auto;overflow:visible}
+#st-rivalry-workspace .sk-grid{stroke:var(--st-line);stroke-width:1}
+#st-rivalry-workspace .sk-axis{fill:var(--st-muted);font-size:12px;font-variant-numeric:tabular-nums}
+#st-rivalry-workspace .sk-row{fill:var(--st-fg);font-size:14px;font-weight:600}
+#st-rivalry-workspace .sk-note{fill:var(--st-muted);font-size:11px;font-variant-numeric:tabular-nums}
+#st-rivalry-workspace .sk-mean{stroke:var(--st-fg);stroke-width:2;stroke-linecap:round}
+#st-rivalry-workspace .sk-mark{stroke:var(--st-panel);stroke-width:2}
+#st-rivalry-workspace .sk-mark.sk-f{fill:var(--sk-fish)}
+#st-rivalry-workspace .sk-mark.sk-c{fill:var(--sk-captn)}
+#st-rivalry-workspace .sk-target{fill:transparent}
+#st-rivalry-workspace .sk-hit{cursor:default;outline:none}
+#st-rivalry-workspace .sk-hit:hover .sk-mark,#st-rivalry-workspace .sk-hit:focus-visible .sk-mark{stroke:var(--st-fg)}
+#st-rivalry-workspace .sk-tip{position:absolute;transform:translate(-50%,-100%);background:var(--st-panel);color:var(--st-fg);border:1px solid var(--st-line);border-radius:4px;padding:4px 8px;font-size:13px;white-space:nowrap;pointer-events:none;box-shadow:0 2px 8px rgb(0 0 0 / .25)}
+#st-rivalry-workspace .sk-details summary{cursor:pointer;color:var(--st-accent)}
+#st-rivalry-workspace .sk-details table{margin-top:10px}
