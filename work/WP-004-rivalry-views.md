@@ -630,3 +630,7 @@ same filter, row count and pair. Astra review and the deployed browser recheck
 are pending in the PR; they are not asserted here. Next: review,
 merge green CI, update only the existing web service, and verify the actual
 Back flow. Full M3 competitive/real-two-driver acceptance remains partial.
+
+### Shikisai story films · 21 November 2026
+
+[Draft PR #81](https://github.com/adrianhensler/splittime/pull/81) adds the roadside clip and full ghost race to the existing story. Codex owns this checkpoint through article review. Both native players played and sought on desktop and phone-width Edge, the map showed all 18 runs, and the making-of disclosure opened. The web-role staging server served matching partial MP4 responses. Local UI and Python suites passed (156 and 392 tests). Physical iOS playback and the eventual live release remain unverified. Next checkpoint is owner review of the article and films before web-only publication.
