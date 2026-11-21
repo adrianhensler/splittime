@@ -55,3 +55,7 @@
 /* Film figures use the same reading column and captions as the lap chart. */
 #st-rivalry-workspace .sk-film video{display:block;width:100%;height:auto;aspect-ratio:16/9;border-radius:4px;background:var(--st-panel)}
 #st-rivalry-workspace .sk-film-details p{margin-top:12px}
+#st-rivalry-workspace .sk-announcer .sk-film{margin-top:12px}
+#st-rivalry-workspace .sk-film-details p.sk-prompt-label{margin-bottom:0;color:var(--st-muted);font-weight:600}
+#st-rivalry-workspace .sk-prompt{margin:6px 0 0;padding:2px 0 2px 14px;border-left:3px solid var(--st-line)}
+#st-rivalry-workspace .sk-film-details .sk-prompt p{margin-top:0}
