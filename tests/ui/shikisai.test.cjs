@@ -38,3 +38,25 @@ test("FishFighterNS's two runs came about nine hours after the last one", () => 
   assert.ok(hours > 8.5 && hours < 9.5, String(hours));
   assert.equal(fish[1].time, 120.718);
 });
+test("every film and poster the page names is shipped, and each film can seek before it has downloaded", () => {
+  const fs = require("node:fs"), stat = path.join(__dirname, "../../app/static");
+  const html = fs.readFileSync(path.join(stat, "shikisai.html"), "utf8");
+  const videos = [...html.matchAll(/<video\b[^>]*>/g)].map(m => m[0]);
+  assert.equal(videos.length, 2);
+  for (const v of videos) {
+    assert.match(v, /\bcontrols\b/); assert.match(v, /preload="none"/);
+    assert.ok(fs.existsSync(path.join(stat, v.match(/poster="([^"]+)"/)[1])), v);
+  }
+  const films = [...html.matchAll(/<source src="([^"]+)" type="video\/mp4">/g)].map(m => m[1]);
+  assert.deepEqual(films, ["media/shikisai/roadside.mp4", "media/shikisai/race.mp4"]);
+  for (const f of films) {
+    // top-level boxes in order: the index (moov) must come before the media (mdat)
+    const d = fs.readFileSync(path.join(stat, f)), boxes = [];
+    for (let o = 0; o < d.length;) {
+      let size = d.readUInt32BE(o); boxes.push(d.toString("latin1", o + 4, o + 8));
+      if (size === 1) size = Number(d.readBigUInt64BE(o + 8));
+      assert.ok(size >= 8, f); o += size;
+    }
+    assert.ok(boxes.indexOf("moov") >= 0 && boxes.indexOf("moov") < boxes.indexOf("mdat"), `${f}: ${boxes}`);
+  }
+});
