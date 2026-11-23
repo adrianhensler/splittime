@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en"><head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SplitTime · Every run</title>
+  <link rel="stylesheet" href="css/fonts.css">
+  <link rel="stylesheet" href="css/rivalry-v2.css">
+  <link rel="stylesheet" href="css/note.css">
+  <link rel="stylesheet" href="css/shikisai.css">
+</head>
+<body id="st-rivalry-workspace"><div class="st-window">
+  <header><a class="st-brand" href="index.html">Split<span>//</span>Time</a>
+    <nav aria-label="Site"><a href="index.html">Live</a><a href="analysis.html">Analysis</a>
+      <a href="rivalry-v2.html">Rivalry</a><a href="replay.html">Replay</a><a href="stats.html">Stats</a><a href="recap.html">Recap</a><a href="how-it-works.html">How it works</a><a href="whats-new.html">What’s new</a></nav>
+  </header>
+  <main class="st-note">
+    <header>
+      <div class="st-note-label">Data visualization · 23 November 2026</div>
+      <h1>Every run, from one start</h1>
+      <p class="st-note-lead">Every lap my friend FishFighterNS and I finished between 12 October and 19 November: 299 laps on 38 routes, each recorded on its own. Here they all leave from the same point at the same moment.</p>
+      <p class="sk-byline">By Captn Compass</p>
+    </header>
+
+    <section aria-labelledby="er-film-title">
+      <h2 id="er-film-title" class="sr-only">The film</h2>
+      <p class="sk-legend"><span><span class="sk-dot sk-f" aria-hidden="true"></span>FishFighterNS · 127 runs</span>
+        <span><span class="sk-dot sk-c" aria-hidden="true"></span>Captn Compass · 172 runs</span></p>
+      <figure class="sk-film">
+        <video controls playsinline preload="none" width="1920" height="1080" poster="media/every-run/every-run.jpg" aria-label="Every run, from one start: 299 laps leaving one point together, then a closer look at Shimanoyama" aria-describedby="er-film-caption">
+          <source src="media/every-run/every-run.mp4" type="video/mp4">
+          <a href="media/every-run/every-run.mp4">Watch the film</a>
+        </video>
+        <figcaption id="er-film-caption">Each line is one lap, teal for Fish and amber for me. Follow a line out from the center to see how far that driver had gone at the same point on the clock. The film runs 1 minute 14 seconds, with sound.</figcaption>
+      </figure>
+      <details class="sk-details sk-film-details">
+        <summary>How we made the film</summary>
+        <p>We drove these laps in Forza Horizon 6. SplitTime recorded the positions and speeds the game sent as we drove. For the overview, each lap’s position and speed are sampled ten times a second. The four Shimanoyama laps use the detailed recording, about sixty readings a second, including which way the car was pointing.</p>
+        <p>The movement is smoothed slightly for the replay. The cameras were placed in Blender, the cars and terrain are illustrations, and the sound is original and synthesized. The finish order comes from the recorded lap times.</p>
+      </details>
+    </section>
+
+    <section>
+      <div class="st-note-label">What you’re looking at</div>
+      <h2>Separate laps on one clock</h2>
+      <p>These laps were driven on different days, on different roads, in 27 different cars. In the film every one of them starts at the same moment from the same point. We moved each start to the center and kept its compass heading. That lets you compare how the routes bend and how quickly each driver covers ground, even when their start lines were miles apart.</p>
+      <p>A circuit draws a loop back toward its start. Follow a point-to-point sprint and its line finishes somewhere new.</p>
+      <div class="st-note-scroll"><table>
+        <thead><tr><th scope="col">In the film</th><th scope="col">Laps</th><th scope="col">Driving time (h:mm:ss)</th></tr></thead>
+        <tbody>
+          <tr><td>FishFighterNS</td><td class="st-num">127</td><td class="st-num">3:23:11</td></tr>
+          <tr><td>Captn Compass</td><td class="st-num">172</td><td class="st-num">4:19:42</td></tr>
+          <tr><td>Together, on 38 routes</td><td class="st-num">299</td><td class="st-num">7:42:53</td></tr>
+        </tbody>
+      </table></div>
+      <p>Added up, that’s 7 hours 42 minutes 53 seconds of driving, shown in just over a minute.</p>
+    </section>
+
+    <section>
+      <div class="st-note-label">Shimanoyama</div>
+      <h2>Four laps, one car, a closer look</h2>
+      <p>The film ends at Shimanoyama Circuit, with four laps in the same car: Fish’s best there and my three quickest. FishFighterNS takes Shimanoyama in 39.888 seconds. My two quickest are three thousandths of a second apart, for second and third.</p>
+      <p>Every one of these laps can be watched on the <a href="replay.html?laps=587,755,751,760">Replay</a> page, with speed, gear and pedals.</p>
+    </section>
+
+    <footer>
+      <p>About these numbers: only finished laps are included, so unfinished attempts are left out. Laps with a rewind or contact are kept. Some finish times are SplitTime’s own reading at the line, because the game stopped sending data there. For one road in one car, read <a href="shikisai.html">Eighteen runs at Shikisai</a>.</p>
+      <p>SplitTime is built on <a href="https://github.com/darcane/LapScope">LapScope</a> by Erdem Darcan.</p>
+    </footer>
+  </main>
+</div>
+</body></html>
