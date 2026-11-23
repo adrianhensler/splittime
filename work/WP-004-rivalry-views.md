@@ -641,4 +641,4 @@ Branch `feat/shikisai-announcer` adds a 45-second opening with a generated race 
 
 ### Shikisai story wording · 23 November 2026
 
-Branch `fix/shikisai-canadian-first-person` changes text only on the story page: "tyre(s)" becomes "tire(s)", and the two making-of notes, plus the sentence about the October memory problem, say "I" instead of "we" where the work was the owner's alone. Sentences about both drivers keep "we". UI tests pass. Next checkpoint is owner merge, then a web-only publication.
+Branch `fix/shikisai-canadian-first-person` changes text only: on the story page "tyre(s)" becomes "tire(s)" (and "tyre slip" becomes "tire slip" on How it works), and the two making-of notes, plus the sentence about the October memory problem, say "I" instead of "we" where the work was the owner's alone. Sentences about both drivers keep "we". UI tests pass. Next checkpoint is owner merge, then a web-only publication.
