@@ -638,3 +638,7 @@ Back flow. Full M3 competitive/real-two-driver acceptance remains partial.
 ### Shikisai announcer version · 21 November 2026
 
 Branch `feat/shikisai-announcer` adds a 45-second opening with a generated race announcer as a closed option under the full film, with English captions, and the two voice prompts (cues included, Eleven v4 `eleven_v4`, voice Mark) in the making-of area. The existing two films are unchanged. Codex owns this checkpoint through PR review. Local checks: UI 157 and Python 392 tests passed, ruff clean; a local web-role server served `announcer.vtt` as `text/vtt` and a matching `206` for the clip. Headless Chromium (1440 and 390 px) and Firefox (1440 px) kept the option closed until opened, then played and sought all three players; at 0:30.5 the English captions showed "Second!", with no page errors or sideways scroll. Physical iOS playback, a screen reader pass and the live release remain unverified. Next checkpoint is owner review, then a separate web-only publication.
+
+### Shikisai story wording · 23 November 2026
+
+Branch `fix/shikisai-canadian-first-person` changes text only: on the story page "tyre(s)" becomes "tire(s)" (and "tyre slip" becomes "tire slip" on How it works), and the two making-of notes, plus the sentence about the October memory problem, say "I" instead of "we" where the work was the owner's alone. Sentences about both drivers keep "we". UI tests pass. Next checkpoint is owner merge, then a web-only publication.
