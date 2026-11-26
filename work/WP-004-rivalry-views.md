@@ -498,7 +498,9 @@ API response, since the pages may be served without a login.
 
 ### Every Run GT in Chase
 
-Codex owns this slice on `feat/chase-every-run-gt`. The GLB contains the
+Codex owns [PR #85](https://github.com/adrianhensler/splittime/pull/85).
+Implementation head `dfa200a` passed 162 Node UI tests, 392 Python tests,
+Ruff, JS syntax checks and the packet round-trip self-test. The GLB contains the
 Every Run film’s body and four wheels, totalling 5,834 triangles. It carries
 the selected lap’s colour. Distance sets wheel rotation and braking lights
 the rear blades. The other laps use Replay’s existing ghost geometry.
