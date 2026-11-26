@@ -198,7 +198,10 @@
         } else if (stick && p[1] - C.RIDE - g > 0.4) lines([stick], car.color, 1, 0.6);
         const shadow = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([u, v]) => C.project(eye, [p[0] + u * 1.2, g, p[2] + v * 1.6]));
         if (shadow.every(Boolean)) { polygon(shadow); ctx.fillStyle = "#000"; ctx.globalAlpha = 0.25; ctx.fill(); ctx.globalAlpha = 1; }
-        solid(eye, p, way, car.color, n !== f.follow, brake);
+        const ghost = n !== f.follow;
+        if (ghost || !f.drawGT?.(ctx, eye, p, way, car.color, brake, s.dist)) {
+          solid(eye, p, way, car.color, ghost, brake);
+        }
         const at = C.project(eye, [p[0], p[1] + 1.8, p[2]]), row = placed.get(car);
         if (at && at[2] < 250 && row) labels.push({x: at[0], y: at[1], color: car.color, place: row.place,
           text: `${row.place} ${f.label(car)}${row.place > 1 ? ` +${row.gap.toFixed(2)}` : ""}${car.estimated && row.state.finished ? " est." : ""}${air ? " · air" : ""}`});

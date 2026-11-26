@@ -23,6 +23,16 @@
   probe.hidden = true; document.body.append(probe);
   const css = name => { probe.style.color = `var(${name})`; return getComputedStyle(probe).color; };
   const chase = globalThis.ChaseView.create(canvas, ctx, css);
+  let gtLoad, drawGT;
+  function redrawPausedChase() {
+    if (state.mode === "chase" && !state.playing) draw();
+  }
+  function loadChaseCar() {
+    if (gtLoad) return;
+    gtLoad = import("./chase-gt.js").then(module => module.createGT(redrawPausedChase))
+      .then(paint => { drawGT = paint; redrawPausedChase(); })
+      .catch(error => console.warn("Chase is using the simple car.", error));
+  }
 
   // ---- choosing laps -------------------------------------------------------
   function picker() {
@@ -71,6 +81,7 @@
   }
   function setMode(mode) {
     state.mode = mode;
+    if (mode === "chase") loadChaseCar();
     for (const b of document.querySelectorAll("[data-view]")) b.setAttribute("aria-pressed", String(b.dataset.view === mode));
     $("rp-follow").hidden = mode !== "follow" && mode !== "chase";
     $("rp-rigs").hidden = mode !== "chase";
@@ -101,7 +112,7 @@
       state.pinHits = [];   // no corner marks to click from behind the car
       state.ground = chase.draw({cars:state.cars, roads:state.roads, dirs:state.dirs, time:state.time,
         follow:state.follow, rig:state.rig, orbit:state.orbit, raise:state.raise, zoom:state.zoom,
-        exag:state.exag, dt, rows, label, pins:state.pinsOn ? state.pins : [], current, gear});
+        exag:state.exag, dt, rows, label, pins:state.pinsOn ? state.pins : [], current, gear, drawGT});
     } else map(rows, current);
     $("rp-clock").textContent = `${M.time(Math.max(state.time, 0.0005))} / ${M.time(state.duration)}`;
     if (document.activeElement !== $("rp-scrub")) $("rp-scrub").value = String(Math.round(1000 * state.time / state.duration));

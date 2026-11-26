@@ -1,5 +1,10 @@
 # Build plan
 
+### Every Run GT in Chase · 2026-11-25
+
+The replay slice and its browser checks are in [WP-004](../work/WP-004-rivalry-views.md#every-run-gt-in-chase).
+Physical-phone GPU performance remains a field check.
+
 ## Where things stand, 2026-10-30
 
 Both drivers have used the deployed site unattended since mid-October: the

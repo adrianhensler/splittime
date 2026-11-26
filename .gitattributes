@@ -1,3 +1,5 @@
 * text=auto eol=lf
 *.woff2 binary
 *.png binary
+*.glb binary
+app/static/js/vendor/chase-three.min.js linguist-generated=true -whitespace
