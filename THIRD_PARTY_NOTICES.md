@@ -201,3 +201,40 @@ DAMAGES, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
 OTHER DEALINGS IN THE FONT SOFTWARE.
 ```
+
+## Three.js
+
+The optional Chase renderer uses Three.js 0.180.0, its GLTFLoader, and its
+RoomEnvironment. The browser loads the bundled module from SplitTime. The
+application and container serve the checked-in file directly. [Three.js source](https://github.com/mrdoob/three.js/tree/r180)
+
+To regenerate the vendor module from the repository root:
+
+```sh
+npm install --prefix build/chase-vendor --no-save --package-lock=false three@0.180.0 esbuild@0.28.2
+NODE_PATH="$PWD/build/chase-vendor/node_modules" build/chase-vendor/node_modules/.bin/esbuild tools/chase-three.mjs --bundle --minify --format=esm --target=es2020 --legal-comments=inline --outfile=app/static/js/vendor/chase-three.min.js
+```
+
+```
+The MIT License
+
+Copyright © 2010-2025 three.js authors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+```

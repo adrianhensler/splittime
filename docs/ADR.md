@@ -840,3 +840,15 @@ size" on the weekly recap, asked for a clearer error and a $0.04 cap).
   that sentence and a disabled button instead of failing after the press.
 
 *Amends:* 32, 33, 35.
+
+## 42. Draw the Every Run GT for the followed lap in Chase
+
+**Proposed, 2026-11-25.** The owner chose the film’s GT for the selected lap and
+simple ghosts for the rest of the pack. The GT is an illustrative model shared
+by all laps. The lap’s recorded car identity stays in the inspector.
+
+Chase loads a self-hosted GLB and WebGL renderer on demand. It draws the GT
+into the same depth-ordered canvas pass as the other cars. This preserves the
+existing road projection, ghost overlap and label ordering. The canvas car
+covers asset loading, unavailable WebGL and context loss. Map cameras use
+their existing markers. This extends the recorded-lap replay in ADR 29.

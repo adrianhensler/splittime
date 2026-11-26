@@ -182,6 +182,9 @@ Detection rules are upstream's and are documented in its
   mode or flags. Differences are labelled. No winner is declared.
 - **Corners in Replay.** Replay marks a route's corners, and reports link to a
   stretch of road by route position, not corner number (ADR 40).
+- **Chase replay.** The followed lap uses the illustrative GT from the Every Run film.
+  Other laps use simple translucent cars so their traces stay readable when paths overlap.
+  The existing canvas car also serves browsers without WebGL (ADR 42).
 - **Corner comparison.** A route is divided once into stable corner segments by
   track position. For two laps, each segment reports time delta, brake onset,
   minimum speed, throttle application point and exit speed. Every figure links

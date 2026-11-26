@@ -201,7 +201,7 @@
   }
 
   const model = {RIDE, RIGS, sub, add, mul, norm, camera, project, segment, road, localLow, heading,
-    slope, ease, rig, basis, attitude, airborne, carEdges, carFaces, facing, horizon, brakeLights};
+    slope, ease, rig, basis, level, attitude, airborne, carEdges, carFaces, facing, horizon, brakeLights};
   if (typeof module !== "undefined" && module.exports) module.exports = model;
   else root.ChaseModel = model;
 })(globalThis);

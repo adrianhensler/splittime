@@ -393,7 +393,7 @@ identity, closed recording hashes and capture backups.
 
 | | |
 |---|---|
-| Status | partial original scope; session debrief slice reviewed, merged and deployed |
+| Status | partial original scope; session debrief deployed; Every Run GT in Chase ready for review |
 | Parent | WP-000 |
 | Children | none |
 | Worker | Codex (checkpoint owner); original implementation by GPT-6 |
@@ -456,6 +456,7 @@ Final application snapshot at `f68d70a`; candidate bests are not ranked leaders.
 | C1 | Provenance/name/order repairs pass; page stays exploratory | E1, E2 |
 | C2 | Ranked leaders/history and full quality/mode classification are absent | E3 |
 | C3 | Rivalry v2 adds compact recorded bests/gaps, finish-dated local history, search, actual outlines and A/B comparisons alongside the original; official ranking remains absent | E4 |
+| C4 | Chase draws one Every Run GT for the selected lap and uses simple cars for the rest. The canvas car covers a missing asset or unavailable WebGL. | E5 |
 
 ## Evidence
 
@@ -465,6 +466,7 @@ Final application snapshot at `f68d70a`; candidate bests are not ranked leaders.
 | E2 | Independent adverse/browser review | [Opus final review](https://github.com/adrianhensler/splittime/pull/10#pullrequestreview-5490170368) |
 | E3 | Quality/timing/mode unknown, winner null, no record history | `app/rivalry.py` at `f68d70a` |
 | E4 | Rivalry v2 self-checks; final reviewed/deployed head pending | Checkpoint below; `tests/ui/rivalry-v2.test.cjs`, `tests/test_rivalry.py` |
+| E5 | GT selection, braking inputs and fallback | `node --test tests/ui/chase-gt.test.cjs` and the [browser checkpoint](#every-run-gt-in-chase) |
 
 ## Known, unknown, unproven
 
@@ -493,6 +495,28 @@ Also: `source_addr` (the sender's IP and port) is no longer included in any
 API response, since the pages may be served without a login.
 
 ## Checkpoint
+
+### Every Run GT in Chase
+
+Codex owns [PR #85](https://github.com/adrianhensler/splittime/pull/85).
+Implementation head `dfa200a` passed 162 Node UI tests, 392 Python tests,
+Ruff, JS syntax checks and the packet round-trip self-test. The GLB contains the
+Every Run film’s body and four wheels, totalling 5,834 triangles. It carries
+the selected lap’s colour. Distance sets wheel rotation and braking lights
+the rear blades. The other laps use Replay’s existing ghost geometry.
+
+Worker checks used the actual Replay page under the `/splittime/` prefix with
+recorded lap responses. In Edge, select laps 587, 755, 751 and 760, choose
+Chase, scrub, orbit Close, switch the selected lap, then try Behind and High.
+The GT drew once per frame. Losing and restoring the WebGL context on a paused
+frame reproduced the original car and then the GT pixel for pixel. A missing
+GLB and disabled WebGL both allowed playback. A 390 px wide, double-density
+viewport also ran six Shikisai laps with their angle channels omitted.
+[Same-frame comparison](../docs/media/chase-gt-comparison.png).
+
+Independent review, a physical-phone GPU check and deployment are pending.
+
+### Earlier checkpoints
 
 Branch `feat/gpt6-rivalry-api`,
 [PR #7](https://github.com/adrianhensler/splittime/pull/7), holds the API and
