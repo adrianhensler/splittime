@@ -12,6 +12,11 @@ they had raced each other.
 (MP4, 16 MB). Recorded from the two drivers' real data; the Live scene is a
 simulated drive.*
 
+[![SplitTime Redline V12: watch the 16-second clip](docs/media/redline-v12-poster.jpg)](https://github.com/adrianhensler/splittime/releases/download/redline-v12-2026-11-26/SplitTime-Redline-V12.mp4)
+
+*[Watch Redline V12](https://github.com/adrianhensler/splittime/releases/download/redline-v12-2026-11-26/SplitTime-Redline-V12.mp4)
+(MP4, 22 MB, 16 seconds).*
+
 | | |
 |---|---|
 | [![Race replay in follow mode](docs/media/replay.jpg)](docs/media/replay.jpg) | [![The AI race engineer's review](docs/media/race-engineer.jpg)](docs/media/race-engineer.jpg) |
