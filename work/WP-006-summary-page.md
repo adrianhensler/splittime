@@ -166,6 +166,12 @@ corners", and `compare.js` also reads `?laps=a,b` (old `lap_a/lap_b` links
 still work). No change to the comparison's measurements or warnings. UI suite
 101 passed, including a compare `?laps=` test.
 
+## Stories menu link, 2026-11-27
+
+PR #88 adds a Stories link to the comparison page's site menu, before How it
+works, as on every other page. Menu markup only; the comparison itself is
+unchanged. UI tests pass, including a new check that every menu links Stories.
+
 ## Verification
 
 [PR #20](https://github.com/adrianhensler/splittime/pull/20), PR #17 accessibility

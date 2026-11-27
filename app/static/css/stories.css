@@ -1,0 +1,17 @@
+/* Stories: a card index of the story pages and films. */
+#st-rivalry-workspace .sy-page{max-width:64rem;margin:24px auto 48px;display:grid;gap:36px}
+#st-rivalry-workspace .sy-page>header{display:grid;gap:8px;border:0;padding:0}
+#st-rivalry-workspace .sy-page h1,#st-rivalry-workspace .sy-page h2{font-family:"Rajdhani",system-ui,sans-serif;font-weight:700;line-height:1.12;margin:0;padding:0;border:0;text-wrap:balance}
+#st-rivalry-workspace .sy-page h1{font-size:clamp(32px,7vw,46px)}
+#st-rivalry-workspace .sy-page>header p{margin:0;font-size:18px;color:var(--st-muted);max-width:42rem}
+#st-rivalry-workspace .sy-page section{display:grid;gap:14px}
+#st-rivalry-workspace .sy-page section>h2{font-size:25px}
+#st-rivalry-workspace .sy-grid{list-style:none;margin:0;padding:0;display:grid;gap:20px;grid-template-columns:repeat(auto-fill,minmax(min(100%,18rem),1fr))}
+#st-rivalry-workspace .sy-card{display:grid;grid-template-rows:auto 1fr;height:100%;background:var(--st-panel);border:1px solid var(--st-line);border-radius:6px;overflow:hidden;color:var(--st-fg);text-decoration:none}
+#st-rivalry-workspace .sy-card:hover{border-color:var(--st-accent)}
+#st-rivalry-workspace .sy-card img{display:block;width:100%;height:auto;aspect-ratio:16/9;object-fit:cover;background:var(--st-bg)}
+#st-rivalry-workspace .sy-card img.sy-chart{object-fit:contain;padding:0 12px}
+#st-rivalry-workspace .sy-body{display:grid;align-content:start;gap:6px;padding:14px 16px 18px;font-size:15px;line-height:1.5}
+#st-rivalry-workspace .sy-label{font:700 12px/1.2 "Rajdhani",system-ui,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--st-accent)}
+#st-rivalry-workspace .sy-card h3{font:700 21px/1.15 "Rajdhani",system-ui,sans-serif;margin:0}
+#st-rivalry-workspace .sy-card p{margin:0;color:var(--st-muted)}

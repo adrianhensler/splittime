@@ -17,6 +17,12 @@ simulated drive.*
 *[Watch Redline V12](https://github.com/adrianhensler/splittime/releases/download/redline-v12-2026-11-26/SplitTime-Redline-V12.mp4)
 (MP4, 22 MB, 16 seconds).*
 
+[![Redline · Daikoku Chase: watch the 28-second film](docs/media/redline-daikoku-poster.jpg)](https://github.com/adrianhensler/splittime/releases/tag/redline-daikoku-2026-11-27)
+
+*[Redline · Daikoku Chase](https://github.com/adrianhensler/splittime/releases/tag/redline-daikoku-2026-11-27): two runs at Daikoku Chase in the same car,
+rebuilt in Blender from the recordings (MP4, 14 MB, 28 seconds; with car sound or
+with commentary).*
+
 | | |
 |---|---|
 | [![Race replay in follow mode](docs/media/replay.jpg)](docs/media/replay.jpg) | [![The AI race engineer's review](docs/media/race-engineer.jpg)](docs/media/race-engineer.jpg) |
