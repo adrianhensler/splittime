@@ -674,3 +674,7 @@ Branch `feat/every-run-film` adds `every-run.html`, a short story page around th
 ### Redline V12 clip on What's new · 26 November 2026
 
 [PR #87](https://github.com/adrianhensler/splittime/pull/87) adds one What's new entry linking the owner's 16-second Redline V12 clip, stored as the asset on release `redline-v12-2026-11-26` (22,849,960 bytes, sha256 `9c5ec4d8…f41677e`, not marked latest); the README links it since #86. Text and link only, no code. The download URL returned 200 unauthenticated. Next: merge, then update only the web service and check the entry on the deployed page.
+
+### Stories page · 27 November 2026
+
+Branch `feat/stories-page` adds `stories.html`, a card index of the story pages (Every run, Eighteen runs at Shikisai, Three laps found) and two films (Redline V12 on release `redline-v12-2026-11-26`, the tour at `/splittime-reel/`), plus a Stories link in the menu of every page that has one, before How it works, and a What's new entry. Before this the story pages were linked only from How it works, What's new and each other. Two card images added under `media/stories/` (73 KB). UI tests 164 passed (new `stories.test.cjs`); local static screenshots at 1280 px and 390 px checked by eye. Next: Codex review, merge, update only the web service, open Stories on the deployed site.
