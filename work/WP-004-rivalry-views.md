@@ -678,3 +678,5 @@ Branch `feat/every-run-film` adds `every-run.html`, a short story page around th
 ### Stories page · 27 November 2026
 
 Branch `feat/stories-page` adds `stories.html`, a card index of the story pages (Every run, Eighteen runs at Shikisai, Three laps found) and two films (Redline V12 on release `redline-v12-2026-11-26`, the tour at `/splittime-reel/`), plus a Stories link in the menu of every page that has one, before How it works, and a What's new entry. Before this the story pages were linked only from How it works, What's new and each other. Two card images added under `media/stories/` (73 KB). UI tests 164 passed (new `stories.test.cjs`); local static screenshots at 1280 px and 390 px checked by eye. Next: Codex review, merge, update only the web service, open Stories on the deployed site.
+
+Later on the same branch: a Redline · Daikoku Chase card (release `redline-daikoku-2026-11-27`, two 27.8 s MP4s, laps 887 and 528 whose recorded lap_time values 121.837 s and 122.219 s match the release notes), a What's new line with a Chase link for those laps, and a README entry with a 960 px poster.

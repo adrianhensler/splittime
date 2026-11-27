@@ -13,6 +13,7 @@ test("a card for each story page and film, with images that exist", () => {
     assert.ok(fs.existsSync(path.join(stat, page)), page);
   }
   assert.ok(hrefs.some(h => h.endsWith("/SplitTime-Redline-V12.mp4")));
+  assert.ok(hrefs.some(h => h.endsWith("/releases/tag/redline-daikoku-2026-11-27")));
   assert.ok(hrefs.includes("https://test.hensler.work/splittime-reel/"));
   for (const [, src] of html.matchAll(/<img[^>]*src="([^"]+)"/g))
     assert.ok(fs.existsSync(path.join(stat, src)), src);
